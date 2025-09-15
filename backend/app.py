@@ -69,15 +69,26 @@ def email_settings():
     if request.method == 'GET':
         try:
             settings = _fetch_email_settings_row()
-            if not settings:
-                return jsonify({"message": "Email settings not found"}), 404
+            
+            # Fallback to environment variables if DB settings are not found or empty
+            maileroo_sending_key = (settings.get("maileroo_sending_key") or 
+                                    settings.get("maileroo_api_key") or 
+                                    os.environ.get("MAILEROO_API_KEY") or 
+                                    os.environ.get("MAILEROO_SENDING_KEY") or "")
+            
+            maileroo_api_endpoint = (settings.get("maileroo_api_endpoint") or 
+                                     os.environ.get("MAILEROO_API_ENDPOINT") or 
+                                     "https://api.maileroo.com/v1/send")
+            
+            mail_default_sender = (settings.get("mail_default_sender") or 
+                                   settings.get("mail_default_from") or 
+                                   os.environ.get("MAIL_DEFAULT_SENDER") or "")
 
-            # Normalize keys to expected names (support multiple column names)
             result = {
-                "id": settings.get("id"),
-                "maileroo_sending_key": settings.get("maileroo_sending_key") or settings.get("maileroo_api_key") or "",
-                "maileroo_api_endpoint": settings.get("maileroo_api_endpoint") or os.environ.get("MAILEROO_API_ENDPOINT") or "https://api.maileroo.com/v1/send",
-                "mail_default_sender": settings.get("mail_default_sender") or settings.get("mail_default_from") or os.environ.get("MAIL_DEFAULT_SENDER") or ""
+                "id": settings.get("id") if settings else None,
+                "maileroo_sending_key": maileroo_sending_key,
+                "maileroo_api_endpoint": maileroo_api_endpoint,
+                "mail_default_sender": mail_default_sender
             }
             return jsonify(result), 200
         except Exception as e:
@@ -225,11 +236,11 @@ def send_test_email():
             }), 500
 
     except requests.exceptions.RequestException as re:
-        print(f"Network error sending test email: {str(re)}", file=sys.stderr)
+        print(f"Network error sending test email: {str(re)}\", file=sys.stderr)")
         traceback.print_exc()
         return jsonify({"message": f"Network error while contacting Maileroo: {str(re)}"}), 502
     except Exception as e:
-        print(f"Error in send_test_email: {str(e)}", file=sys.stderr)
+        print(f"Error in send_test_email: {str(e)}\", file=sys.stderr)")
         traceback.print_exc()
         return jsonify({"message": f"An unexpected error occurred: {str(e)}"}), 500
 
@@ -322,11 +333,11 @@ def send_invitation():
             }), 202
 
     except requests.exceptions.RequestException as re:
-        print(f"Network error sending invitation: {str(re)}", file=sys.stderr)
+        print(f"Network error sending invitation: {str(re)}\", file=sys.stderr)")
         traceback.print_exc()
         return jsonify({"message": f"Network error while contacting Maileroo: {str(re)}"}), 502
     except Exception as e:
-        print(f"Error in send_invitation: {str(e)}", file=sys.stderr)
+        print(f"Error in send_invitation: {str(e)}\", file=sys.stderr)")
         traceback.print_exc()
         return jsonify({"message": f"An unexpected error occurred: {str(e)}"}), 500
 
@@ -336,8 +347,8 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     # Provide a small startup log so it's easier to debug missing env vars
     print(f"Starting DayClap backend on port {port}...\\n")
-    print(f"Supabase URL present: {'YES' if bool(supabase_url) else 'NO'}\n")
-    print(f"Supabase service role key present: {'YES' if bool(supabase_service_key) else 'NO'}\n")
-    print(f"Maileroo env key present: {'YES' if bool(os.environ.get('MAILEROO_API_KEY') or os.environ.get('MAILEROO_SENDING_KEY')) else 'NO (will attempt DB)'}\n")
-    print(f"Frontend URL for emails: {os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')}\n")
+    print(f"Supabase URL present: {'YES' if bool(supabase_url) else 'NO'}\\n")
+    print(f"Supabase service role key present: {'YES' if bool(supabase_service_key) else 'NO'}\\n")
+    print(f"Maileroo env key present: {'YES' if bool(os.environ.get('MAILEROO_API_KEY') or os.environ.get('MAILEROO_SENDING_KEY')) else 'NO (will attempt DB)'}\\n")
+    print(f"Frontend URL for emails: {os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')}\\n")
     app.run(debug=True, port=port)
