@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   theme TEXT DEFAULT 'light',
   language TEXT DEFAULT 'en',
   timezone TEXT DEFAULT 'UTC',
-  notifications JSONB DEFAULT '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "push": true, "reminders": true, "invitations": true}', -- UPDATED: New email notification types
-  privacy JSONB DEFAULT '{"profileVisibility": "team", "calendarSharing": "private"}',
+  notifications JSONB DEFAULT '{\"email_daily\": true, \"email_weekly\": false, \"email_monthly\": false, \"email_3day_countdown\": false, \"push\": true, \"reminders\": true, \"invitations\": true}', -- UPDATED: New email notification types
+  privacy JSONB DEFAULT '{\"profileVisibility\": \"team\", \"calendarSharing\": \"private\"}',
   company_name TEXT -- Kept for backward compatibility/initial migration
 );
 
@@ -65,7 +65,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, name, theme, last_activity_at, currency, notifications) -- UPDATED: Added notifications
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'name', 'light', NOW(), 'USD', '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "push": true, "reminders": true, "invitations": true}'); -- UPDATED: New default notifications
+  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'name', 'light', NOW(), 'USD', '{\"email_daily\": true, \"email_weekly\": false, \"email_monthly\": false, \"email_3day_countdown\": false, \"push\": true, \"reminders\": true, \"invitations\": true}'); -- UPDATED: New default notifications
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

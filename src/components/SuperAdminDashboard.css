@@ -55,7 +55,7 @@
 
 .header-title-group p {
   margin: 0;
-  color: var(--secondary-text);
+  color: var(--primary-text); /* Changed from --secondary-text to --primary-text */
   font-size: 0.875rem;
 }
 
@@ -109,10 +109,10 @@
 }
 
 .stat-card {
-  background: var(--primary-bg);
+  background: #000000; /* Changed to black */
   padding: 1.5rem;
   border-radius: 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.2); /* Changed border to subtle white */
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -121,8 +121,8 @@
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-color: var(--accent-color);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15); /* Adjusted shadow for dark background */
+  border-color: var(--accent-color); /* Keep accent color for hover border */
 }
 
 .stat-icon {
@@ -146,13 +146,13 @@
   margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--primary-text);
+  color: #ffffff; /* Changed to white */
   line-height: 1.2;
 }
 
 .stat-content p {
   margin: 0.1rem 0 0 0;
-  color: var(--secondary-text);
+  color: #ffffff; /* Changed to white */
   font-size: 0.875rem;
 }
 
@@ -176,7 +176,7 @@
   background: none;
   border-radius: 0.5rem;
   cursor: pointer;
-  color: var(--secondary-text);
+  color: var(--primary-text); /* Changed from --secondary-text to --primary-text */
   font-size: 0.875rem;
   font-weight: 500;
   text-align: left;
@@ -564,6 +564,7 @@
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background-color: var(--primary-bg);
 }
 
 .email-settings-section .form-input:disabled {
