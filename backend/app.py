@@ -14,12 +14,12 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Initialize Supabase client (service role)
-supabase_url = os.environ.get("VITE_SUPABASE_URL")
-supabase_service_key = os.environ.get("VITE_SUPABASE_SERVICE_ROLE_KEY")
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 if not supabase_url or not supabase_service_key:
     print("ERROR: Supabase URL and/or service role key missing in environment.", file=sys.stderr)
-    print("Ensure VITE_SUPABASE_URL and VITE_SUPABASE_SERVICE_ROLE_KEY are set.", file=sys.stderr)
+    print("Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.", file=sys.stderr)
 
 supabase: Client = create_client(supabase_url, supabase_service_key)
 
@@ -335,9 +335,9 @@ if __name__ == '__main__':
     # Use the PORT environment variable if available, otherwise default to 5000
     port = int(os.environ.get('PORT', 5000))
     # Provide a small startup log so it's easier to debug missing env vars
-    print(f"Starting DayClap backend on port {port}...\n")
-    print(f"Supabase URL present: {'YES' if bool(supabase_url) else 'NO'}")
-    print(f"Supabase service role key present: {'YES' if bool(supabase_service_key) else 'NO'}")
-    print(f"Maileroo env key present: {'YES' if bool(os.environ.get('MAILEROO_API_KEY') or os.environ.get('MAILEROO_SENDING_KEY')) else 'NO (will attempt DB)'}")
-    print(f"Frontend URL for emails: {os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')}")
+    print(f"Starting DayClap backend on port {port}...\\n")
+    print(f"Supabase URL present: {'YES' if bool(supabase_url) else 'NO'}\n")
+    print(f"Supabase service role key present: {'YES' if bool(supabase_service_key) else 'NO'}\n")
+    print(f"Maileroo env key present: {'YES' if bool(os.environ.get('MAILEROO_API_KEY') or os.environ.get('MAILEROO_SENDING_KEY')) else 'NO (will attempt DB)'}\n")
+    print(f"Frontend URL for emails: {os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')}\n")
     app.run(debug=True, port=port)
