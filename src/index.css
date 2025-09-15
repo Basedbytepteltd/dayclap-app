@@ -1,0 +1,55 @@
+:root {
+  /* Light Theme Variables (Default) */
+  --primary-bg: #ffffff;
+  --secondary-bg: #f8f9fa;
+  --primary-text: #000000;
+  --secondary-text: #6c757d;
+  --accent-color: #3b82f6; /* Changed to a blue accent */
+  --border-color: #e5e7eb;
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --button-bg: #000000;
+  --button-text: #ffffff;
+  --button-hover: #374151;
+  --error-color: #ef4444;
+  --success-color: #10b981;
+}
+
+/* Dark Mode Overrides */
+body.dark-mode {
+  --primary-bg: #1a1a1a; /* Darker background */
+  --secondary-bg: #2d2d2d; /* Slightly lighter dark background for cards/sections */
+  --primary-text: #e0e0e0; /* Light text */
+  --secondary-text: #a0a0a0; /* Lighter secondary text */
+  --accent-color: #60a5fa; /* Lighter blue accent for dark mode */
+  --border-color: #444444; /* Darker borders */
+  --input-bg: #2d2d2d; /* Dark input background */
+  --input-border: #555555; /* Dark input border */
+  --button-bg: #e0e0e0; /* Light button background for contrast */
+  --button-text: #1a1a1a; /* Dark text on light button */
+  --button-hover: #cccccc; /* Slightly lighter hover for dark mode buttons */
+  --error-color: #ff6b6b; /* Brighter error for dark mode */
+  --success-color: #48bb78; /* Brighter success for dark mode */
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--primary-bg);
+  color: var(--primary-text);
+  line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease; /* Smooth theme transition */
+}
+
+#root {
+  min-height: 100vh;
+}

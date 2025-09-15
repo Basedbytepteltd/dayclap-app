@@ -1,0 +1,240 @@
+.admin-panel-content {
+  max-width: 1200px;
+}
+
+.admin-panel-header {
+  margin-bottom: 2rem;
+}
+
+.admin-panel-header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-text);
+  \
+ margin-bottom: 0.5rem;
+}
+
+.admin-panel-subtitle {
+  color: var(--secondary-text);
+  font-size: 1rem;
+}
+
+.admin-panel-nav {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 2rem;
+  padding: 0.25rem;
+  background-color: var(--secondary-bg);
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+}
+
+.admin-nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  color: var(--secondary-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.admin-nav-tab:hover {
+  background-color: var(--primary-bg);
+  color: var(--primary-text);
+}
+
+.admin-nav-tab.active {
+  background-color: var(--primary-bg);
+  color: var(--accent-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.admin-nav-tab svg {
+  flex-shrink: 0;
+}
+
+.admin-tab-content {
+  background-color: var(--primary-bg);
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.admin-section {
+  padding: 2rem;
+}
+
+.admin-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  margin: 0;
+}
+
+.admin-table-wrapper {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table th {
+  background-color: var(--secondary-bg);
+  color: var(--secondary-text);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+  background-color: var(--secondary-bg);
+}
+
+.admin-actions {
+  display: flex;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.btn-icon-small {
+  padding: 0.3rem;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  border: 1px solid transparent;
+  /* Ensure consistent button size */
+}
+
+.btn-icon-small.edit {
+  color: var(--accent-color);
+}
+
+.btn-icon-small.edit:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.btn-icon-small.delete {
+  color: var(--error-color);
+}
+
+.btn-icon-small.delete:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.btn-icon-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 2rem;
+  color: var(--secondary-text);
+  font-style: italic;
+}
+
+/* Admin Modal (reusing existing modal styles but with specific class) */
+.admin-modal {
+  \
+ background-color: var(--primary-bg);
+  border-radius: 0.75rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .admin-panel-nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .admin-nav-tab {
+    width: auto;
+    flex-grow: 1;
+    text-align: center;
+  }
+
+  .admin-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .admin-section-header .btn-small {
+    width: 100%;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 0.75rem;
+  }
+
+  .admin-table th:nth-child(1),
+  .admin-table td:nth-child(1) {
+    min-width: 50px;
+    /* ID column */
+  }
+
+  .admin-table th:nth-child(2),
+  .admin-table td:nth-child(2) {
+    min-width: 120px;
+    /* Name column */
+  }
+
+  .admin-table th:nth-child(3),
+  .admin-table td:nth-child(3) {
+    min-width: 150px;
+    /* Email column */
+  }
+
+  .admin-table th:nth-child(4),
+  .admin-table td:nth-child(4) {
+    min-width: 100px;
+    /* Company column */
+  }
+
+  .admin-table th:nth-child(5),
+  .admin-table td:nth-child(5) {
+    min-width: 100px;
+    /* Actions column */
+  }
+}

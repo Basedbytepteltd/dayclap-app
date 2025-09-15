@@ -1,0 +1,18 @@
+# Scrub common secret patterns (left side regex ==> right side replacement)
+# Supabase keys
+regex:(VITE_SUPABASE_ANON_KEY\\s*[:=]\\s*)[^\\n]+==>\\1REDACTED
+regex:(VITE_SUPABASE_SERVICE_ROLE_KEY\\s*[:=]\\s*)[^\\n]+==>\\1REDACTED
+
+# Maileroo keys
+regex:(MAILEROO_API_KEY\\s*[:=]\\s*)[^\\n]+==>\\1REDACTED
+regex:(MAILEROO_SENDING_KEY\\s*[:=]\\s*)[^\\n]+==>\\1REDACTED
+
+# Backend secrets
+regex:(FLASK_SECRET_KEY\\s*[:=]\\s*)[^\\n]+==>\\1REDACTED
+regex:(DAILY_EMAIL_API_KEY\\s*[:=]\\s*)[^\\n]+==>\\1REDACTED
+
+# Generic GitHub classic token pattern (ghp_...)
+regex:(ghp_[0-9A-Za-z]{36})==>REDACTED_GH_PAT
+
+# Private key markers (avoid storing keys at all)
+regex:(-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----)==>REDACTED_PRIVATE_KEY

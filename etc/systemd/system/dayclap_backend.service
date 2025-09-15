@@ -1,0 +1,15 @@
+[Unit]
+Description=Gunicorn instance to serve DayClap Flask backend
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/dayclap-backend/backend
+Environment="PATH=/var/www/dayclap-backend/backend/venv/bin"
+EnvironmentFile=/var/www/dayclap-backend/backend/.env
+ExecStart=/var/www/dayclap-backend/backend/venv/bin/gunicorn --workers 3 --bind unix:/var/www/dayclap-backend/backend/dayclap_backend.sock app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

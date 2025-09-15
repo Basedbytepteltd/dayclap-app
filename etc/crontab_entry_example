@@ -1,0 +1,2 @@
+# Run daily email sender at 2 AM
+0 2 * * * curl -X POST -H "X-API-KEY: YOUR_DAILY_EMAIL_API_KEY_HERE" https://api.yourdomain.com/api/send-daily-emails
