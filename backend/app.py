@@ -84,6 +84,15 @@ def email_settings():
                                    settings.get("mail_default_from") or 
                                    os.environ.get("MAIL_DEFAULT_SENDER") or "")
 
+            # --- NEW DEBUG PRINTS ---
+            print(f"DEBUG: Email settings from DB: {settings}", file=sys.stderr)
+            print(f"DEBUG: MAILEROO_API_KEY from env: {os.environ.get('MAILEROO_API_KEY')}", file=sys.stderr)
+            print(f"DEBUG: MAILEROO_SENDING_KEY from env: {os.environ.get('MAILEROO_SENDING_KEY')}", file=sys.stderr)
+            print(f"DEBUG: MAIL_DEFAULT_SENDER from env: {os.environ.get('MAIL_DEFAULT_SENDER')}", file=sys.stderr)
+            print(f"DEBUG: Final maileroo_sending_key: {maileroo_sending_key}", file=sys.stderr)
+            print(f"DEBUG: Final mail_default_sender: {mail_default_sender}", file=sys.stderr)
+            # --- END DEBUG PRINTS ---
+
             result = {
                 "id": settings.get("id") if settings else None,
                 "maileroo_sending_key": maileroo_sending_key,
@@ -236,11 +245,11 @@ def send_test_email():
             }), 500
 
     except requests.exceptions.RequestException as re:
-        print(f"Network error sending test email: {str(re)}\", file=sys.stderr)")
+        print(f"Network error sending test email: {str(re)}", file=sys.stderr)
         traceback.print_exc()
         return jsonify({"message": f"Network error while contacting Maileroo: {str(re)}"}), 502
     except Exception as e:
-        print(f"Error in send_test_email: {str(e)}\", file=sys.stderr)")
+        print(f"Error in send_test_email: {str(e)}", file=sys.stderr)
         traceback.print_exc()
         return jsonify({"message": f"An unexpected error occurred: {str(e)}"}), 500
 
@@ -333,11 +342,11 @@ def send_invitation():
             }), 202
 
     except requests.exceptions.RequestException as re:
-        print(f"Network error sending invitation: {str(re)}\", file=sys.stderr)")
+        print(f"Network error sending invitation: {str(re)}", file=sys.stderr)
         traceback.print_exc()
         return jsonify({"message": f"Network error while contacting Maileroo: {str(re)}"}), 502
     except Exception as e:
-        print(f"Error in send_invitation: {str(e)}\", file=sys.stderr)")
+        print(f"Error in send_invitation: {str(e)}", file=sys.stderr)
         traceback.print_exc()
         return jsonify({"message": f"An unexpected error occurred: {str(e)}"}), 500
 
@@ -346,9 +355,9 @@ if __name__ == '__main__':
     # Use the PORT environment variable if available, otherwise default to 5000
     port = int(os.environ.get('PORT', 5000))
     # Provide a small startup log so it's easier to debug missing env vars
-    print(f"Starting DayClap backend on port {port}...\\n")
-    print(f"Supabase URL present: {'YES' if bool(supabase_url) else 'NO'}\\n")
-    print(f"Supabase service role key present: {'YES' if bool(supabase_service_key) else 'NO'}\\n")
-    print(f"Maileroo env key present: {'YES' if bool(os.environ.get('MAILEROO_API_KEY') or os.environ.get('MAILEROO_SENDING_KEY')) else 'NO (will attempt DB)'}\\n")
-    print(f"Frontend URL for emails: {os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')}\\n")
+    print(f"Starting DayClap backend on port {port}...\n")
+    print(f"Supabase URL present: {'YES' if bool(supabase_url) else 'NO'}\n")
+    print(f"Supabase service role key present: {'YES' if bool(supabase_service_key) else 'NO'}\n")
+    print(f"Maileroo env key present: {'YES' if bool(os.environ.get('MAILEROO_API_KEY') or os.environ.get('MAILEROO_SENDING_KEY')) else 'NO (will attempt DB)'}\n")
+    print(f"Frontend URL for emails: {os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')}\n")
     app.run(debug=True, port=port)
