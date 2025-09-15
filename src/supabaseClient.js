@@ -15,6 +15,13 @@ const supabaseUrl = getEnv('VITE_SUPABASE_URL');
 const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
 const supabaseServiceRoleKey = getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY');
 
+// --- START DEBUG LOGS ---
+console.log('DEBUG: VITE_SUPABASE_URL:', supabaseUrl ? 'Loaded' : 'NOT LOADED');
+console.log('DEBUG: VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Loaded' : 'NOT LOADED');
+// console.log('DEBUG: VITE_SUPABASE_URL Value:', supabaseUrl); // Uncomment for full value if needed, but be cautious with sensitive info
+// console.log('DEBUG: VITE_SUPABASE_ANON_KEY Value:', supabaseAnonKey); // Uncomment for full value if needed, but be cautious with sensitive info
+// --- END DEBUG LOGS ---
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Create a separate client for admin actions using the service_role key
