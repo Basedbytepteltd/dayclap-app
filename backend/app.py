@@ -17,9 +17,16 @@ CORS(app)  # Enable CORS for all routes
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
+# --- NEW DEBUG PRINTS FOR SUPABASE KEYS ---
+print(f"DEBUG: SUPABASE_URL (from os.environ): {supabase_url}", file=sys.stderr)
+print(f"DEBUG: SUPABASE_SERVICE_ROLE_KEY (from os.environ): {'<PRESENT>' if supabase_service_key else '<MISSING>'}", file=sys.stderr)
+# --- END NEW DEBUG PRINTS ---
+
 if not supabase_url or not supabase_service_key:
     print("ERROR: Supabase URL and/or service role key missing in environment.", file=sys.stderr)
     print("Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.", file=sys.stderr)
+    # Exit early if critical Supabase keys are missing to prevent further errors
+    sys.exit(1) # Added an exit here to make the error more explicit and stop execution
 
 supabase: Client = create_client(supabase_url, supabase_service_key)
 
@@ -84,7 +91,7 @@ def email_settings():
                                    settings.get("mail_default_from") or 
                                    os.environ.get("MAIL_DEFAULT_SENDER") or "")
 
-            # --- NEW DEBUG PRINTS ---
+            # --- DEBUG PRINTS FOR EMAIL SETTINGS ---
             print(f"DEBUG: Email settings from DB: {settings}", file=sys.stderr)
             print(f"DEBUG: MAILEROO_API_KEY from env: {os.environ.get('MAILEROO_API_KEY')}", file=sys.stderr)
             print(f"DEBUG: MAILEROO_SENDING_KEY from env: {os.environ.get('MAILEROO_SENDING_KEY')}", file=sys.stderr)
