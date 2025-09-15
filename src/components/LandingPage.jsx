@@ -29,7 +29,6 @@ const LandingPage = () => {
           .single();
 
         if (profileError && profileError.code === 'PGRST116') { // No profile found, create one
-          console.log("No profile found for user, creating one.");
           const userName = session.user.user_metadata?.name || session.user.email.split('@')[0];
           const userCompany = session.user.user_metadata?.company || null;
 
@@ -73,7 +72,7 @@ const LandingPage = () => {
         setUser(combinedUserData);
 
       } catch (error) {
-        console.error("Error handling auth session:", error.message);
+        // console.error("Error handling auth session:", error.message);
         setUser(session.user); // Fallback to auth user data if profile fails
       } finally {
         setLoading(false);
@@ -84,7 +83,7 @@ const LandingPage = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleAuthSession(session);
     }).catch(err => {
-        console.error("Error getting initial session:", err);
+        // console.error("Error getting initial session:", err);
         setUser(null);
         setLoading(false);
     });
@@ -156,7 +155,7 @@ const LandingPage = () => {
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      console.error("LandingPage: Error logging out:", error.message);
+      // console.error("LandingPage: Error logging out:", error.message);
     }
     setUser(null);
     setAuthMode(null);
@@ -184,8 +183,8 @@ const LandingPage = () => {
       .eq('id', id);
 
     if (error) {
-      console.error("LandingPage: Error updating user profile in Supabase:", error.message);
-      console.error("LandingPage: Full Supabase update error object:", error);
+      // console.error("LandingPage: Error updating user profile in Supabase:", error.message);
+      // console.error("LandingPage: Full Supabase update error object:", error);
     } else {
       const { data: freshProfile, error: fetchError } = await supabase
         .from('profiles')
@@ -194,7 +193,7 @@ const LandingPage = () => {
         .single();
 
       if (fetchError) {
-        console.error("LandingPage: Error re-fetching profile after update:", fetchError);
+        // console.error("LandingPage: Error re-fetching profile after update:", fetchError);
         setUser(updatedUser);
       } else {
         const combinedFreshUserData = {

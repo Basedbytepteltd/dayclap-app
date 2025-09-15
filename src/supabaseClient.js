@@ -4,11 +4,6 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Debug logs to verify env at runtime
-console.log('DEBUG: Final check - VITE_SUPABASE_URL:', supabaseUrl ? `Loaded (length: ${supabaseUrl.length}, starts: ${supabaseUrl.substring(0, 10)})` : 'NOT LOADED')
-console.log('DEBUG: Final check - VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `Loaded (length: ${supabaseAnonKey.length}, starts: ${supabaseAnonKey.substring(0, 10)})` : 'NOT LOADED')
-console.log('DEBUG: Final check - URL is truthy:', !!supabaseUrl, 'Anon Key is truthy:', !!supabaseAnonKey)
-
 if (!supabaseUrl) {
   throw new Error('Supabase Client Error: VITE_SUPABASE_URL is missing or empty. Please ensure it is set in your .env file and exposed correctly by your build tool (e.g., Vercel).')
 }

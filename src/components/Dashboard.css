@@ -1599,26 +1599,27 @@ body.dark-mode .company-item {
   font-size: 0.875rem;
 }
 
-/* NEW: Styles for the percentage card */
+/* MODIFIED: Styles for the percentage card */
 .stat-card.percentage-card {
-  background-color: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  background-color: #000000; /* Black background */
+  border: 1px solid #333; /* Darker border for subtle definition */
+}
+
+.stat-card.percentage-card .stat-content h3,
+.stat-card.percentage-card .stat-content p {
+  color: #ffffff; /* White text for contrast */
 }
 
 .stat-card.percentage-card .stat-icon.percentage-completed {
-  background-color: #8b5cf6;
-  /* A distinct color for completed percentage, e.g., purple */
+  background-color: #10b981; /* Green for completed */
+  color: #ffffff;
 }
 
 .stat-card.percentage-card .stat-icon.percentage-pending {
-  background-color: #f59e0b;
-  /* A distinct color for pending percentage, e.g., orange */
+  background-color: #f59e0b; /* Orange for pending */
+  color: #ffffff;
 }
+
 
 /* UPDATED: Styles for the full-width expenses card */
 .stat-card.expenses-card {
@@ -1937,13 +1938,13 @@ body.dark-mode .company-item {
 
 /* REMOVED: Old .event-time styles */
 /*
-.event-time {\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-  flex-shrink: 0;\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-  font-size: 0.875rem;\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-  font-weight: 600;\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-  color: var(--accent-color);\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-  width: 80px;\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-}\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+.event-time {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent-color);
+  width: 80px;
+}
 */
 
 /* NEW: Styles for the combined date and time block in detailed event cards */

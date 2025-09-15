@@ -47,7 +47,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) { // Corrected regex
       newErrors.email = 'Email is invalid'
     }
 
@@ -66,14 +66,11 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const { password, confirmPassword, ...dataToLog } = formData;
-    console.log(`AuthModal: Submitting ${mode} form with data:`, dataToLog);
 
     const newErrors = validateForm()
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
-      console.warn("AuthModal: Form validation failed.", newErrors);
       return
     }
 
@@ -103,7 +100,6 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
       }
 
       if (authResponse.error) {
-        console.error("AuthModal: Supabase Auth Error:", authResponse.error.message);
         setErrors({ submit: authResponse.error.message });
         // If the error is related to email not confirmed, show resend button
         if (authResponse.error.message.includes('Email not confirmed') || authResponse.error.message.includes('Email link is invalid or has expired')) {
@@ -115,21 +111,17 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
       const { user, session } = authResponse.data;
 
       if (user && session) {
-        console.log(`AuthModal: ${mode} successful. User:`, user);
         onAuthSuccess(user);
         onClose();
       } else if (authResponse.data.user && !authResponse.data.session) {
         setErrors({ submit: 'Please check your email to confirm your account before logging in.' });
         setShowResendButton(true); // Show resend button after signup if confirmation is needed
-        console.log("AuthModal: Signup successful, but no session (email confirmation required).");
       } else {
         setErrors({ submit: 'An unexpected authentication response occurred.' });
-        console.error("AuthModal: Unexpected authentication response:", authResponse.data);
       }
       
     } catch (error) {
       setErrors({ submit: 'An unexpected error occurred during authentication.' });
-      console.error("AuthModal: An unexpected error occurred during submission:", error);
     } finally {
       setIsLoading(false)
     }
@@ -148,14 +140,12 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
       });
 
       if (error) {
-        console.error("AuthModal: Error resending verification email:", error.message);
         setResendMessage(`Failed to resend verification email: ${error.message}`);
       } else {
         setResendMessage('Verification email sent! Please check your inbox (and spam folder).');
         setShowResendButton(false); // Hide button after successful resend
       }
     } catch (error) {
-      console.error("AuthModal: Unexpected error during resend verification:", error);
       setResendMessage('An unexpected error occurred while trying to resend the email.');
     } finally {
       setIsLoading(false);
@@ -164,7 +154,6 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
-      console.log("AuthModal: Backdrop clicked, closing modal.");
       onClose()
     }
   }

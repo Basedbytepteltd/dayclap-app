@@ -16,13 +16,11 @@ const formatDateToYYYYMMDD = (dateInput) => {
   } else {
     // If it's neither a Date, string, nor number, it's an unexpected type.
     // Log an error and return empty string.
-    console.error("formatDateToYYYYMMDD received unexpected type:", typeof dateInput, dateInput);
     return '';
   }
 
   // Check if the parsed date is "Invalid Date"
   if (isNaN(date.getTime())) {
-    console.error("formatDateToYYYYMMDD received an invalid date value:", dateInput, "Resulted in Invalid Date object.");
     return '';
   }
 
@@ -125,7 +123,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .update({ last_activity_at: new Date().toISOString() })
         .eq('id', user.id);
       if (error) {
-        console.error("Dashboard: Error updating last_activity_at:", error.message);
+        // console.error("Dashboard: Error updating last_activity_at:", error.message);
       }
     }
   };
@@ -139,7 +137,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .eq('id', user.id)
         .then(({ error }) => {
           if (error) {
-            console.error("Dashboard: Error updating user profile in Supabase:", error.message);
+            // console.error("Dashboard: Error updating user profile in Supabase:", error.message);
           }
         });
     }
@@ -281,7 +279,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .eq('user_id', user.id)
         .eq('company_id', currentCompany.id);
       if (error) {
-        console.error("Dashboard: Error fetching events:", error.message);
+        // console.error("Dashboard: Error fetching events:", error.message);
         setEvents([]);
         return;
       }
@@ -309,7 +307,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .select('id, name, email, companies')
       .contains('companies', JSON.stringify([{ id: companyId }]));
     if (error) {
-      console.error("Dashboard: Error fetching team members:", error.message);
+      // console.error("Dashboard: Error fetching team members:", error.message);
       setTeamMembers([]);
       return;
     }
@@ -337,7 +335,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .eq('user_id', user.id)
         .eq('company_id', currentCompany.id);
       if (error) {
-        console.error("Dashboard: Error fetching tasks:", error.message);
+        // console.error("Dashboard: Error fetching tasks:", error.message);
         setTasks([]);
         return;
       }
@@ -423,7 +421,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .select('*, sender_email')
         .or(`recipient_email.eq.${user.email},sender_id.eq.${user.id}`);
       if (error) {
-        console.error("Dashboard: Error fetching invitations:", error.message);
+        // console.error("Dashboard: Error fetching invitations:", error.message);
       } else {
         setInvitations(data);
       }
@@ -1158,7 +1156,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .single();
 
     if (error) {
-      console.error("Dashboard: Error adding general task:", error.message);
       alert("Failed to add task: " + error.message);
     } else {
       let dueDate = null;
@@ -1214,7 +1211,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .single();
 
     if (error) {
-      console.error("Dashboard: Error updating general task:", error.message);
       alert("Failed to update task: " + error.message);
     } else {
       let dueDate = null;
@@ -1242,7 +1238,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .eq('id', taskId);
 
     if (error) {
-      console.error("Dashboard: Error deleting general task:", error.message);
       alert("Failed to delete task: " + error.message);
     } else {
       setTasks(prev => prev.filter(task => task.id !== taskId));
