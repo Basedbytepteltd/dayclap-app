@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Calendar, LogOut, User, Settings, Plus, ChevronLeft, ChevronRight, BarChart3, CalendarDays, Mail, Check, X, Clock, CheckSquare, Square, Flag, Star, Building2, Edit, Trash2, ChevronDown, Save, Eye, EyeOff, Bell, Moon, Sun, Shield, Key, Globe, Palette, Users, UserPlus, Crown, UserCheck, Search, LayoutDashboard, MapPin, Lock, DollarSign } from 'lucide-react'
-import { supabase, supabaseAdmin } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 import './Dashboard.css'
 
 // Helper function to format a Date object to YYYY-MM-DD in local time
@@ -1250,107 +1250,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     }
   };
 
+  // NOTE: Role updates and member removals require elevated privileges (service role).
+  // For security, these actions are disabled on the client and should be handled by secure backend endpoints.
   const handleUpdateMemberRole = async (memberId, newRole, companyId) => {
-    if (!companyId) return;
-    if (!window.confirm(`Are you sure you want to change this member's role to ${newRole}?`)) return;
-
-    const currentUserRole = user.companies.find(c => c.id === companyId)?.role;
-    if (currentUserRole !== 'owner' && currentUserRole !== 'admin') {
-      alert("You do not have permission to change roles in this company.");
-      return;
-    }
-    const memberToUpdate = teamMembers.find(m => m.id === memberId);
-    if (memberToUpdate?.role === 'owner') {
-      alert("Cannot change the role of the company owner.");
-      return;
-    }
-
-    const { data: memberProfile, error: fetchError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, companies')
-      .eq('id', memberId)
-      .single();
-
-    if (fetchError) {
-      console.error("Error fetching member profile for role update:", fetchError.message);
-      alert("Failed to update member role: " + fetchError.message);
-      return;
-    }
-
-    let updatedMemberCompanies = memberProfile.companies.map(c =>
-      c.id === companyId ? { ...c, role: newRole } : c
-    );
-
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({ companies: updatedMemberCompanies, last_activity_at: new Date().toISOString() })
-      .eq('id', memberId);
-
-    if (updateError) {
-      console.error("Error updating member role:", updateError.message);
-      alert("Failed to update member role: " + updateError.message);
-    } else {
-      alert("Member role updated successfully!");
-      fetchTeamMembersForCompany(companyId);
-      updateLastActivity();
-    }
+    alert('Changing member roles requires a secure admin API and cannot be performed from the browser. Please configure a backend endpoint to handle this action.');
   };
 
   const handleRemoveMember = async (memberId, companyId) => {
-    if (!companyId) return;
-    if (!window.confirm('Are you sure you want to remove this member from the company?')) return;
-
-    const currentUserRole = user.companies.find(c => c.id === companyId)?.role;
-    if (currentUserRole !== 'owner' && currentUserRole !== 'admin') {
-      alert("You do not have permission to remove members from this company.");
-      return;
-    }
-    const memberToRemove = teamMembers.find(m => m.id === memberId);
-    if (memberToRemove?.role === 'owner') {
-      alert("Cannot remove the company owner.");
-      return;
-    }
-    if (memberId === user.id) {
-      alert("You cannot remove yourself from the company here. Please leave the company via the company selector dropdown.");
-      return;
-    }
-
-    const { data: memberProfile, error: fetchError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, companies, current_company_id')
-      .eq('id', memberId)
-      .single();
-
-    if (fetchError) {
-      console.error("Error fetching member profile for removal:", fetchError.message);
-      alert("Failed to remove member: " + fetchError.message);
-      return;
-    }
-
-    let updatedMemberCompanies = memberProfile.companies.filter(c => c.id !== companyId);
-    let newCurrentCompanyIdForMember = memberProfile.current_company_id;
-
-    if (newCurrentCompanyIdForMember === companyId) {
-      newCurrentCompanyIdForMember = updatedMemberCompanies.length > 0 ? updatedMemberCompanies[0].id : null;
-    }
-
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        companies: updatedMemberCompanies,
-        current_company_id: newCurrentCompanyIdForMember,
-        last_activity_at: new Date().toISOString()
-      })
-      .eq('id', memberId);
-
-    if (updateError) {
-      console.error("Error removing member:", updateError.message);
-      alert("Failed to remove member: " + updateError.message);
-    } else {
-      alert("Member removed successfully!");
-      fetchTeamMembersForCompany(companyId);
-      updateLastActivity();
-    }
+    alert('Removing members requires a secure admin API and cannot be performed from the browser. Please configure a backend endpoint to handle this action.');
   };
 
   const getFilteredCurrencyOptions = (searchTerm) => {
@@ -1637,7 +1544,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         <div className="event-details">
                           <h4 className="event-title clickable-title" onClick={() => handleEditEvent(event)}>{event.title}</h4>
                           <p className="event-time-desc">
-                            {event.time && <><Clock size={14} /> {event.time} &bull; </>}
+                            {event.time && <><Clock size={14} /> {event.time} • </>}
                             {event.location && <><MapPin size={14} /> {event.location}</>}
                           </p>
                           {event.eventTasks && event.eventTasks.length > 0 && (
@@ -1780,7 +1687,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                               <div className="event-details">
                                 <h4 className="event-title clickable-title" onClick={() => handleEditEvent(event)}>{event.title}</h4>
                                 <p className="event-time-desc">
-                                  {event.time && <><Clock size={14} /> {event.time} &bull; </>}
+                                  {event.time && <><Clock size={14} /> {event.time} • </>}
                                   {event.location && <><MapPin size={14} /> {event.location}</>}
                                 </p>
                                 {event.eventTasks && event.eventTasks.length > 0 && (
@@ -2429,122 +2336,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                 <button type="button" className="btn btn-outline" onClick={() => setShowInviteModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary"><UserPlus size={16} /> Send Invitation</button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showEventModal && (
-        <div className="modal-backdrop" onClick={() => setShowEventModal(false)}>
-          <div className="modal-content event-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{editingEvent ? 'Edit Event' : 'Create New Event'}</h3>
-              <button className="modal-close" onClick={() => setShowEventModal(false)}><X /></button>
-            </div>
-            <form onSubmit={handleEventFormSubmit}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Event Title</label>
-                  <div className="input-wrapper"><CalendarDays className="input-icon" /><input type="text" name="title" value={eventForm.title} onChange={(e) => setEventForm(prev => ({ ...prev, title: e.target.value }))} className="form-input" placeholder="e.g., Team Sync Meeting" required /></div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Date</label>
-                    <div className="input-wrapper"><Calendar className="input-icon" /><input type="date" name="date" value={formatDateToYYYYMMDD(eventForm.date)} onChange={(e) => setEventForm(prev => ({ ...prev, date: new Date(e.target.value) }))} className="form-input" required /></div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Time <span className="optional-text">(Optional)</span></label>
-                    <div className="input-wrapper"><Clock className="input-icon" /><input type="time" name="time" value={eventForm.time} onChange={(e) => setEventForm(prev => ({ ...prev, time: e.target.value }))} className="form-input" /></div>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Location <span className="optional-text">(Optional)</span></label>
-                  <div className="input-wrapper"><MapPin className="input-icon" /><input type="text" name="location" value={eventForm.location} onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))} className="form-input" placeholder="e.g., Conference Room A or Zoom Link" /></div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Description <span className="optional-text">(Optional)</span></label>
-                  <textarea name="description" value={eventForm.description} onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))} className="form-textarea" rows="3" placeholder="Add a brief description of the event..."></textarea>
-                </div>
-
-                <div className="event-tasks-section">
-                  <h4 className="event-tasks-title">Event Tasks <span className="optional-text">(Optional)</span></h4>
-                  <p className="task-section-description">Add tasks specific to this event. They will be visible to all team members in this company.</p>
-
-                  <div className="event-task-form">
-                    <div className="form-group">
-                      <label className="form-label">Task Title</label>
-                      <div className="input-wrapper"><CheckSquare className="input-icon" /><input type="text" name="title" value={currentEventTaskForm.title} onChange={(e) => setCurrentEventTaskForm(prev => ({ ...prev, title: e.target.value }))} className="form-input" placeholder="e.g., Prepare presentation" required /></div>
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Description <span className="optional-text">(Optional)</span></label>
-                      <textarea name="description" value={currentEventTaskForm.description} onChange={(e) => setCurrentEventTaskForm(prev => ({ ...prev, description: e.target.value }))} className="form-textarea" rows="2" placeholder="Add notes or details for this task..."></textarea>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">Assigned To</label>
-                        <div className="input-wrapper">
-                          <User className="input-icon" />
-                          <select name="assignedTo" value={currentEventTaskForm.assignedTo || ''} onChange={(e) => setCurrentEventTaskForm(prev => ({ ...prev, assignedTo: e.target.value }))} className="form-select">
-                            <option value="">Select Member</option>
-                            {teamMembers.map(member => (<option key={member.id} value={member.email}>{member.name || member.email}</option>))}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Due Date</label>
-                        <div className="input-wrapper"><Calendar className="input-icon" /><input type="date" name="dueDate" value={currentEventTaskForm.dueDate} onChange={(e) => setCurrentEventTaskForm(prev => ({ ...prev, dueDate: e.target.value }))} className="form-input" required /></div>
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label className="form-label">Priority</label>
-                        <div className="input-wrapper">
-                          <Flag className="input-icon" />
-                          <select name="priority" value={currentEventTaskForm.priority || 'medium'} onChange={(e) => setCurrentEventTaskForm(prev => ({ ...prev, priority: e.target.value }))} className="form-select">
-                            <option value="low">Low</option>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Expenses <span className="optional-text">(Optional)</span></label>
-                        <div className="input-wrapper"><DollarSign className="input-icon" /><input type="number" name="expenses" value={currentEventTaskForm.expenses} onChange={(e) => setCurrentEventTaskForm(prev => ({ ...prev, expenses: e.target.value }))} className="form-input" placeholder="e.g., 150.00" step="0.01" /></div>
-                      </div>
-                    </div>
-                    <button type="button" className="btn btn-primary btn-small" onClick={handleAddEventTask}>{currentEventTaskForm.id ? <Edit size={16} /> : <Plus size={16} />} {currentEventTaskForm.id ? 'Update Task' : 'Add Task'}</button>
-                  </div>
-
-                  <div className="event-task-list">
-                    {eventForm.eventTasks.length > 0 ? (
-                      eventForm.eventTasks.map(task => (
-                        <div key={task.id} className={`event-task-item ${task.completed ? 'completed' : ''} ${isTaskOverdue(task) ? 'overdue' : ''}`}>
-                          <div className="task-checkbox"><button className="checkbox-btn" onClick={(e) => { e.stopPropagation(); handleToggleEventTaskCompletion(task.id); }}>{task.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
-                          <div className="task-details">
-                            <p className="task-title">{task.title}</p>
-                            {task.description && <p className="task-description">{task.description}</p>}
-                            <div className="task-meta">
-                              {task.assignedTo && <span className="assigned-to"><User size={12} /> {teamMembers.find(m => m.email === task.assignedTo)?.name || task.assignedTo}</span>}
-                              {task.dueDate && <span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}><Calendar size={12} /> {new Date(task.dueDate).toLocaleDateString()}</span>}
-                              {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
-                              {task.expenses && (<span className="task-expenses"><DollarSign size={12} /> {formatCurrency(task.expenses, user.currency)}</span>)}
-                            </div>
-                          </div>
-                          <div className="task-actions">
-                            <button className="btn-icon-small edit" onClick={(e) => { e.stopPropagation(); handleEditEventTask(task); }} title="Edit Task"><Edit size={16} /></button>
-                            <button className="btn-icon-small delete" onClick={(e) => { e.stopPropagation(); handleDeleteEventTask(task.id); }} title="Delete Task"><Trash2 size={16} /></button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="no-data" style={{ textAlign: 'center', color: 'var(--secondary-text)' }}>No tasks added for this event yet.</p>
-                    )}
-                  </div>
-
-                  <div className="event-tasks-footer"><button type="submit" className="btn btn-primary"><Save size={16} /> {editingEvent ? 'Update Event' : 'Create Event'}</button></div>
-                </div>
-              </div>
-              <div className="modal-footer"><button type="button" className="btn btn-outline" onClick={() => setShowEventModal(false)}>Cancel</button></div>
             </form>
           </div>
         </div>

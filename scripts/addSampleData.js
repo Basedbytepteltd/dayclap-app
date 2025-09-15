@@ -1,6 +1,12 @@
 import 'dotenv/config'; // Load .env file at the very top
-import { supabaseAdmin } from '../src/supabaseClient.js';
+import { getSupabaseAdmin } from '../src/supabaseClient.js';
 import { randomUUID } from 'crypto'; // Import randomUUID for creating new company IDs
+
+const supabaseAdmin = getSupabaseAdmin();
+if (!supabaseAdmin) {
+  console.error('Supabase admin client is not available. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_SERVICE_ROLE_KEY are set in your environment before running this script.');
+  process.exit(1);
+}
 
 const TARGET_USER_EMAIL = 'fernando@fit-pair.com';
 const TARGET_COMPANY_NAME = 'Fitness';

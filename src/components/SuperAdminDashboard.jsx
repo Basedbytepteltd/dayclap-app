@@ -17,7 +17,7 @@ import {
   Key,
   Send
 } from 'lucide-react';
-import { supabase, supabaseAdmin } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
 
 const SuperAdminDashboard = ({ user, onLogout }) => {
@@ -171,11 +171,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       return;
     }
 
-    const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
-
-    if (authUsersError) {
-      console.error("SuperAdminDashboard: Error fetching auth users:", authUsersError.message);
-    }
+    // Auth-level metrics (last_sign_in_at) require service role; not available in the browser.
+    const authUsers = { users: [] };
 
     const { data: allEvents, error: eventsError } = await supabase.from('events').select('id, user_id');
     const { data: allTasks, error: tasksError } = await supabase.from('tasks').select('id, user_id, completed');
@@ -243,16 +240,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-      if (authError) {
-        console.error("SuperAdminDashboard: Error deleting user:", authError.message);
-        alert("Failed to delete user: " + authError.message);
-      } else {
-        loadUsersData();
-      }
-    }
+    alert('Deleting users requires a secure server-side operation and cannot be performed from the browser. Please add a backend admin endpoint to handle this.');
   };
 
   const formatDate = (dateString) => {
@@ -450,8 +438,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                       <tr key={userData.id}>
                         <td>
                           <div className="user-cell">
-                            <div className="user-avatar">{userData.name?.charAt(0).toUpperCase()}</div>
-                            <span>{userData.name}</span>
+                            <div className="user-avatar">{(userData.name || userData.email || '?').charAt(0).toUpperCase()}</div>
+                            <span>{userData.name || userData.email}</span>
                           </div>
                         </td>
                         <td>{userData.email}</td>
