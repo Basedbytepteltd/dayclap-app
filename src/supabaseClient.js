@@ -8,13 +8,18 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // const supabaseServiceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 // --- START DEBUG LOGS ---
-console.log('DEBUG: VITE_SUPABASE_URL:', supabaseUrl ? `Loaded (length: ${supabaseUrl.length}, starts: ${supabaseUrl.substring(0, 10)})` : 'NOT LOADED');
-console.log('DEBUG: VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `Loaded (length: ${supabaseAnonKey.length}, starts: ${supabaseAnonKey.substring(0, 10)})` : 'NOT LOADED');
-
-// NEW: Direct log right before createClient to confirm values
-console.log('DEBUG: Before createClient - URL present:', !!supabaseUrl, 'Anon Key present:', !!supabaseAnonKey);
-console.log('DEBUG: Before createClient - URL length:', supabaseUrl?.length, 'Anon Key length:', supabaseAnonKey?.length);
+console.log('DEBUG: Final check - VITE_SUPABASE_URL:', supabaseUrl ? `Loaded (length: ${supabaseUrl.length}, starts: ${supabaseUrl.substring(0, 10)})` : 'NOT LOADED');
+console.log('DEBUG: Final check - VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `Loaded (length: ${supabaseAnonKey.length}, starts: ${supabaseAnonKey.substring(0, 10)})` : 'NOT LOADED');
+console.log('DEBUG: Final check - URL is truthy:', !!supabaseUrl, 'Anon Key is truthy:', !!supabaseAnonKey);
 // --- END DEBUG LOGS ---
+
+// Explicitly check for missing keys and throw a more informative error
+if (!supabaseUrl) {
+  throw new Error('Supabase Client Error: VITE_SUPABASE_URL is missing or empty. Please ensure it is set in your .env file and exposed correctly by your build tool (e.g., Vercel).');
+}
+if (!supabaseAnonKey) {
+  throw new Error('Supabase Client Error: VITE_SUPABASE_ANON_KEY is missing or empty. Please ensure it is set in your .env file and exposed correctly by your build tool (e.g., Vercel).');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
