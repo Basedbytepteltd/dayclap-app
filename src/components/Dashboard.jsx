@@ -2,35 +2,25 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Calendar, LogOut, User, Settings, Plus, ChevronLeft, ChevronRight, BarChart3, CalendarDays, Mail, Check, X, Clock, CheckSquare, Square, Flag, Star, Building2, Edit, Trash2, ChevronDown, Save, Eye, EyeOff, Bell, Moon, Sun, Shield, Key, Globe, Palette, Users, UserPlus, Crown, UserCheck, Search, LayoutDashboard, MapPin, Lock, DollarSign } from 'lucide-react'
 import { supabase } from '../supabaseClient';
 import './Dashboard.css'
-import EventModal from './EventModal'; // Import the new EventModal component
+import EventModal from './EventModal';
 
-// Helper function to format a Date object to YYYY-MM-DD in local time
 const formatDateToYYYYMMDD = (dateInput) => {
-  if (!dateInput) return ''; // Handles null, undefined, empty string, 0, false
-
+  if (!dateInput) return '';
   let date;
-  // If it's a string, try to convert it to a Date object
   if (typeof dateInput === 'string') {
     date = new Date(dateInput);
   } else if (dateInput instanceof Date) {
     date = dateInput;
   } else {
-    // If it's neither a Date, string, nor number, it's an unexpected type.
-    // Log an error and return empty string.
     return '';
   }
-
-  // Check if the parsed date is "Invalid Date"
   if (isNaN(date.getTime())) {
     return '';
   }
-
-  // Adjust for timezone offset to get the correct local date
   const adjustedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
   return adjustedDate.toISOString().split('T')[0];
 };
 
-// Helper function to parse time strings (e.g., "10:00 AM") into 24-hour format for sorting
 const parseTime = (timeStr) => {
   if (!timeStr) return { hours: 0, minutes: 0 };
   const isPM = timeStr.toUpperCase().includes('PM');
@@ -43,16 +33,15 @@ const parseTime = (timeStr) => {
   if (isPM && hours < 12) {
     hours += 12;
   }
-  if (!isPM && hours === 12) { // Handle 12 AM (midnight)
+  if (!isPM && hours === 12) {
     hours = 0;
   }
   return { hours, minutes };
 };
 
-// NEW: Helper function to format currency
 const formatCurrency = (amount, currencyCode = 'USD') => {
   if (amount === null || amount === undefined || isNaN(Number(amount))) {
-    return ''; // Return empty string if amount is not a valid number
+    return '';
   }
   const numericAmount = Number(amount);
   return new Intl.NumberFormat('en-US', {
@@ -63,7 +52,6 @@ const formatCurrency = (amount, currencyCode = 'USD') => {
   }).format(numericAmount);
 };
 
-// List of currency options for the searchable dropdown
 const allCurrencyOptions = [
   { value: 'USD', label: 'USD - United States Dollar' },
   { value: 'EUR', label: 'EUR - Euro' },
@@ -108,7 +96,6 @@ const allCurrencyOptions = [
   { value: 'LKR', label: 'LKR - Sri Lankan Rupee' },
 ];
 
-// NEW: Define top three favorite currency codes in desired order
 const topFavoriteCurrencyCodes = ['SGD', 'LKR', 'USD'];
 
 const Dashboard = ({ user, onLogout, onUserUpdate }) => {
@@ -268,7 +255,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const currentCompany = user.companies?.find(company => company.id === user.currentCompanyId);
 
-  // Extracted fetch functions
   const _fetchEvents = async () => {
     if (!user || !user.id || !currentCompany?.id) {
       setEvents([]);
@@ -276,11 +262,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     }
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select('*, notification_dismissed_at')
       .eq('user_id', user.id)
       .eq('company_id', currentCompany.id);
     if (error) {
-      // console.error("Dashboard: Error fetching events:", error.message);
       setEvents([]);
       return;
     }
@@ -307,7 +292,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .eq('user_id', user.id)
       .eq('company_id', currentCompany.id);
     if (error) {
-      // console.error("Dashboard: Error fetching tasks:", error.message);
       setTasks([]);
       return;
     }
@@ -341,11 +325,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     }
   };
 
-  // Update useEffects to call these functions
   useEffect(() => { _fetchEvents(); }, [user?.id, currentCompany?.id]);
   useEffect(() => { _fetchTasks(); }, [user?.id, currentCompany?.id]);
   useEffect(() => { _fetchInvitations(); }, [user?.id, user?.email]);
-
 
   const fetchTeamMembersForCompany = async (companyId) => {
     if (!companyId) {
@@ -357,7 +339,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .select('id, name, email, companies')
       .contains('companies', JSON.stringify([{ id: companyId }]));
     if (error) {
-      // console.error("Dashboard: Error fetching team members:", error.message);
       setTeamMembers([]);
       return;
     }
@@ -376,7 +357,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   useEffect(() => {
     fetchTeamMembersForCompany(currentCompany?.id);
   }, [currentCompany?.id, user.companies]);
-
 
   const notificationBellRef = useRef(null);
 
@@ -458,7 +438,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         await onUserUpdate(updatedUser);
       }
     }
-    await _fetchInvitations(); // Re-fetch invitations to update UI
+    await _fetchInvitations();
     updateLastActivity();
   }
 
@@ -535,9 +515,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
       const result = await response.json();
 
-      if (response.ok || response.status === 202) { // 202 means saved but not emailed
+      if (response.ok || response.status === 202) {
         alert(result.message);
-        await _fetchInvitations(); // Re-fetch invitations to update UI
+        await _fetchInvitations();
       } else {
         throw new Error(result.message || 'Failed to send invitation');
       }
@@ -639,7 +619,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const handleAddEvent = (dateToPreselect = null) => {
     setEditingEvent(null);
     setEventForm({ title: '', date: dateToPreselect || selectedDate, time: '17:00', description: '', location: '', eventTasks: [] });
-    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' }); // Default assignedTo to current user's email
+    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
     setShowEventModal(true);
     updateLastActivity();
   }
@@ -652,7 +632,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const handleEditEvent = (event) => {
     setEditingEvent(event);
     setEventForm({ ...event, eventTasks: event.eventTasks || [] });
-    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' }); // Default assignedTo to current user's email
+    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
     setShowEventModal(true);
     updateLastActivity();
   }
@@ -708,12 +688,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     return date.toDateString() === selectedDate.toDateString();
   };
 
-  // UPDATED: isTaskOverdue to consider notification_dismissed_at
   const isTaskOverdue = (task) => {
     if (task.completed || !task.dueDate) return false;
-    // If notification was dismissed, it's not "overdue" for notification purposes
     if (task.notification_dismissed_at) return false;
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const taskDueDate = new Date(task.dueDate);
@@ -724,19 +701,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const getCalendarItemsForDate = (date) => {
     if (!date) return [];
     const targetDateString = date.toDateString();
-
     const items = [];
-
     events.filter(event => event.date.toDateString() === targetDateString)
       .forEach(event => items.push({ type: 'event', ...event }));
-
     tasks.filter(task => task.dueDate && task.dueDate.toDateString() === targetDateString)
       .forEach(task => items.push({ type: 'task', ...task, isOverdue: isTaskOverdue(task) }));
-
     return items.sort((a, b) => {
       if (a.type === 'event' && b.type === 'task') return -1;
       if (a.type === 'task' && b.type === 'event') return 1;
-
       if (a.type === 'event') {
         const timeA = parseTime(a.time);
         const timeB = parseTime(b.time);
@@ -766,16 +738,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const getFilteredUpcomingEvents = (filter) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-  
     if (filter === 'all') {
       return events
         .filter(event => new Date(event.date) >= today)
         .sort((a, b) => a.date.getTime() - b.date.getTime());
     }
-  
     let startDate = null;
     let endDate = null;
-  
     if (filter === 'week') {
       startDate = new Date(today);
       startDate.setDate(today.getDate() - today.getDay());
@@ -805,7 +774,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       endDate = new Date(lastYear, 11, 31);
       endDate.setHours(23, 59, 59, 999);
     }
-  
     if (startDate && endDate) {
       return events
         .filter(event => {
@@ -814,7 +782,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         })
         .sort((a, b) => a.date.getTime() - b.date.getTime());
     }
-  
     return events
       .filter(event => new Date(event.date) >= today)
       .sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -822,18 +789,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const getTasksInDateRange = (allTasks, startDate, endDate) => {
     if (!startDate && !endDate) return allTasks;
-
     return allTasks.filter(task => {
       if (!task.dueDate) return false;
       const taskDueDate = new Date(task.dueDate);
       taskDueDate.setHours(0, 0, 0, 0);
-
       const start = startDate ? new Date(startDate) : null;
       if (start) start.setHours(0, 0, 0, 0);
-
       const end = endDate ? new Date(endDate) : null;
       if (end) end.setHours(23, 59, 59, 999);
-
       return (!start || taskDueDate >= start) && (!end || taskDueDate <= end);
     });
   };
@@ -842,10 +805,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const calculateOverviewStats = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-  
       let startDate = null;
       let endDate = null;
-  
       if (eventFilter === 'week') {
         startDate = new Date(today);
         startDate.setDate(today.getDate() - today.getDay());
@@ -875,11 +836,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         endDate = new Date(lastYear, 11, 31);
         endDate.setHours(23, 59, 59, 999);
       }
-  
       const filteredEventsForStats = getFilteredUpcomingEvents(eventFilter);
-  
       let allRelevantTasks = [];
-  
       if (eventFilter === 'all') {
         const upcomingGeneralTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate) >= today);
         const upcomingEventTasks = events
@@ -889,7 +847,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         allRelevantTasks = [...upcomingGeneralTasks, ...upcomingEventTasks];
       } else {
         const filteredGeneralTasks = getTasksInDateRange(tasks, startDate, endDate);
-        const allEventTasks = events.flatMap(event => 
+        const allEventTasks = events.flatMap(event =>
           (event.eventTasks || []).map(task => ({
             ...task,
             dueDate: task.dueDate ? new Date(task.dueDate) : null
@@ -898,23 +856,18 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         const filteredEventTasks = getTasksInDateRange(allEventTasks, startDate, endDate);
         allRelevantTasks = [...filteredGeneralTasks, ...filteredEventTasks];
       }
-  
       const completedTasksCount = allRelevantTasks.filter(t => t.completed).length;
       const pendingTasks = allRelevantTasks.filter(t => !t.completed);
       const overdueTasksCount = pendingTasks.filter(t => isTaskOverdue(t)).length;
       const pendingTasksCount = pendingTasks.length - overdueTasksCount;
       const totalTasksCount = allRelevantTasks.length;
-  
       const taskCompletionPercentage = totalTasksCount > 0
         ? Math.round((completedTasksCount / totalTasksCount) * 100)
         : 0;
-  
       const pendingTasksPercentage = totalTasksCount > 0
         ? Math.round((pendingTasksCount / totalTasksCount) * 100)
         : 0;
-  
       const totalExpenses = allRelevantTasks.reduce((sum, task) => sum + (Number(task.expenses) || 0), 0);
-  
       setOverviewStats({
         totalEvents: filteredEventsForStats.length,
         completedTasks: completedTasksCount,
@@ -925,18 +878,16 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         totalExpenses: totalExpenses,
       });
     };
-  
     calculateOverviewStats();
   }, [events, tasks, eventFilter]);
 
   const allTasks = useMemo(() => {
-    const generalTasks = tasks.map(t => ({ 
-      ...t, 
-      type: 'general', 
-      parentEvent: null 
+    const generalTasks = tasks.map(t => ({
+      ...t,
+      type: 'general',
+      parentEvent: null
     }));
-
-    const eventTasks = events.flatMap(event => 
+    const eventTasks = events.flatMap(event =>
       (event.eventTasks || []).map(task => {
         let localDate = null;
         if (task.dueDate) {
@@ -951,16 +902,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         };
       })
     );
-
     return [...generalTasks, ...eventTasks];
   }, [tasks, events]);
 
   const getFilteredAndCategorizedTasks = (tasksToFilter, dueDateFilter, statusFilter) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     let filtered = [...tasksToFilter];
-
     if (dueDateFilter === 'today') {
       filtered = filtered.filter(task => {
         if (!task.dueDate) return false;
@@ -1006,7 +954,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       endOfNextMonth.setHours(23, 59, 59, 999);
       filtered = filtered.filter(task => !task.dueDate || task.dueDate > endOfNextMonth);
     }
-
     if (statusFilter === 'completed') {
       filtered = filtered.filter(task => task.completed);
     } else if (statusFilter === 'pending') {
@@ -1014,7 +961,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     } else if (statusFilter === 'overdue') {
       filtered = filtered.filter(task => isTaskOverdue(task));
     }
-
     const categories = filtered.reduce((acc, task) => {
       const categoryName = task.type === 'event' ? `Event: ${task.parentEvent.title}` : 'General Tasks';
       if (!acc[categoryName]) {
@@ -1023,7 +969,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       acc[categoryName].push(task);
       return acc;
     }, {});
-
     return Object.entries(categories).map(([category, tasks]) => ({
       category,
       tasks: tasks.sort((a, b) => {
@@ -1041,22 +986,18 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       events: [],
       tasks: []
     };
-
     if (!lowerCaseTerm) return results;
-
     results.events = events.filter(event =>
       event.title.toLowerCase().includes(lowerCaseTerm) ||
       event.description?.toLowerCase().includes(lowerCaseTerm) ||
       event.location?.toLowerCase().includes(lowerCaseTerm) ||
       event.eventTasks.some(task => task.title.toLowerCase().includes(lowerCaseTerm) || task.description?.toLowerCase().includes(lowerCaseTerm))
     );
-
     results.tasks = tasks.filter(task =>
       task.title.toLowerCase().includes(lowerCaseTerm) ||
       task.description?.toLowerCase().includes(lowerCaseTerm) ||
       task.category?.toLowerCase().includes(lowerCaseTerm)
     );
-
     return results;
   };
 
@@ -1071,7 +1012,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       alert("Due Date is mandatory for event tasks.");
       return;
     }
-
     const newEventTask = {
       id: currentEventTaskForm.id || Date.now(),
       title: currentEventTaskForm.title,
@@ -1082,7 +1022,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       priority: currentEventTaskForm.priority || 'medium',
       expenses: currentEventTaskForm.expenses ? parseFloat(currentEventTaskForm.expenses) : null
     };
-
     setEventForm(prev => {
       const existingTaskIndex = prev.eventTasks.findIndex(task => task.id === newEventTask.id);
       if (existingTaskIndex > -1) {
@@ -1093,7 +1032,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         return { ...prev, eventTasks: [...prev.eventTasks, newEventTask] };
       }
     });
-
     setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
   };
 
@@ -1131,7 +1069,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       alert("Task title cannot be empty.");
       return;
     }
-
     const newTaskPayload = {
       title: currentEventTaskForm.title,
       description: currentEventTaskForm.description || null,
@@ -1143,13 +1080,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       company_id: currentCompany?.id,
       expenses: currentEventTaskForm.expenses ? parseFloat(currentEventTaskForm.expenses) : null
     };
-
     const { data, error } = await supabase
       .from('tasks')
       .insert(newTaskPayload)
       .select()
       .single();
-
     if (error) {
       alert("Failed to add task: " + error.message);
     } else {
@@ -1168,7 +1103,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const handleEditGeneralTask = async (taskId) => {
     const taskToEdit = tasks.find(task => task.id === taskId);
     if (!taskToEdit) return;
-
     setCurrentEventTaskForm({
       id: taskToEdit.id,
       title: taskToEdit.title,
@@ -1186,7 +1120,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       alert("Task title cannot be empty.");
       return;
     }
-
     const updatedTaskPayload = {
       title: currentEventTaskForm.title,
       description: currentEventTaskForm.description || null,
@@ -1197,14 +1130,12 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       last_activity_at: new Date().toISOString(),
       expenses: currentEventTaskForm.expenses ? parseFloat(currentEventTaskForm.expenses) : null
     };
-
     const { data, error } = await supabase
       .from('tasks')
       .update(updatedTaskPayload)
       .eq('id', currentEventTaskForm.id)
       .select()
       .single();
-
     if (error) {
       alert("Failed to update task: " + error.message);
     } else {
@@ -1226,12 +1157,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
       return;
     }
-
     const { error } = await supabase
       .from('tasks')
       .delete()
       .eq('id', taskId);
-
     if (error) {
       alert("Failed to delete task: " + error.message);
     } else {
@@ -1240,8 +1169,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     }
   };
 
-  // NOTE: Role updates and member removals require elevated privileges (service role).
-  // For security, these actions are disabled on the client and should be handled by secure backend endpoints.
   const handleUpdateMemberRole = async (memberId, newRole, companyId) => {
     alert('Changing member roles requires a secure admin API and cannot be performed from the browser. Please configure a backend endpoint to handle this action.');
   };
@@ -1252,10 +1179,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const getFilteredCurrencyOptions = (searchTerm) => {
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-
     const favorites = [];
     const nonFavorites = [];
-
     allCurrencyOptions.forEach(option => {
       if (topFavoriteCurrencyCodes.includes(option.value)) {
         favorites.push(option);
@@ -1263,19 +1188,15 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         nonFavorites.push(option);
       }
     });
-
     const sortedFavorites = topFavoriteCurrencyCodes
       .map(code => favorites.find(fav => fav.value === code))
       .filter(Boolean);
-
     const filteredFavorites = sortedFavorites.filter(option =>
       option.label.toLowerCase().includes(lowerCaseSearchTerm)
     );
-
     const filteredNonFavorites = nonFavorites.filter(option =>
       option.label.toLowerCase().includes(lowerCaseSearchTerm)
     );
-
     return { filteredFavorites, filteredNonFavorites };
   };
 
@@ -1286,16 +1207,21 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const pendingInvitationsCount = invitations.filter(inv => inv.status === 'pending' && inv.recipient_email === user.email).length;
   const overdueTasksCount = tasks.filter(task => isTaskOverdue(task)).length;
-  
+
   const upcomingEventsToday = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return events.filter(event => event.date.toDateString() === today.toDateString())
-                 .sort((a, b) => {
-                   const timeA = parseTime(a.time);
-                   const timeB = parseTime(b.time);
-                   return timeA.hours - timeB.hours || timeA.minutes - timeB.minutes;
-                 });
+    const filtered = events.filter(event => {
+      const isEventToday = event.date.toDateString() === today.toDateString();
+      const isNotDismissed = !event.notification_dismissed_at;
+      return isEventToday && isNotDismissed;
+    })
+      .sort((a, b) => {
+        const timeA = parseTime(a.time);
+        const timeB = parseTime(b.time);
+        return timeA.hours - timeB.hours || timeA.minutes - timeB.minutes;
+      });
+    return filtered;
   }, [events]);
 
   const upcomingEventsTodayCount = upcomingEventsToday.length;
@@ -1307,10 +1233,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const completed = allTasks.filter(t => t.completed).length;
     const pending = allTasks.filter(t => !t.completed && !isTaskOverdue(t)).length;
     const overdue = allTasks.filter(t => isTaskOverdue(t)).length;
-
     const completedPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     const pendingPercentage = total > 0 ? Math.round((pending / total) * 100) : 0;
-
     return {
       total,
       completed,
@@ -1321,41 +1245,47 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     };
   }, [allTasks]);
 
-  // NEW: handleMarkAllAsRead function
   const handleMarkAllAsRead = async () => {
-    // Dismiss pending invitations
+    const now = new Date().toISOString();
     const pendingInvitesToDismiss = invitations.filter(inv => inv.status === 'pending' && inv.recipient_email === user.email);
     if (pendingInvitesToDismiss.length > 0) {
       const { error: inviteError } = await supabase
         .from('invitations')
-        .update({ status: 'dismissed' }) // New status 'dismissed'
+        .update({ status: 'dismissed' })
         .in('id', pendingInvitesToDismiss.map(inv => inv.id));
       if (inviteError) {
         console.error("Failed to dismiss invitations:", inviteError.message);
       }
     }
-
-    // Dismiss overdue task notifications
     const overdueTasksToDismiss = tasks.filter(task => isTaskOverdue(task) && !task.notification_dismissed_at);
     if (overdueTasksToDismiss.length > 0) {
       const { error: taskError } = await supabase
         .from('tasks')
-        .update({ notification_dismissed_at: new Date().toISOString() })
+        .update({ notification_dismissed_at: now })
         .in('id', overdueTasksToDismiss.map(task => task.id));
       if (taskError) {
         console.error("Failed to dismiss task notifications:", taskError.message);
       }
     }
-
-    // Re-fetch data to update UI
+    const upcomingEventsToDismiss = upcomingEventsToday.filter(event => !event.notification_dismissed_at);
+    if (upcomingEventsToDismiss.length > 0) {
+      const { error: eventError } = await supabase
+        .from('events')
+        .update({ notification_dismissed_at: now })
+        .in('id', upcomingEventsToDismiss.map(event => event.id));
+      if (eventError) {
+        console.error("Failed to dismiss event notifications:", eventError.message);
+      }
+    }
     await _fetchInvitations();
     await _fetchTasks();
-    setShowNotificationsDropdown(false); // Close dropdown after action
+    await _fetchEvents();
+    setShowNotificationsDropdown(false);
     updateLastActivity();
   };
 
   return (
-    <div className={`dashboard ${currentVisualTheme}-mode`}>
+    <div className={`dashboard ${currentVisualTheme}-mode ${activeTab === 'calendar' ? 'calendar-active' : ''}`}>
       <header className="dashboard-header">
         <div className="container dashboard-nav">
           <div className="nav-items">
@@ -1429,7 +1359,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                 <div className="notification-dropdown">
                   <div className="dropdown-header">
                     <h3>Notifications</h3>
-                    {/* NEW: Mark All as Read Button */}
                     {totalNotifications > 0 && (
                       <button className="btn-link" onClick={handleMarkAllAsRead}>Mark All as Read</button>
                     )}
@@ -1521,7 +1450,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </div>
       </header>
 
-      <div className="dashboard-layout container">
+      <div className={`dashboard-layout container`}>
         <aside className="sidebar">
           <nav className="sidebar-nav">
             <button className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => { setActiveTab('overview'); setSearchTerm(''); }}>
@@ -1771,48 +1700,50 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     </div>
                     <div className="events-list">
                       {getCalendarItemsForDate(selectedDate).length > 0 ? (
-                        getCalendarItemsForDate(selectedDate).map(item => (
-                          item.type === 'event' ? (
-                            <div key={item.id} className="event-card detailed">
-                              <div className="event-date-time-block">
-                                <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                                <span className="event-time-display">{item.time || 'All Day'}</span>
-                              </div>
-                              <div className="event-details">
-                                <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
-                                {item.description && <p className="event-description">{item.description}</p>}
-                                {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
-                                {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
-                              </div>
-                              <div className="event-actions">
-                                <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
-                                <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
-                              <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
-                              <div className="task-content">
-                                <div className="task-header">
-                                  <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
-                                  <div className="task-meta">
-                                    {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
-                                    {item.category && <span className="category-badge">{item.category}</span>}
-                                  </div>
+                        <React.Fragment>
+                          {getCalendarItemsForDate(selectedDate).map(item => (
+                            item.type === 'event' ? (
+                              <div key={item.id} className="event-card detailed">
+                                <div className="event-date-time-block">
+                                  <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                  <span className="event-time-display">{item.time || 'All Day'}</span>
                                 </div>
-                                {item.description && <p className="task-description">{item.description}</p>}
-                                <div className="task-footer">
-                                  {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
-                                  {item.expenses && (<span className="task-expenses"><DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}</span>)}
-                                  <div className="task-actions">
-                                    <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
-                                    <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
-                                  </div>
+                                <div className="event-details">
+                                  <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
+                                  {item.description && <p className="event-description">{item.description}</p>}
+                                  {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
+                                  {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
+                                </div>
+                                <div className="event-actions">
+                                  <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
+                                  <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
                                 </div>
                               </div>
-                            </div>
-                          )
-                        ))
+                            ) : (
+                              <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
+                                <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
+                                <div className="task-content">
+                                  <div className="task-header">
+                                    <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
+                                    <div className="task-meta">
+                                      {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
+                                      {item.category && <span className="category-badge">{item.category}</span>}
+                                    </div>
+                                  </div>
+                                  {item.description && <p className="task-description">{item.description}</p>}
+                                  <div className="task-footer">
+                                    {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
+                                    {item.expenses && (<span className="task-expenses"><DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}</span>)}
+                                    <div className="task-actions">
+                                      <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
+                                      <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          ))}
+                        </React.Fragment>
                       ) : (
                         <div className="no-events">
                           <CalendarDays className="no-events-icon" />
@@ -1880,7 +1811,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     </div>
                     <div className="stat-card">
                       <div className="stat-icon pending"><Flag size={24} /></div>
-                      <div className="stat-content"><h3>{taskTabStats.pending}</h3><p>Pending</p></div>
+                      <div className="stat-content"><h3>{taskTabStats.pending}</h3><p>Pending Tasks</p></div>
                     </div>
                     <div className="stat-card">
                       <div className="stat-icon overdue"><Clock size={24} /></div>
