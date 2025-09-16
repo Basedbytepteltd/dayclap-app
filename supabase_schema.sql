@@ -103,8 +103,8 @@ BEGIN
     'light', -- theme
     'en', -- language
     'UTC', -- timezone
-    '{\"email_daily\": true, \"email_weekly\": false, \"email_monthly\": false, \"email_3day_countdown\": false, \"push\": true, \"reminders\": true, \"invitations\": true}', -- notifications
-    '{\"profileVisibility\": \"team\", \"calendarSharing\": \"private\"}', -- privacy
+    '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "push": true, "reminders": true, "invitations": true}', -- notifications
+    '{"profileVisibility": "team", "calendarSharing": "private"}', -- privacy
     user_company_name, -- company_name (from signup options)
     initial_companies, -- dynamically set companies array
     new_company_id, -- dynamically set current_company_id
@@ -166,12 +166,14 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add 'last_activity_at' to 'events' if it doesn't exist
+-- Add/modify columns for 'events'
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'last_activity_at') THEN
-        ALTER TABLE public.events ADD COLUMN last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-        RAISE NOTICE 'Column last_activity_at added to public.events table.';
+    ALTER TABLE public.events ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+    -- NEW: Add notification_dismissed_at column to events
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'notification_dismissed_at') THEN
+        ALTER TABLE public.events ADD COLUMN notification_dismissed_at TIMESTAMP WITH TIME ZONE;
+        RAISE NOTICE 'Column notification_dismissed_at added to public.events table.';
     END IF;
 END
 $$;

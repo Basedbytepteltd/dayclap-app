@@ -142,7 +142,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-width: 300px;
+  /* Removed min-width: 300px; */
   max-width: 500px;
   padding: 2rem;
 }
@@ -480,11 +480,11 @@
     background-color: var(--accent-color);
     color: var(--button-text);
     transform: scale(1.1); /* MODIFIED: Increased scale for more noticeable pulse */
-    box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.5); /* NEW: Added a glow effect using accent color */
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); /* Using direct rgba for accent color */
   }
 }
 
-/* Staggered animation delays for a \"moving\" effect */
+/* Staggered animation delays for a "moving" effect */
 .loading-date:nth-child(1) { animation-delay: 0s; }
 .loading-date:nth-child(2) { animation-delay: 0.05s; }
 .loading-date:nth-child(3) { animation-delay: 0.1s; }
@@ -583,5 +583,23 @@
 
   .footer-section .logo {
     justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 2rem; /* Further reduce font size for very small screens */
+  }
+
+  .hero-description {
+    font-size: 1rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr; /* Single column for features on very small screens */
+  }
+
+  .footer-content {
+    grid-template-columns: 1fr; /* Single column for footer on very small screens */
   }
 }
