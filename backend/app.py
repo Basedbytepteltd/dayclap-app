@@ -42,7 +42,7 @@ def _fetch_email_settings_row():
         print(f"Error fetching email_settings row: {e}", file=sys.stderr)
         return None
 
-# **FIXED**: Function to send email via Maileroo HTTP API v2 with correct payload
+# **FINAL CORRECT**: Based on actual Maileroo API documentation
 def send_email_api(recipient_email, subject, html_body):
     settings = _fetch_email_settings_row() or {}
     
@@ -50,8 +50,8 @@ def send_email_api(recipient_email, subject, html_body):
                os.environ.get('MAILEROO_SENDING_KEY') or
                os.environ.get('MAILEROO_API_KEY'))
     
-    # **CONFIRMED**: Use the correct Maileroo API v2 endpoint as per customer service
-    api_endpoint = "https://smtp.maileroo.com/api/v2/send"
+    # **CORRECT ENDPOINT**: Based on Maileroo docs - it's /emails not /email or /send
+    api_endpoint = "https://smtp.maileroo.com/api/v2/emails"
     
     sender_email = (settings.get('mail_default_sender') or
                     os.environ.get('MAIL_DEFAULT_SENDER') or
@@ -60,23 +60,33 @@ def send_email_api(recipient_email, subject, html_body):
     if not api_key or not sender_email:
         raise ValueError("Maileroo Sending Key or Sender Email is not configured.")
 
-    # **CORRECTED**: Maileroo v2 API payload structure based on documentation
+    # **CORRECT FORMAT**: Based on Maileroo API v2 documentation
     maileroo_payload = {
-        "from": sender_email,
-        "to": [recipient_email],
+        "from": {
+            "email": sender_email,
+            "name": "DayClap Team"
+        },
+        "to": [
+            {
+                "email": recipient_email
+            }
+        ],
         "subject": subject,
         "html": html_body
     }
     
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
 
     try:
-        print(f"DEBUG: Sending email via Maileroo API to {recipient_email}", file=sys.stderr)
+        print(f"DEBUG: NEW VERSION - Sending email via Maileroo API to {recipient_email}", file=sys.stderr)
         print(f"DEBUG: Using API endpoint: {api_endpoint}", file=sys.stderr)
         print(f"DEBUG: Payload: {maileroo_payload}", file=sys.stderr)
+        print(f"DEBUG: Headers: {headers}", file=sys.stderr)
+        
         mail_response = requests.post(api_endpoint, json=maileroo_payload, headers=headers, timeout=15)
 
         # Keep detailed logging for success and failure
@@ -89,11 +99,11 @@ def send_email_api(recipient_email, subject, html_body):
             print(f"DEBUG: Maileroo API Response Body (not JSON): {mail_response.text}", file=sys.stderr)
             response_json = {"raw_text": mail_response.text}
 
-        if mail_response.ok:
+        if mail_response.status_code == 200 or mail_response.status_code == 201:
             return True, response_json
         else:
-            error_message = response_json.get('message', mail_response.text)
-            return False, f"API Error: {error_message}"
+            error_message = response_json.get('message', response_json.get('error', mail_response.text))
+            return False, f"API Error ({mail_response.status_code}): {error_message}"
 
     except requests.exceptions.RequestException as e:
         print(f"CRITICAL API Request Error: {e}", file=sys.stderr)
