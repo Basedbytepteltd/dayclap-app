@@ -6,6 +6,7 @@ from flask_cors import CORS
 from supabase import create_client, Client
 import requests
 from dotenv import load_dotenv
+from datetime import datetime # Moved to the top for global availability
 
 # Load environment variables from .env file
 load_dotenv()
@@ -42,15 +43,109 @@ def _fetch_email_settings_row():
         print(f"Error fetching email_settings row: {e}", file=sys.stderr)
         return None
 
-# **FIXED**: Correct field names based on Maileroo error message
-def send_email_api(recipient_email, subject, html_body):
+# NEW: Email Templates
+EMAIL_TEMPLATES = {
+    "welcome_email": """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+            .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+            .content { padding: 20px; line-height: 1.6; color: #333333; }
+            .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>Welcome to DayClap!</h2>
+            </div>
+            <div class="content">
+                <p>Hello {{ user_name }},</p>
+                <p>Your DayClap account is now active! We're thrilled to have you on board.</p>
+                <p>DayClap helps you streamline your schedule, manage tasks effortlessly, and collaborate with your team. Get ready to boost your productivity!</p>
+                <p style="text-align: center;">
+                    <a href="{{ frontend_url }}" class="button">Go to Dashboard</a>
+                </p>
+                <p>If you have any questions, feel free to reach out to our support team.</p>
+                <p>Best regards,<br>The DayClap Team</p>
+            </div>
+            <div class="footer">
+                <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """,
+    "invitation_to_company": """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+            .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+            .content { padding: 20px; line-height: 1.6; color: #333333; }
+            .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>You're Invited to Join a Team on DayClap!</h2>
+            </div>
+            <div class="content">
+                <p>Hello,</p>
+                <p><b>{{ sender_email }}</b> has invited you to join their team, <b>'{{ company_name }}'</b>, on DayClap as a <b>{{ role }}</b>.</p>
+                <p>DayClap helps teams collaborate on schedules, manage tasks, and boost overall productivity.</p>
+                <p style="text-align: center;">
+                    <a href="{{ invitation_link }}" class="button">Accept Invitation</a>
+                </p>
+                <p>If you have any questions, please contact {{ sender_email }}.</p>
+                <p>Best regards,<br>The DayClap Team</p>
+            </div>
+            <div class="footer">
+                <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+}
+
+# NEW: Helper function to render email templates
+def render_email_template(template_name, data):
+    template = EMAIL_TEMPLATES.get(template_name)
+    if not template:
+        raise ValueError(f"Email template '{template_name}' not found.")
+    
+    # Replace placeholders with actual data
+    rendered_html = template
+    for key, value in data.items():
+        rendered_html = rendered_html.replace(f"{{{{ {key} }}}}", str(value))
+    
+    # Ensure current_year is always available
+    if "{{ current_year }}" in rendered_html:
+        rendered_html = rendered_html.replace("{{ current_year }}", str(datetime.now().year))
+
+    return rendered_html
+
+def send_email_api(recipient_email, subject, template_name, template_data=None):
     settings = _fetch_email_settings_row() or {}
     
     api_key = (settings.get('maileroo_sending_key') or
                os.environ.get('MAILEROO_SENDING_KEY') or
                os.environ.get('MAILEROO_API_KEY'))
     
-    api_endpoint = "https://smtp.maileroo.com/api/v2/emails"
+    # Dynamically get the base API endpoint from settings or environment, then append '/emails'
+    base_api_endpoint = (settings.get('maileroo_api_endpoint') or
+                         os.environ.get('MAILEROO_API_ENDPOINT') or
+                         "https://smtp.maileroo.com/api/v2")
+    api_endpoint = f"{base_api_endpoint}/emails" # Append /emails for the sending endpoint
     
     sender_email = (settings.get('mail_default_sender') or
                     os.environ.get('MAIL_DEFAULT_SENDER') or
@@ -59,7 +154,9 @@ def send_email_api(recipient_email, subject, html_body):
     if not api_key or not sender_email:
         raise ValueError("Maileroo Sending Key or Sender Email is not configured.")
 
-    # **CORRECTED**: Use 'address' instead of 'email' in from field
+    # Render the email template
+    html_body = render_email_template(template_name, template_data or {})
+
     maileroo_payload = {
         "from": {
             "address": sender_email,
@@ -81,7 +178,7 @@ def send_email_api(recipient_email, subject, html_body):
     }
 
     try:
-        print(f"DEBUG: FIXED VERSION - Sending email via Maileroo API to {recipient_email}", file=sys.stderr)
+        print(f"DEBUG: Sending email via Maileroo API to {recipient_email} using template '{template_name}'", file=sys.stderr)
         print(f"DEBUG: Using API endpoint: {api_endpoint}", file=sys.stderr)
         print(f"DEBUG: Payload: {maileroo_payload}", file=sys.stderr)
         
@@ -92,9 +189,9 @@ def send_email_api(recipient_email, subject, html_body):
         response_json = {}
         try:
             response_json = mail_response.json()
-            print(f"DEBUG: Maileroo API Response Body: {response_json}", file=sys.stderr)
+            print(f"DEBUG: Maileroo API Response Body: {response_json}\n", file=sys.stderr)
         except Exception:
-            print(f"DEBUG: Maileroo API Response Body (not JSON): {mail_response.text}", file=sys.stderr)
+            print(f"DEBUG: Maileroo API Response Body (not JSON): {mail_response.text}\n", file=sys.stderr)
             response_json = {"raw_text": mail_response.text}
 
         if mail_response.status_code == 200 or mail_response.status_code == 201:
@@ -163,12 +260,17 @@ def send_test_email():
 
     try:
         email_subject = "DayClap Test Email"
-        email_html_body = "<p>This is a test email from your DayClap Super Admin Dashboard. If you received this, your Maileroo API integration is working correctly!</p>"
+        # Use the welcome email template for testing purposes
+        template_data = {
+            "user_name": "DayClap User",
+            "frontend_url": os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173'),
+            "current_year": datetime.now().year
+        }
         
-        success, details = send_email_api(recipient_email, email_subject, email_html_body)
+        success, details = send_email_api(recipient_email, email_subject, "welcome_email", template_data)
 
         if success:
-            return jsonify({"message": "Test email sent successfully via API!", "details": details}), 200
+            return jsonify({"message": "Test email sent successfully via API! (using welcome template)", "details": details}), 200
         else:
             return jsonify({"message": "Failed to send test email via API.", "details": details}), 500
 
@@ -192,9 +294,17 @@ def send_invitation():
 
         email_subject = f"You're invited to join {data['company_name']} on DayClap"
         frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
-        email_html_body = f"<p><b>{data['sender_email']}</b> has invited you to join <b>'{data['company_name']}'</b> on DayClap. <a href='{frontend_url}'>Accept here</a>.</p>"
         
-        success, details = send_email_api(data['recipient_email'], email_subject, email_html_body)
+        # NEW: Use the invitation template
+        template_data = {
+            "sender_email": data['sender_email'],
+            "company_name": data['company_name'],
+            "role": data['role'],
+            "invitation_link": frontend_url, # Assuming frontend handles invitation acceptance
+            "current_year": datetime.now().year
+        }
+        
+        success, details = send_email_api(data['recipient_email'], email_subject, "invitation_to_company", template_data)
 
         if success:
             return jsonify({"message": "Invitation sent successfully!", "details": details}), 200
