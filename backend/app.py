@@ -6,10 +6,6 @@ from flask_cors import CORS
 from supabase import create_client, Client
 import requests
 from dotenv import load_dotenv
-import smtplib
-import ssl
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 # Load environment variables from .env file
 load_dotenv()
@@ -46,52 +42,62 @@ def _fetch_email_settings_row():
         print(f"Error fetching email_settings row: {e}", file=sys.stderr)
         return None
 
-# **MODIFIED**: Function to send email via SMTP with intensive debugging
-def send_email_smtp(recipient_email, subject, html_body):
+# **REVERTED**: Function to send email via Maileroo HTTP API
+def send_email_api(recipient_email, subject, html_body):
     settings = _fetch_email_settings_row() or {}
     
-    smtp_host = "smtp.maileroo.com"
-    smtp_port = 587  # Standard port for STARTTLS
+    api_key = (settings.get('maileroo_sending_key') or
+               os.environ.get('MAILEROO_SENDING_KEY') or
+               os.environ.get('MAILEROO_API_KEY'))
+    
+    api_endpoint = (settings.get('maileroo_api_endpoint') or
+                    os.environ.get('MAILEROO_API_ENDPOINT') or
+                    "https://smtp.maileroo.com/api/v2") # Correct API endpoint
     
     sender_email = (settings.get('mail_default_sender') or
                     os.environ.get('MAIL_DEFAULT_SENDER') or
                     "no-reply@team.dayclap.com")
+
+    if not api_key or not sender_email:
+        raise ValueError("Maileroo Sending Key or Sender Email is not configured.")
+
+    # Maileroo API expects the "From" header to be in "Name <email@domain.com>" format
+    formatted_from = f"DayClap Team <{sender_email}>"
+
+    maileroo_payload = {
+        "from": formatted_from,
+        "to": recipient_email,
+        "subject": subject,
+        "html": html_body
+    }
     
-    smtp_password = (settings.get('maileroo_sending_key') or
-                     os.environ.get('MAILEROO_SENDING_KEY') or
-                     os.environ.get('MAILEROO_API_KEY'))
-
-    if not smtp_password or not sender_email:
-        raise ValueError("SMTP password (Maileroo Key) or Sender Email is not configured.")
-
-    message = MIMEMultipart("alternative")
-    message["Subject"] = subject
-    # **FIX**: Simplify From header to just the email address for maximum compatibility.
-    message["From"] = sender_email
-    message["To"] = recipient_email
-
-    # Attach the HTML part
-    message.attach(MIMEText(html_body, "html"))
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
 
     try:
-        print(f"DEBUG: SMTP Connect -> Host: {smtp_host}, Port: {smtp_port}", file=sys.stderr)
-        context = ssl.create_default_context()
-        # **FIX**: Add intensive debug logging to capture the full SMTP conversation.
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
-            # This will print the raw SMTP conversation to the logs.
-            server.set_debuglevel(1) 
-            print("DEBUG: SMTP Upgrading to TLS...", file=sys.stderr)
-            server.starttls(context=context)
-            print("DEBUG: SMTP Connection secured with TLS.", file=sys.stderr)
-            print(f"DEBUG: SMTP Logging in with user: {sender_email}", file=sys.stderr)
-            server.login(sender_email, smtp_password)
-            print("DEBUG: SMTP Login successful.", file=sys.stderr)
-            print(f"DEBUG: SMTP Sending email from {sender_email} to {recipient_email}", file=sys.stderr)
-            server.sendmail(sender_email, recipient_email, message.as_string())
-            print(f"DEBUG: SMTP email sent successfully to {recipient_email}", file=sys.stderr)
-        return True, "Email sent successfully via SMTP."
-    except Exception as e:
-        print(f"CRITICAL SMTP Error: {e}", file=sys.stderr)
+        print(f"DEBUG: Sending email via Maileroo API to {recipient_email}", file=sys.stderr)
+        mail_response = requests.post(api_endpoint, json=maileroo_payload, headers=headers, timeout=15)
+
+        # Keep detailed logging for success and failure
+        print(f"DEBUG: Maileroo API Response Status: {mail_response.status_code}", file=sys.stderr)
+        response_json = {}
+        try:
+            response_json = mail_response.json()
+            print(f"DEBUG: Maileroo API Response Body: {response_json}", file=sys.stderr)
+        except Exception:
+            print(f"DEBUG: Maileroo API Response Body (not JSON): {mail_response.text}", file=sys.stderr)
+            response_json = {"raw_text": mail_response.text}
+
+        if mail_response.ok:
+            return True, response_json
+        else:
+            error_message = response_json.get('message', mail_response.text)
+            return False, f"API Error: {error_message}"
+
+    except requests.exceptions.RequestException as e:
+        print(f"CRITICAL API Request Error: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         return False, str(e)
 
@@ -150,14 +156,14 @@ def send_test_email():
 
     try:
         email_subject = "DayClap Test Email"
-        email_html_body = "<p>This is a test email from your DayClap Super Admin Dashboard. If you received this, your Maileroo SMTP integration is working correctly.</p>"
+        email_html_body = "<p>This is a test email from your DayClap Super Admin Dashboard. If you received this, your Maileroo API integration is working correctly.</p>"
         
-        success, message = send_email_smtp(recipient_email, email_subject, email_html_body)
+        success, details = send_email_api(recipient_email, email_subject, email_html_body)
 
         if success:
-            return jsonify({"message": "Test email sent successfully!"}), 200
+            return jsonify({"message": "Test email sent successfully via API!", "details": details}), 200
         else:
-            return jsonify({"message": "Failed to send test email via SMTP.", "details": message}), 500
+            return jsonify({"message": "Failed to send test email via API.", "details": details}), 500
 
     except Exception as e:
         print(f"Error in send_test_email: {e}", file=sys.stderr)
@@ -181,13 +187,13 @@ def send_invitation():
         frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
         email_html_body = f"<p><b>{data['sender_email']}</b> has invited you to join <b>'{data['company_name']}'</b> on DayClap. <a href='{frontend_url}'>Accept here</a>.</p>"
         
-        success, message = send_email_smtp(data['recipient_email'], email_subject, email_html_body)
+        success, details = send_email_api(data['recipient_email'], email_subject, email_html_body)
 
         if success:
-            return jsonify({"message": "Invitation sent successfully!"}), 200
+            return jsonify({"message": "Invitation sent successfully!", "details": details}), 200
         else:
-            print(f"SMTP Error on Invitation: {message}", file=sys.stderr)
-            return jsonify({"message": "Invitation saved, but failed to send email.", "details": message}), 202
+            print(f"API Error on Invitation: {details}", file=sys.stderr)
+            return jsonify({"message": "Invitation saved, but failed to send email.", "details": details}), 202
 
     except Exception as e:
         print(f"Error in send_invitation: {e}", file=sys.stderr)
