@@ -16,7 +16,6 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  /* Added gap for spacing */
 }
 
 .nav-items {
@@ -26,26 +25,19 @@
 }
 
 .logo {
-  /* Re-added styles for the logo container */
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* Increased gap */
 }
 
 .logo-icon {
-  /* Re-added styles for the icon */
   width: 2rem;
-  /* Increased size */
   height: 2rem;
-  /* Increased size */
   color: var(--accent-color);
 }
 
 .logo-text {
-  /* Re-added styles for the logo text */
   font-size: 1.8rem;
-  /* Increased font size */
   font-weight: bold;
   color: var(--primary-text);
 }
@@ -54,9 +46,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  /* Increased gap */
   padding: 0.75rem 1.25rem;
-  /* Increased padding */
   background-color: var(--secondary-bg);
   border-radius: 0.375rem;
   position: relative;
@@ -64,9 +54,7 @@
 
 .user-icon {
   width: 1.5rem;
-  /* Increased size */
   height: 1.5rem;
-  /* Increased size */
   color: var(--secondary-text);
   flex-shrink: 0;
 }
@@ -75,12 +63,10 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  /* Increased gap */
 }
 
 .user-name {
   font-size: 1rem;
-  /* Increased font size */
   font-weight: 500;
   color: var(--primary-text);
   line-height: 1.2;
@@ -94,19 +80,15 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* Increased gap */
   padding: 0.375rem 0.75rem;
-  /* Increased padding */
   background: none;
   border: 1px solid var(--border-color);
   border-radius: 0.25rem;
   cursor: pointer;
   font-size: 0.875rem;
-  /* Increased font size */
   color: var(--secondary-text);
   transition: all 0.2s ease;
   max-width: 200px;
-  /* Increased max-width */
 }
 
 .company-btn:hover {
@@ -121,11 +103,8 @@
 }
 
 .company-btn svg {
-  /* Target icons inside company button */
   width: 1rem;
-  /* Increased icon size */
   height: 1rem;
-  /* Increased icon size */
 }
 
 .add-company-btn {
@@ -161,23 +140,19 @@
   overflow-y: auto;
   margin-top: 0.25rem;
   min-width: 220px;
-  /* Increased min-width */
 }
 
 .company-option {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* Increased gap */
   padding: 0.875rem;
-  /* Increased padding */
   width: 100%;
   text-align: left;
   background: none;
   border: none;
   cursor: pointer;
   font-size: 0.95rem;
-  /* Increased font size */
   color: var(--primary-text);
   transition: background-color 0.2s ease;
 }
@@ -212,7 +187,6 @@
   color: var(--secondary-text);
   transition: all 0.2s ease;
   position: relative;
-  /* Added for badge positioning */
 }
 
 .nav-button:hover {
@@ -271,26 +245,12 @@
   border: 1px solid var(--border-color);
 }
 
-.event-modal {
-  background-color: var(--primary-bg);
-  border-radius: 0.75rem;
-  width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  /* Added for scrollability */
-  overflow-y: auto;
-  /* Added for scrollability */
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--border-color);
-}
-
 /* New Date Options Modal */
 .date-options-modal {
   background-color: var(--primary-bg);
   border-radius: 0.75rem;
   width: 100%;
   max-width: 350px;
-  /* Smaller width */
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--border-color);
 }
@@ -305,7 +265,6 @@
 .date-options-modal .btn-full {
   width: 100%;
 }
-
 
 .modal-backdrop {
   position: fixed;
@@ -400,13 +359,11 @@
   color: var(--secondary-text);
   pointer-events: none;
   z-index: 2;
-  /* Ensure icon is on top */
 }
 
 .form-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.75rem;
-  /* Reverted padding-left to original */
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   background-color: var(--secondary-bg);
@@ -467,10 +424,8 @@
   box-sizing: border-box;
 }
 
-/* Reverted left padding for select elements when they have an icon */
 .input-wrapper .form-select {
   padding-left: 2.75rem;
-  /* Reverted to original padding */
 }
 
 .form-select:focus {
@@ -708,7 +663,6 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* Kept this increased gap for better spacing */
   padding: 0.75rem 1rem;
   border: none;
   background: none;
@@ -737,23 +691,17 @@
 /* NEW: Dark mode specific overrides for settings navigation tab text */
 body.dark-mode .settings-nav-tab {
   color: #ffffff;
-  /* White text for non-active tabs in dark mode */
 }
 
 body.dark-mode .settings-nav-tab:hover {
   color: #ffffff;
-  /* Keep white on hover */
   background-color: #3a3a3a;
-  /* Slightly darker hover background */
 }
 
 body.dark-mode .settings-nav-tab.active {
   color: var(--accent-color);
-  /* Keep accent color for active tab */
   background-color: #2d2d2d;
-  /* Darker background for active tab */
 }
-
 
 /* Settings Tab Content */
 .settings-tab-content {
@@ -769,11 +717,8 @@ body.dark-mode .settings-nav-tab.active {
 
 .settings-section-header {
   display: flex;
-  /* ADDED: Make it a flex container */
   justify-content: space-between;
-  /* ADDED: Space out items */
   align-items: center;
-  /* ADDED: Vertically align items */
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-color);
@@ -919,25 +864,18 @@ input:checked+.toggle-slider:before {
   color: var(--secondary-text);
 }
 
-/* Dark mode specific overrides for company item text */
 body.dark-mode .company-item-name {
   color: #ffffff;
-  /* Brighter white for titles */
 }
 
 body.dark-mode .company-item-date {
   color: #cccccc;
-  /* Lighter grey for dates */
 }
 
-/* NEW: Ensure company item background is dark in dark mode */
 body.dark-mode .company-item {
   background-color: #1f1f1f;
-  /* A very dark grey, distinct from primary/secondary bg */
   border-color: #3a3a3a;
-  /* Darker border for contrast */
 }
-
 
 .current-badge {
   padding: 0.25rem 0.75rem;
@@ -1197,7 +1135,6 @@ body.dark-mode .company-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* Increased gap */
   padding: 0.75rem 1rem;
   border: none;
   background: none;
@@ -1256,7 +1193,6 @@ body.dark-mode .company-item {
 /* Specific styling for the header notification badge */
 .dashboard-header .nav-button .notification-badge {
   top: 0.25rem;
-  /* Adjust position relative to the bell icon */
   right: 0.25rem;
   transform: none;
   font-size: 0.65rem;
@@ -1265,30 +1201,25 @@ body.dark-mode .company-item {
   height: 1rem;
   line-height: 0.8rem;
   background-color: var(--error-color);
-  /* Use error color for notifications */
   color: white;
   border: 1px solid var(--primary-bg);
-  /* Add a small border for contrast */
 }
 
 .dashboard-header .nav-button.active .notification-badge {
   background-color: rgba(255, 255, 255, 0.9);
   color: var(--error-color);
-  /* Invert colors when active */
 }
 
 /* Notification Dropdown */
 .notification-dropdown {
   position: absolute;
   top: calc(100% + 10px);
-  /* Position below the bell */
   right: 0;
   background-color: var(--primary-bg);
   border: 1px solid var(--border-color);
   border-radius: 0.75rem;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   width: 320px;
-  /* Fixed width for dropdown */
   max-height: 400px;
   overflow-y: auto;
   z-index: 100;
@@ -1348,7 +1279,6 @@ body.dark-mode .company-item {
   color: var(--accent-color);
   flex-shrink: 0;
   margin-top: 2px;
-  /* Align icon with text */
 }
 
 .notification-details {
@@ -1391,7 +1321,6 @@ body.dark-mode .company-item {
   justify-content: center;
   transition: background-color 0.2s ease;
   border: 1px solid transparent;
-  /* Ensure consistent button size */
 }
 
 .btn-icon-small.btn-success {
@@ -1420,50 +1349,36 @@ body.dark-mode .company-item {
 .main-content {
   flex: 1;
   padding: 2rem;
-  /* MODIFIED: Added consistent horizontal padding */
   overflow-x: auto;
 }
 
 /* General Button Styles (Base for all buttons in Dashboard) */
 .btn {
   padding: 0.75rem 1.5rem;
-  /* Slightly more padding for a larger feel */
   border: none;
   border-radius: 0.5rem;
-  /* More rounded corners */
   font-size: 1rem;
-  /* Slightly larger font */
   font-weight: 600;
-  /* Bolder text */
   cursor: pointer;
   transition: all 0.3s ease;
-  /* Smoother transitions */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  /* Space for icons */
   text-decoration: none;
-  /* Ensure no underline for anchor-like buttons */
 }
 
 /* Primary Button Styles */
 .btn-primary {
   background-color: var(--accent-color);
-  /* Use accent color for primary */
   color: var(--button-text);
-  /* White text on accent */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  /* Add a subtle shadow */
 }
 
 .btn-primary:hover {
   background-color: color-mix(in srgb, var(--accent-color) 85%, black);
-  /* Slightly darker accent on hover */
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-  /* More pronounced shadow on hover */
   transform: translateY(-1px);
-  /* Slight lift effect */
 }
 
 /* Outline Button Styles */
@@ -1472,15 +1387,12 @@ body.dark-mode .company-item {
   color: var(--primary-text);
   border: 1px solid var(--border-color);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  /* Subtle shadow for outline buttons */
 }
 
 .btn-outline:hover {
   background-color: var(--secondary-bg);
   border-color: var(--accent-color);
-  /* Highlight border on hover */
   color: var(--accent-color);
-  /* Change text color to accent on hover */
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
@@ -1492,35 +1404,29 @@ body.dark-mode .company-item {
   font-weight: 500;
   border-radius: 0.375rem;
   box-shadow: none;
-  /* Remove shadow for small buttons unless explicitly added */
 }
 
 .btn-small:hover {
   transform: none;
-  /* No lift for small buttons */
   box-shadow: none;
 }
 
 /* Modal Footer Button Adjustments (to make them slightly less prominent than main page buttons) */
 .modal-footer .btn {
   padding: 0.6rem 1.2rem;
-  /* Slightly smaller padding for modal buttons */
   font-size: 0.9rem;
   font-weight: 500;
   border-radius: 0.375rem;
   box-shadow: none;
-  /* Remove shadow for modal buttons */
 }
 
 .modal-footer .btn-primary:hover {
   transform: none;
-  /* No lift for modal buttons */
   box-shadow: none;
 }
 
 .modal-footer .btn-outline:hover {
   transform: none;
-  /* No lift for modal buttons */
   box-shadow: none;
 }
 
@@ -1528,7 +1434,6 @@ body.dark-mode .company-item {
 .overview-content {
   max-width: 1200px;
   margin: 0 auto;
-  /* ADDED: Center the content */
 }
 
 .overview-header {
@@ -1599,44 +1504,36 @@ body.dark-mode .company-item {
   font-size: 0.875rem;
 }
 
-/* MODIFIED: Styles for the percentage card */
 .stat-card.percentage-card {
-  background-color: #000000; /* Black background */
-  border: 1px solid #333; /* Darker border for subtle definition */
+  background-color: #000000;
+  border: 1px solid #333;
 }
 
 .stat-card.percentage-card .stat-content h3,
 .stat-card.percentage-card .stat-content p {
-  color: #ffffff; /* White text for contrast */
+  color: #ffffff;
 }
 
 .stat-card.percentage-card .stat-icon.percentage-completed {
-  background-color: #10b981; /* Green for completed */
+  background-color: #10b981;
   color: #ffffff;
 }
 
 .stat-card.percentage-card .stat-icon.percentage-pending {
-  background-color: #f59e0b; /* Orange for pending */
+  background-color: #f59e0b;
   color: #ffffff;
 }
 
-
-/* UPDATED: Styles for the full-width expenses card */
 .stat-card.expenses-card {
   grid-column: 1 / -1;
-  /* Span full width of the grid */
   flex-direction: column;
-  /* Stack icon and content vertically */
   align-items: center;
-  /* Center content horizontally */
   text-align: center;
   padding: 2rem;
-  /* Give it more vertical space */
 }
 
 .stat-card.expenses-card .stat-icon {
   width: 4rem;
-  /* Make the icon larger */
   height: 4rem;
   border-radius: 1rem;
 }
@@ -1648,18 +1545,15 @@ body.dark-mode .company-item {
 
 .stat-card.expenses-card .stat-content h3 {
   font-size: 2.5rem;
-  /* Make the total expenses font larger */
 }
 
 .stat-card.expenses-card .stat-content p {
   font-size: 1rem;
-  /* Make the label font larger */
 }
 
 .overview-sections {
   display: grid;
   grid-template-columns: 1fr;
-  /* Changed from 1fr 1fr to stack sections vertically */
   gap: 2rem;
 }
 
@@ -1684,34 +1578,24 @@ body.dark-mode .company-item {
   margin-bottom: 1.5rem;
 }
 
-/* New styles for header actions (dropdown + button) */
 .header-actions {
   display: flex;
   align-items: center;
   gap: 1rem;
-  /* Space between dropdown and button */
   margin-left: auto;
-  /* Push to right */
 }
 
 .event-filter-dropdown .form-select,
 .task-filter-dropdown .form-select {
-  /* Added task-filter-dropdown */
   min-width: 180px;
-  /* Ensure it's wide enough */
   padding: 0.5rem 1rem;
-  /* Adjust padding to match small buttons */
   font-size: 0.875rem;
-  /* Match small button font size */
   height: 38px;
-  /* Match button height */
 }
-
 
 /* Calendar Content */
 .calendar-content {
   display: grid;
-  /* Changed to a single column to stack calendar above events */
   grid-template-columns: 1fr;
   gap: 2rem;
   max-width: 1200px;
@@ -1763,13 +1647,9 @@ body.dark-mode .company-item {
   grid-template-columns: repeat(7, 1fr);
   gap: 1px;
   background-color: var(--border-color);
-  /* Reverted to use theme's border-color */
   border-radius: 0.5rem;
   overflow: hidden;
 }
-
-/* Removed the specific dark mode override for .calendar-grid */
-
 
 .day-header {
   background-color: var(--secondary-bg);
@@ -1790,9 +1670,7 @@ body.dark-mode .company-item {
   flex-direction: column;
   transition: all 0.2s ease;
   align-items: flex-start;
-  /* Align content to the top-left */
   gap: 0.2rem;
-  /* Space between day number and event text */
 }
 
 .calendar-day:hover:not(.empty) {
@@ -1815,12 +1693,9 @@ body.dark-mode .company-item {
   color: var(--button-text);
 }
 
-/* NEW: Specific hover styles for selected calendar days */
 .calendar-day.selected:hover {
   background-color: color-mix(in srgb, var(--accent-color) 90%, black);
-  /* Slightly darker accent color */
   color: var(--button-text);
-  /* Keep text white */
 }
 
 .calendar-day.has-item .day-number {
@@ -1831,37 +1706,26 @@ body.dark-mode .company-item {
   font-size: 0.875rem;
   color: inherit;
   margin-bottom: 0.25rem;
-  /* Space below day number */
 }
 
-/* NEW: Styling for mini item text */
 .item-mini-text {
   font-size: 0.65rem;
-  /* Very small font size */
   color: var(--secondary-text);
   white-space: nowrap;
-  /* Prevent text from wrapping */
   overflow: hidden;
-  /* Hide overflow text */
   text-overflow: ellipsis;
-  /* Add ellipsis for overflow */
   width: 100%;
-  /* Take full width of the cell */
   text-align: left;
   line-height: 1.1;
   padding: 0 0.2rem;
-  /* Small horizontal padding */
 }
 
 .calendar-day.selected .item-mini-text {
   color: rgba(255, 255, 255, 0.8);
-  /* Semi-transparent white */
 }
 
-/* NEW: Ensure item mini-text is fully white on selected:hover */
 .calendar-day.selected:hover .item-mini-text {
   color: var(--button-text);
-  /* Ensure full white for visibility */
 }
 
 .item-mini-text.completed-task {
@@ -1878,7 +1742,6 @@ body.dark-mode .company-item {
 .item-mini-text.pending-task {
   color: var(--accent-color);
 }
-
 
 /* Events Section */
 .events-section {
@@ -1933,31 +1796,15 @@ body.dark-mode .company-item {
 .event-card.upcoming {
   border-left: 4px solid var(--accent-color);
   position: relative;
-  /* Added for positioning actions */
 }
 
-/* REMOVED: Old .event-time styles */
-/*
-.event-time {
-  flex-shrink: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--accent-color);
-  width: 80px;
-}
-*/
-
-/* NEW: Styles for the combined date and time block in detailed event cards */
 .event-card.detailed .event-date-time-block {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Center text horizontally */
   justify-content: center;
-  /* Center text vertically */
   min-width: 90px;
-  /* Increased min-width to accommodate date */
   padding: 0.5rem;
   background-color: var(--secondary-bg);
   border-radius: 0.5rem;
@@ -1966,7 +1813,6 @@ body.dark-mode .company-item {
 
 .event-card.detailed .event-date-time-block .event-date-display {
   font-size: 0.8rem;
-  /* Smaller font for date */
   font-weight: 500;
   color: var(--secondary-text);
   line-height: 1.2;
@@ -1975,12 +1821,10 @@ body.dark-mode .company-item {
 
 .event-card.detailed .event-date-time-block .event-time-display {
   font-size: 1rem;
-  /* Larger font for time */
   font-weight: 700;
   color: var(--primary-text);
   line-height: 1.2;
 }
-
 
 .event-date {
   flex-shrink: 0;
@@ -2013,7 +1857,6 @@ body.dark-mode .company-item {
   font-size: 1rem;
   font-weight: 600;
   color: var(--accent-color);
-  /* MODIFIED: Changed to accent color */
   margin-bottom: 0.25rem;
 }
 
@@ -2049,10 +1892,8 @@ body.dark-mode .company-item {
 /* All Events Content */
 .all-events-content {
   padding: 0 2rem;
-  /* ADDED: Consistent horizontal padding */
   max-width: 1200px;
   margin: 0 auto;
-  /* ADDED: Center the content */
 }
 
 .all-events-header {
@@ -2070,7 +1911,6 @@ body.dark-mode .company-item {
   color: var(--secondary-text);
   font-size: 1rem;
 }
-
 
 /* Tasks Content */
 .tasks-content {
@@ -2112,16 +1952,13 @@ body.dark-mode .company-item {
   background-color: #ef4444;
 }
 
-/* NEW: Expenses stat icon color */
 .stat-icon.expenses {
   background-color: #14b8a6;
-  /* Teal color for expenses */
 }
 
 .tasks-sections {
   display: grid;
   grid-template-columns: 1fr;
-  /* Changed to single column for unified list */
   gap: 2rem;
   margin-bottom: 2rem;
 }
@@ -2253,14 +2090,11 @@ body.dark-mode .company-item {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  /* Allow items to wrap */
   gap: 0.5rem;
-  /* Add gap for wrapped items */
 }
 
 .task-footer .task-actions {
   margin-left: auto;
-  /* Push actions to the right */
 }
 
 .due-date {
@@ -2513,147 +2347,15 @@ body.dark-mode .company-item {
   justify-content: flex-end;
   gap: 0.75rem;
   padding-top: 1rem;
-  /* Add padding to separate from description */
   border-top: 1px solid var(--border-color);
-  /* Add a separator */
   margin-top: 1.5rem;
-  /* Space below these buttons */
   margin-bottom: 1.5rem;
-  /* Space below these buttons */
-}
-
-.event-tasks-section {
-  margin-top: 2rem;
-  /* Increased margin to separate from main buttons */
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.event-tasks-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--primary-text);
-  margin-bottom: 1rem;
-}
-
-.task-section-description {
-  color: var(--secondary-text);
-  font-size: 0.875rem;
-  margin-bottom: 1.5rem;
-}
-
-.event-task-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background-color: var(--secondary-bg);
-  border-radius: 0.5rem;
-  border: 1px solid var(--border-color);
-}
-
-.event-task-form .form-group {
-  margin-bottom: 0;
-  /* Override default form-group margin */
-}
-
-.event-task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.event-task-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background-color: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
-}
-
-.event-task-item:hover {
-  border-color: var(--accent-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.event-task-item.completed {
-  opacity: 0.7;
-  background-color: rgba(16, 185, 129, 0.05);
-  border-color: rgba(16, 185, 129, 0.2);
-}
-
-.event-task-item.overdue {
-  border-left: 4px solid #ef4444;
-}
-
-.event-task-item .task-checkbox {
-  padding-top: 0.125rem;
-}
-
-.event-task-item .task-details {
-  flex: 1;
-}
-
-.event-task-item .task-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--primary-text);
-  margin-bottom: 0.25rem;
-}
-
-.event-task-item.completed .task-title {
-  text-decoration: line-through;
-  color: var(--secondary-text);
-}
-
-.event-task-item .task-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--secondary-text);
-}
-
-.event-task-item .task-meta .assigned-to {
-  font-weight: 500;
-  color: var(--accent-color);
-}
-
-.event-task-item .task-meta .due-date {
-  font-weight: 500;
-}
-
-.event-task-item.overdue .task-meta .due-date {
-  color: #ef4444;
-  font-weight: 600;
-}
-
-.event-task-item .task-actions {
-  display: flex;
-  gap: 0.25rem;
-  flex-shrink: 0;
-}
-
-.event-task-item .btn-icon-small.edit:hover {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: var(--accent-color);
-}
-
-.event-task-item .btn-icon-small.delete:hover {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
 }
 
 /* Universal Search Bar */
 .search-bar {
   flex-grow: 1;
-  /* Allow search bar to take available space */
   max-width: 500px;
-  /* Increased max-width */
   position: relative;
   display: flex;
   align-items: center;
@@ -2664,21 +2366,17 @@ body.dark-mode .company-item {
   left: 1rem;
   color: var(--secondary-text);
   width: 1.25rem;
-  /* Increased icon size */
   height: 1.25rem;
-  /* Increased icon size */
 }
 
 .search-input {
   width: 100%;
   padding: 0.875rem 1rem 0.875rem 3rem;
-  /* Increased padding-left for icon */
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   background-color: var(--secondary-bg);
   color: var(--primary-text);
   font-size: 0.95rem;
-  /* Increased font size */
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
@@ -2759,55 +2457,37 @@ body.dark-mode .company-item {
 
 .clickable-title:hover {
   color: color-mix(in srgb, var(--accent-color) 80%, black);
-  /* Darker blue on hover */
   text-decoration: underline;
 }
-
 
 /* Dark mode specific overrides for overview sections */
 body.dark-mode .overview-header h2 {
   color: #ffffff;
-  /* Pure white for main titles */
 }
 
 body.dark-mode .overview-subtitle {
   color: #e0e0e0;
-  /* Lighter grey for subtitles */
 }
 
 body.dark-mode .stat-card .stat-content h3 {
   color: #ffffff;
-  /* Pure white for stat numbers */
 }
 
 body.dark-mode .stat-card .stat-content p {
   color: #e0e0e0;
-  /* Lighter grey for stat descriptions */
 }
 
 body.dark-mode .overview-sections .section .section-title {
   color: #ffffff;
-  /* Pure white for section titles */
 }
 
 body.dark-mode .event-card .event-title {
   color: var(--accent-color);
-  /* MODIFIED: Keep it blue in dark mode */
 }
 
 body.dark-mode .event-card .event-time-desc,
 body.dark-mode .event-card .event-description {
   color: #cccccc;
-  /* Lighter grey for event details */
-}
-
-/* NEW: Styles for the event tasks footer button */
-.event-tasks-footer {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* NEW: Custom Select Styles */
@@ -2822,7 +2502,6 @@ body.dark-mode .event-card .event-description {
   justify-content: space-between;
   cursor: pointer;
   padding-right: 1rem;
-  /* Adjust padding to make space for arrow */
 }
 
 .selected-currency-display .dropdown-arrow {
@@ -2850,7 +2529,6 @@ body.dark-mode .event-card .event-description {
 
 .currency-search-input {
   width: calc(100% - 2rem);
-  /* Full width minus padding */
   padding: 0.75rem 1rem;
   border: none;
   border-bottom: 1px solid var(--border-color);
@@ -2895,44 +2573,22 @@ body.dark-mode .event-card .event-description {
   font-style: italic;
 }
 
-/* UPDATED: Expenses display styles (formerly task-budget) */
-.task-expenses {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--success-color);
-  background-color: rgba(16, 185, 129, 0.1);
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-}
-
 .task-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  /* Allow items to wrap */
   gap: 0.5rem;
-  /* Add gap for wrapped items */
 }
 
 .task-footer .task-actions {
   margin-left: auto;
-  /* Push actions to the right */
-}
-
-.event-task-item .task-meta {
-  align-items: center;
-  /* Vertically align meta items */
 }
 
 /* Responsive font size for stat cards */
 @media (max-width: 768px) {
   .stat-content h3 {
     font-size: 1.5rem;
-    /* Reduce font size on smaller screens */
   }
 }
 
@@ -2943,16 +2599,50 @@ body.dark-mode .event-card .event-description {
 
 .task-category-section .category-title {
   font-size: 1.3rem;
-  /* Increased font size */
   font-weight: 600;
   color: var(--primary-text);
-  /* Changed to primary text color */
   margin-bottom: 1.25rem;
-  /* Increased margin */
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .task-category-section .task-card {
   margin-bottom: 1rem;
+}
+
+/* Priority Badges (global definition) */
+.priority-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.priority-badge.high {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.priority-badge.medium {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.priority-badge.low {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+/* Task Expenses (global definition) */
+.task-expenses {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--success-color);
+  background-color: rgba(16, 185, 129, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
 }

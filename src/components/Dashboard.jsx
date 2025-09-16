@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Calendar, LogOut, User, Settings, Plus, ChevronLeft, ChevronRight, BarChart3, CalendarDays, Mail, Check, X, Clock, CheckSquare, Square, Flag, Star, Building2, Edit, Trash2, ChevronDown, Save, Eye, EyeOff, Bell, Moon, Sun, Shield, Key, Globe, Palette, Users, UserPlus, Crown, UserCheck, Search, LayoutDashboard, MapPin, Lock, DollarSign } from 'lucide-react'
 import { supabase } from '../supabaseClient';
 import './Dashboard.css'
+import EventModal from './EventModal'; // Import the new EventModal component
 
 // Helper function to format a Date object to YYYY-MM-DD in local time
 const formatDateToYYYYMMDD = (dateInput) => {
@@ -648,7 +649,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const handleAddEvent = (dateToPreselect = null) => {
     setEditingEvent(null);
     setEventForm({ title: '', date: dateToPreselect || selectedDate, time: '17:00', description: '', location: '', eventTasks: [] });
-    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: '', completed: false, dueDate: '', expenses: '' });
+    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' }); // Default assignedTo to current user's email
     setShowEventModal(true);
     updateLastActivity();
   }
@@ -661,7 +662,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const handleEditEvent = (event) => {
     setEditingEvent(event);
     setEventForm({ ...event, eventTasks: event.eventTasks || [] });
-    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: '', completed: false, dueDate: '', expenses: '' });
+    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' }); // Default assignedTo to current user's email
     setShowEventModal(true);
     updateLastActivity();
   }
@@ -1099,7 +1100,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       }
     });
 
-    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: '', completed: false, dueDate: '', expenses: '' });
+    setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
   };
 
   const handleEditEventTask = (task) => {
@@ -1165,7 +1166,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       }
       const newTask = { ...data, dueDate };
       setTasks(prev => [...prev, newTask]);
-      setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: '', completed: false, dueDate: '', expenses: '' });
+      setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
       updateLastActivity();
     }
   };
@@ -1222,7 +1223,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       setTasks(prev => prev.map(task =>
         task.id === data.id ? updatedTask : task
       ));
-      setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: '', completed: false, dueDate: '', expenses: '' });
+      setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
       updateLastActivity();
     }
   };
@@ -2352,6 +2353,23 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           </div>
         </div>
       )}
+
+      <EventModal
+        showModal={showEventModal}
+        onClose={() => setShowEventModal(false)}
+        eventForm={eventForm}
+        setEventForm={setEventForm}
+        editingEvent={editingEvent}
+        onSaveEvent={handleEventFormSubmit}
+        currentEventTaskForm={currentEventTaskForm}
+        setCurrentEventTaskForm={setCurrentEventTaskForm}
+        handleAddEventTask={handleAddEventTask}
+        handleEditEventTask={handleEditEventTask}
+        handleDeleteEventTask={handleDeleteEventTask}
+        handleToggleEventTaskCompletion={handleToggleEventTaskCompletion}
+        teamMembers={teamMembers}
+        user={user}
+      />
     </div>
   )
 }
