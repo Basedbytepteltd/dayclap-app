@@ -46,6 +46,7 @@
   background: var(--background);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Header */
@@ -56,6 +57,7 @@
   top: 0;
   z-index: 1000;
   padding: 0.75rem 0;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .dashboard-nav {
@@ -150,6 +152,7 @@
   background: var(--background);
   color: var(--text-primary);
   font-size: 0.875rem;
+  transition: all 0.2s ease;
 }
 
 .search-input:focus {
@@ -244,7 +247,7 @@
 }
 
 .company-btn:hover {
-  background: var(--surface);
+  background: var(--background);
   border-color: var(--primary-color);
 }
 
@@ -383,6 +386,7 @@
   border-right: 1px solid var(--border);
   padding: 1.5rem 0;
   flex-shrink: 0; /* Ensure sidebar doesn't shrink */
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 @media (max-width: 768px) {
@@ -495,6 +499,10 @@
 }
 
 /* Overview Content */
+.overview-content {
+  /* No specific styles needed here, main-content padding applies */
+}
+
 .overview-header {
   margin-bottom: 2rem;
 }
@@ -727,16 +735,20 @@
   gap: 2rem; /* Keep gap between calendar and events section */
 }
 
+@media (min-width: 1024px) { /* Only apply two columns on larger screens */
+  .dashboard.calendar-active .calendar-content {
+    grid-template-columns: 2fr 1fr; /* Calendar takes 2/3, events 1/3 */
+  }
+}
+
 @media (max-width: 1200px) {
   .calendar-content {
-    /* No change needed here, it's already 1fr from above */
     gap: 1.5rem; /* Adjust gap for smaller desktops/laptops */
   }
 }
 
 @media (max-width: 1024px) {
   .calendar-content {
-    /* No change needed here, it's already 1fr from above */
     gap: 1.5rem;
   }
 }
@@ -1121,6 +1133,12 @@
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
   margin-top: 2rem; /* Add some margin to separate from calendar */
+}
+
+@media (min-width: 1024px) { /* Remove top margin when in two-column layout */
+  .dashboard.calendar-active .events-section {
+    margin-top: 0;
+  }
 }
 
 @media (max-width: 1200px) {
@@ -1611,6 +1629,19 @@
   text-decoration: none;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--secondary-color);
+  border-color: var(--border);
+  color: white;
+}
+
+.btn-success:disabled {
+  background-color: var(--secondary-color);
+  border-color: var(--border);
+}
+
 @media (max-width: 480px) {
   .btn {
     padding: 0.4375rem 0.875rem;
@@ -1635,7 +1666,7 @@
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
 }
 
@@ -1644,7 +1675,7 @@
   color: white;
 }
 
-.btn-success:hover {
+.btn-success:hover:not(:disabled) {
   background: var(--success-hover);
 }
 
@@ -1654,7 +1685,7 @@
   color: var(--text-primary);
 }
 
-.btn-outline:hover {
+.btn-outline:hover:not(:disabled) {
   background: var(--surface);
   border-color: var(--primary-color);
   color: var(--primary-color);
@@ -1710,6 +1741,7 @@
   color: var(--text-primary);
   font-size: 0.875rem;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 @media (max-width: 480px) {
@@ -1752,6 +1784,7 @@
   z-index: 1001;
   max-height: 400px;
   overflow-y: auto;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 @media (max-width: 480px) {
@@ -1876,6 +1909,7 @@
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 @media (max-width: 480px) {
@@ -1957,7 +1991,7 @@
 }
 
 /* No Events/Tasks States */
-.no-events, .no-tasks {
+.no-events, .no-tasks, .no-invitations {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1968,35 +2002,58 @@
 }
 
 @media (max-width: 480px) {
-  .no-events, .no-tasks {
+  .no-events, .no-tasks, .no-invitations {
     padding: 1.5rem 1rem;
   }
 }
 
-.no-events-icon, .no-tasks-icon {
+.no-events-icon, .no-tasks-icon, .no-invitations-icon {
   width: 3rem;
   height: 3rem;
   margin-bottom: 1rem;
   opacity: 0.5;
 }
 
-.no-events p, .no-tasks p {
+.no-events p, .no-tasks p, .no-invitations p {
   margin: 0 0 1rem 0;
   font-size: 0.875rem;
 }
 
 /* Settings Styles */
+.settings-content {
+  /* No specific styles needed here, main-content padding applies */
+}
+
+.settings-header {
+  margin-bottom: 2rem;
+}
+
+.settings-header h2 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.settings-subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
+}
+
 .settings-nav {
   display: flex;
   gap: 0.25rem;
   margin-bottom: 2rem;
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
+  padding-bottom: 0.5rem; /* Add padding to separate from border */
 }
 
 @media (max-width: 768px) {
   .settings-nav {
     margin-bottom: 1.5rem;
+    padding-bottom: 0.25rem;
   }
 }
 
@@ -2036,283 +2093,834 @@
   border-bottom-color: var(--primary-color);
 }
 
-/* Form Styles */
-.form-group {
-  margin-bottom: 1.5rem;
+.settings-tab-content {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
-.form-label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
+@media (max-width: 768px) {
+  .settings-tab-content {
+    padding: 1.5rem;
+  }
 }
 
-.input-wrapper {
-  position: relative;
+@media (max-width: 480px) {
+  .settings-tab-content {
+    padding: 1rem;
+  }
+}
+
+.settings-section {
+  margin-bottom: 2.5rem;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  gap: 1rem;
 }
 
-.input-icon {
+@media (max-width: 640px) {
+  .settings-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}
+
+.settings-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.settings-section-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.settings-form .form-group {
+  margin-bottom: 0; /* Override default form-group margin */
+}
+
+/* Currency Dropdown Specific Styles */
+.selected-currency-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding-right: 2.5rem; /* Make space for the arrow */
+}
+
+.currency-dropdown-options {
   position: absolute;
-  left: 0.75rem;
-  width: 1rem;
-  height: 1rem;
-  color: var(--text-muted);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--background);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--background);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  transition: all 0.2s;
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 0.25rem;
 }
 
-.form-input:focus {
+.currency-search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.currency-option-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.currency-option-item:hover {
+  background: var(--secondary-bg);
+}
+
+.currency-option-item.selected {
+  background: var(--primary-color);
+  color: white;
+}
+
+.currency-dropdown-options .currency-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.5rem 0;
+}
+
+.currency-dropdown-options .no-options-message {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Toggle Switch Styles */
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.setting-item:last-of-type {
+  border-bottom: none;
+}
+
+.setting-info {
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.setting-info h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.setting-info p {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border);
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: var(--primary-color);
+}
+
+input:focus + .toggle-slider {
+  box-shadow: 0 0 1px var(--primary-color);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(16px);
+}
+
+/* Password Toggle Button */
+.password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.password-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* Company Management Styles */
+.companies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.company-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.company-item-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.company-item-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.company-item-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.company-item-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.current-badge {
+  background: var(--info-color);
+  color: white;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.company-item-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Team Members Styles */
+.team-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.team-member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.team-member-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.team-member-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.team-member-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.team-member-email {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.team-member-role .role-select {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.team-member-role .role-select:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 1px var(--primary-color);
 }
 
-/* Enhanced Form Input and Textarea Styles */
-.form-input,
-.form-textarea {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--background);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-family: inherit;
-  transition: all 0.2s;
+.team-member-actions {
+  flex-shrink: 0;
 }
 
-.form-input {
-  padding: 0.75rem;
-  height: auto;
-}
+/* Responsive adjustments for Settings */
+@media (max-width: 768px) {
+  .settings-header h2 {
+    font-size: 1.5rem;
+  }
 
-.form-textarea {
-  padding: 0.875rem;
-  min-height: 100px;
-  resize: vertical;
-  line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-}
+  .settings-subtitle {
+    font-size: 0.875rem;
+  }
 
-.form-input:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
+  .settings-nav-tab {
+    font-size: 0.8125rem;
+    padding: 0.6rem 0.8rem;
+  }
 
-.form-input::placeholder,
-.form-textarea::placeholder {
-  color: var(--text-muted);
-  opacity: 0.7;
-}
+  .settings-section-title {
+    font-size: 1.125rem;
+  }
 
-/* Input with icons */
-.input-wrapper .form-input {
-  padding-left: 2.5rem;
-}
+  .settings-section-subtitle {
+    font-size: 0.8125rem;
+  }
 
-.input-wrapper:not(:has(.input-icon)) .form-input {
-  padding-left: 0.75rem;
-}
+  .setting-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
 
-/* Specific styling for modal forms */
-.modal-body .form-group {
-  margin-bottom: 1.25rem;
-}
+  .setting-info {
+    margin-right: 0;
+    width: 100%;
+  }
 
-.modal-body .form-label {
-  margin-bottom: 0.375rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
+  .company-item,
+  .team-member-item {
+    flex-wrap: wrap;
+    padding: 0.75rem;
+  }
 
-.modal-body .form-textarea {
-  min-height: 80px;
-  padding: 0.75rem;
+  .company-item-info,
+  .team-member-info {
+    flex-basis: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .company-item-actions,
+  .team-member-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .team-member-role {
+    margin-left: auto; /* Push role to the right */
+  }
 }
 
 @media (max-width: 480px) {
-  .form-input,
-  .form-textarea {
+  .settings-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .settings-subtitle {
     font-size: 0.8125rem;
-    padding: 0.625rem;
   }
-  
-  .form-textarea {
-    min-height: 75px;
+
+  .settings-nav-tab {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.6rem;
   }
-  
-  .input-wrapper .form-input {
-    padding-left: 2.25rem;
+
+  .settings-section-title {
+    font-size: 1rem;
+  }
+
+  .settings-section-subtitle {
+    font-size: 0.75rem;
+  }
+
+  .setting-info h4 {
+    font-size: 0.875rem;
+  }
+
+  .setting-info p {
+    font-size: 0.75rem;
+  }
+
+  .company-item-name,
+  .team-member-name {
+    font-size: 0.9375rem;
+  }
+
+  .company-item-date,
+  .team-member-email {
+    font-size: 0.7rem;
+  }
+
+  .team-member-role .role-select {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
   }
 }
 
-/* Date and time inputs */
-.form-input[type="date"],
-.form-input[type="time"],
-.form-input[type="datetime-local"] {
+/* Invitations Section Specific Styles */
+.invitations-content {
+  /* General padding and layout for the invitations page */
+}
+
+.invitations-header {
+  margin-bottom: 2rem;
+}
+
+.invitations-header h2 {
+  font-size: 1.875rem;
+  font-weight: 700;
   color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
 }
 
-.form-input[type="date"]::-webkit-calendar-picker-indicator,
-.form-input[type="time"]::-webkit-calendar-picker-indicator,
-.form-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-  filter: brightness(0) saturate(100%) invert(58%) sepia(14%) saturate(311%) hue-rotate(201deg) brightness(94%) contrast(83%);
-  cursor: pointer;
+.invitations-subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
 }
 
-.dashboard.dark-mode .form-input[type="date"]::-webkit-calendar-picker-indicator,
-.dashboard.dark-mode .form-input[type="time"]::-webkit-calendar-picker-indicator,
-.dashboard.dark-mode .form-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-  filter: brightness(0) saturate(100%) invert(83%) sepia(6%) saturate(394%) hue-rotate(201deg) brightness(94%) contrast(91%);
-}
-
-/* Select dropdown styling */
-.form-select {
-  position: relative;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.5rem center;
-  background-repeat: no-repeat;
-  background-size: 1.5em 1.5em;
-  padding-right: 2.5rem;
-}
-
-/* Form validation states */
-.form-input.error,
-.form-textarea.error {
-  border-color: var(--danger-color);
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
-}
-
-.form-input.success,
-.form-textarea.success {
-  border-color: var(--success-color);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
-}
-
-.error-message {
-  color: var(--danger-color);
-  font-size: 0.8125rem;
-  margin-top: 0.375rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.success-message {
-  color: var(--success-color);
-  font-size: 0.8125rem;
-  margin-top: 0.375rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-/* Two-column form layouts */
-.form-row {
+.invitations-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
-@media (max-width: 640px) {
-  .form-row {
-    grid-template-columns: 1fr;
+@media (max-width: 768px) {
+  .invitations-stats {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .invitations-stats {
+    grid-template-columns: 1fr 1fr;
     gap: 0.75rem;
   }
 }
 
-/* Form sections */
-.form-section {
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border);
+.invitations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.form-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
+.invitation-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
 }
 
-.form-section-title {
-  font-size: 1rem;
+.invitation-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.invitation-card.accepted {
+  border-left: 5px solid var(--success-color);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.invitation-card.declined {
+  border-left: 5px solid var(--danger-color);
+  background: rgba(239, 68, 68, 0.05);
+  opacity: 0.7;
+}
+
+.invitation-card.pending {
+  border-left: 5px solid var(--warning-color);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.invitation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.invitation-info {
+  flex: 1;
+}
+
+.invitation-title {
+  font-size: 1.125rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 1rem 0;
+  margin: 0 0 0.25rem 0;
 }
 
-/* Enhanced accessibility */
-.form-label.required::after {
-  content: " *";
-  color: var(--danger-color);
+.invitation-organizer {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
 }
 
-/* Loading states for forms */
-.form-input:disabled,
-.form-textarea:disabled,
-.form-select:disabled {
-  background-color: var(--surface);
+.invitation-status .status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background: var(--warning-color);
+  color: white;
+}
+
+.status-badge.accepted {
+  background: var(--success-color);
+  color: white;
+}
+
+.status-badge.declined {
+  background: var(--danger-color);
+  color: white;
+}
+
+.invitation-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.detail-row svg {
+  width: 1rem;
+  height: 1rem;
   color: var(--text-muted);
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 
-/* Responsive Adjustments for Small Screens */
-@media (max-width: 480px) {
-  .event-time-desc {
-    font-size: 0.8125rem;
-  }
-  
-  .event-description {
-    font-size: 0.8125rem;
-  }
-  
-  .event-location {
-    font-size: 0.8125rem;
-  }
+.invitation-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
 }
 
-/* Additional responsive utilities */
-.clickable-title {
-  cursor: pointer;
-  transition: color 0.2s;
+/* Team Invite Item (for sent invitations) */
+.team-invite-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
 }
 
-.clickable-title:hover {
-  color: var(--primary-color);
+.team-invite-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
 }
 
-/* Loading and empty states */
-.loading-state {
+.team-invite-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
-  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
-/* Accessibility improvements */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+.team-invite-avatar svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.team-invite-email {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.team-invite-company-name { /* NEW: Style for company name in sent invites */
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0;
+}
+
+.team-invite-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.team-invite-role .role-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: var(--info-color);
+  color: white;
+}
+
+.role-badge.admin {
+  background: var(--primary-color);
+}
+
+.role-badge.owner {
+  background: var(--danger-color);
+}
+
+.team-invite-actions {
+  /* For future actions like revoke invitation */
+}
+
+.no-companies-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin-top: 2rem;
+}
+
+.no-companies-icon {
+  width: 4rem;
+  height: 4rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.5;
+}
+
+.no-companies-message h4 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.no-companies-message p {
+  font-size: 0.9375rem;
+  margin: 0 0 1.5rem 0;
+}
+
+/* Responsive adjustments for invitations */
+@media (max-width: 768px) {
+  .invitation-card {
+    padding: 1rem;
+  }
+
+  .invitation-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .invitation-title {
+    font-size: 1rem;
+  }
+
+  .invitation-organizer {
+    font-size: 0.8125rem;
+  }
+
+  .invitation-status .status-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
+  }
+
+  .detail-row {
+    font-size: 0.8125rem;
+  }
+
+  .invitation-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .team-invite-item {
+    flex-wrap: wrap;
+    padding: 0.75rem;
+  }
+
+  .team-invite-info {
+    flex-basis: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .team-invite-role {
+    margin-left: auto; /* Push role to the right */
+  }
+}
+
+@media (max-width: 480px) {
+  .invitations-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .invitations-subtitle {
+    font-size: 0.875rem;
+  }
+
+  .invitation-card {
+    padding: 0.75rem;
+  }
+
+  .invitation-title {
+    font-size: 0.9375rem;
+  }
+
+  .invitation-organizer {
+    font-size: 0.75rem;
+  }
+
+  .detail-row {
+    font-size: 0.75rem;
+  }
+
+  .team-invite-email {
+    font-size: 0.875rem;
+  }
+
+  .team-invite-date {
+    font-size: 0.7rem;
   }
 }

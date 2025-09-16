@@ -16,10 +16,11 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
   const [showResendButton, setShowResendButton] = useState(false); // NEW: State to control resend button visibility
   const [resendMessage, setResendMessage] = useState(''); // NEW: State for resend feedback
 
-  useEffect(() => {
-    localStorage.removeItem('dayclap_users');
-    localStorage.removeItem('dayclap_current_user');
-  }, []);
+  // Removed localStorage.removeItem calls to prevent interference with Supabase session persistence.
+  // useEffect(() => {
+  //   localStorage.removeItem('dayclap_users');
+  //   localStorage.removeItem('dayclap_current_user');
+  // }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target

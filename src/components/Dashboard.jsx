@@ -1170,11 +1170,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleUpdateMemberRole = async (memberId, newRole, companyId) => {
-    alert('Changing member roles requires a secure admin API and cannot be performed from the browser. Please configure a backend endpoint to handle this action.');
+    alert('Changing member roles requires a secure admin API and cannot be performed from the browser. Please configure a backend admin endpoint to handle this action.');
   };
 
   const handleRemoveMember = async (memberId, companyId) => {
-    alert('Removing members requires a secure admin API and cannot be performed from the browser. Please configure a backend endpoint to handle this action.');
+    alert('Removing members requires a secure admin API and cannot be performed from the browser. Please configure a backend admin endpoint to handle this action.');
   };
 
   const getFilteredCurrencyOptions = (searchTerm) => {
@@ -1927,7 +1927,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     {currentCompany ? (
                       <>
                         <div className="section">
-                          <h3 className="section-title">Received Invitations</h3>
+                          <h3 className="section-title">Invitations to Join Companies</h3>
                           <div className="invitations-list">
                             {invitations.filter(inv => inv.recipient_email === user.email).length > 0 ? (
                               invitations.filter(inv => inv.recipient_email === user.email).map(inv => (
@@ -1946,7 +1946,22 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                   </div>
                                   {inv.status === 'pending' && (
                                     <div className="invitation-actions">
-                                      <button className="btn btn-success btn-small" onClick={() => handleInvitationResponse(inv.id, 'accepted')}><Check size={16} /> Accept</button>
+                                      <button
+                                        className="btn btn-success btn-small"
+                                        onClick={() => handleInvitationResponse(inv.id, 'accepted')}
+                                        disabled={inv.role !== 'user'}
+                                        title={inv.role !== 'user' ? "This is not a team member invitation" : "Accept invitation to join as a team member"}
+                                      >
+                                        <Check size={16} /> Add to Team
+                                      </button>
+                                      <button
+                                        className="btn btn-success btn-small"
+                                        onClick={() => handleInvitationResponse(inv.id, 'accepted')}
+                                        disabled={inv.role === 'user'}
+                                        title={inv.role === 'user' ? "This is not a company admin/owner invitation" : `Accept invitation to join as ${inv.role}`}
+                                      >
+                                        <Check size={16} /> Add to Company
+                                      </button>
                                       <button className="btn btn-outline btn-small" onClick={() => handleInvitationResponse(inv.id, 'declined')}><X size={16} /> Decline</button>
                                     </div>
                                   )}
@@ -1959,7 +1974,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         </div>
 
                         <div className="section">
-                          <h3 className="section-title">Sent Invitations</h3>
+                          <h3 className="section-title">Invitations Sent from {currentCompany.name}</h3>
                           <div className="invitations-list">
                             {invitations.filter(inv => inv.sender_id === user.id && inv.company_id === currentCompany.id && inv.status === 'pending').length > 0 ? (
                               invitations.filter(inv => inv.sender_id === user.id && inv.company_id === currentCompany.id && inv.status === 'pending').map(inv => (
@@ -1968,6 +1983,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                     <div className="team-invite-avatar"><Mail size={18} /></div>
                                     <div>
                                       <p className="team-invite-email">{inv.recipient_email}</p>
+                                      <p className="team-invite-company-name">To join: {inv.company_name}</p>
                                       <p className="team-invite-date">Invited: {new Date(inv.created_at).toLocaleDateString()}</p>
                                     </div>
                                   </div>
