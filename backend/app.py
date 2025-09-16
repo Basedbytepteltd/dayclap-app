@@ -89,7 +89,7 @@ def email_settings():
             
             mail_default_sender = (settings.get("mail_default_sender") or 
                                    settings.get("mail_default_from") or 
-                                   os.environ.get("MAIL_DEFAULT_SENDER") or "")
+                                   os.environ.get("MAIL_DEFAULT_SENDER") or "no-reply@team.dayclap.com") # UPDATED DEFAULT
 
             # --- DEBUG PRINTS FOR EMAIL SETTINGS ---
             print(f"DEBUG: Email settings from DB: {settings}", file=sys.stderr)
@@ -138,7 +138,7 @@ def email_settings():
                     insert_payload = {
                         "maileroo_api_key": update_payload.get("maileroo_sending_key") or update_payload.get("maileroo_api_key") or os.environ.get("MAILEROO_API_KEY"),
                         "maileroo_api_endpoint": update_payload.get("maileroo_api_endpoint") or os.environ.get("MAILEROO_API_ENDPOINT") or "https://api.maileroo.com/v1/send",
-                        "mail_default_sender": update_payload.get("mail_default_sender") or os.environ.get("MAIL_DEFAULT_SENDER") or ""
+                        "mail_default_sender": update_payload.get("mail_default_sender") or os.environ.get("MAIL_DEFAULT_SENDER") or "no-reply@team.dayclap.com" # UPDATED DEFAULT
                     }
                     ins_resp = supabase.table('email_settings').insert(insert_payload).execute()
                     inserted = None
@@ -211,7 +211,7 @@ def send_test_email():
                         "https://api.maileroo.com/v1/send")
         default_sender = (settings.get('mail_default_sender') or
                           os.environ.get('MAIL_DEFAULT_SENDER') or
-                          "")
+                          "no-reply@team.dayclap.com") # UPDATED DEFAULT
 
         if not api_key or not default_sender:
             return jsonify({"message": "Maileroo Sending Key or Default Sender is not configured."}), 400
@@ -301,7 +301,7 @@ def send_invitation():
                         "https://api.maileroo.com/v1/send")
         default_sender = (settings.get('mail_default_sender') or
                           os.environ.get('MAIL_DEFAULT_SENDER') or
-                          "")
+                          "no-reply@team.dayclap.com") # UPDATED DEFAULT
 
         if not api_key or not default_sender:
             # Invitation saved but emailing not configured
