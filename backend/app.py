@@ -46,7 +46,7 @@ def _fetch_email_settings_row():
         print(f"Error fetching email_settings row: {e}", file=sys.stderr)
         return None
 
-# **NEW**: Function to send email via SMTP
+# **MODIFIED**: Function to send email via SMTP with intensive debugging
 def send_email_smtp(recipient_email, subject, html_body):
     settings = _fetch_email_settings_row() or {}
     
@@ -66,23 +66,32 @@ def send_email_smtp(recipient_email, subject, html_body):
 
     message = MIMEMultipart("alternative")
     message["Subject"] = subject
-    message["From"] = f"DayClap Team <{sender_email}>"
+    # **FIX**: Simplify From header to just the email address for maximum compatibility.
+    message["From"] = sender_email
     message["To"] = recipient_email
 
     # Attach the HTML part
     message.attach(MIMEText(html_body, "html"))
 
     try:
-        print(f"DEBUG: Attempting to send email via SMTP to {recipient_email} from {sender_email}", file=sys.stderr)
+        print(f"DEBUG: SMTP Connect -> Host: {smtp_host}, Port: {smtp_port}", file=sys.stderr)
         context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls(context=context)  # Secure the connection
+        # **FIX**: Add intensive debug logging to capture the full SMTP conversation.
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+            # This will print the raw SMTP conversation to the logs.
+            server.set_debuglevel(1) 
+            print("DEBUG: SMTP Upgrading to TLS...", file=sys.stderr)
+            server.starttls(context=context)
+            print("DEBUG: SMTP Connection secured with TLS.", file=sys.stderr)
+            print(f"DEBUG: SMTP Logging in with user: {sender_email}", file=sys.stderr)
             server.login(sender_email, smtp_password)
+            print("DEBUG: SMTP Login successful.", file=sys.stderr)
+            print(f"DEBUG: SMTP Sending email from {sender_email} to {recipient_email}", file=sys.stderr)
             server.sendmail(sender_email, recipient_email, message.as_string())
-        print(f"DEBUG: SMTP email sent successfully to {recipient_email}", file=sys.stderr)
+            print(f"DEBUG: SMTP email sent successfully to {recipient_email}", file=sys.stderr)
         return True, "Email sent successfully via SMTP."
     except Exception as e:
-        print(f"SMTP Error: {e}", file=sys.stderr)
+        print(f"CRITICAL SMTP Error: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         return False, str(e)
 
