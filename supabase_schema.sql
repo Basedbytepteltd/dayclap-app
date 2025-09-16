@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   theme TEXT DEFAULT 'light',
   language TEXT DEFAULT 'en',
   timezone TEXT DEFAULT 'UTC',
-  notifications JSONB DEFAULT '{\"email_daily\": true, \"email_weekly\": false, \"email_monthly\": false, \"email_3day_countdown\": false, \"push\": true, \"reminders\": true, \"invitations\": true}',
-  privacy JSONB DEFAULT '{\"profileVisibility\": \"team\", \"calendarSharing\": \"private\"}',
+  notifications JSONB DEFAULT '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "push": true, "reminders": true, "invitations": true}',
+  privacy JSONB DEFAULT '{"profileVisibility": "team", "calendarSharing": "private"}',
   company_name TEXT
 );
 
@@ -57,9 +57,60 @@ CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING ( aut
 -- Trigger function to handle new user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+    user_company_name TEXT;
+    new_company_id TEXT;
+    initial_companies JSONB;
 BEGIN
-  INSERT INTO public.profiles (id, email, name, theme, last_activity_at, currency, notifications)
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'name', 'light', NOW(), 'USD', '{\"email_daily\": true, \"email_weekly\": false, \"email_monthly\": false, \"email_3day_countdown\": false, \"push\": true, \"reminders\": true, \"invitations\": true}');
+  user_company_name := NEW.raw_user_meta_data->>'company';
+
+  IF user_company_name IS NOT NULL AND user_company_name != '' THEN
+      new_company_id := gen_random_uuid();
+      initial_companies := jsonb_build_array(
+          jsonb_build_object(
+              'id', new_company_id,
+              'name', user_company_name,
+              'role', 'owner',
+              'createdAt', NOW()::text
+          )
+      );
+  ELSE
+      initial_companies := '[]'::jsonb;
+      new_company_id := NULL;
+  END IF;
+
+  INSERT INTO public.profiles (
+    id,
+    email,
+    name,
+    created_at,
+    theme,
+    language,
+    timezone,
+    notifications,
+    privacy,
+    company_name,
+    companies,
+    current_company_id,
+    last_activity_at,
+    currency
+  )
+  VALUES (
+    NEW.id,
+    NEW.email,
+    NEW.raw_user_meta_data->>'name',
+    NOW(), -- created_at
+    'light', -- theme
+    'en', -- language
+    'UTC', -- timezone
+    '{\"email_daily\": true, \"email_weekly\": false, \"email_monthly\": false, \"email_3day_countdown\": false, \"push\": true, \"reminders\": true, \"invitations\": true}', -- notifications
+    '{\"profileVisibility\": \"team\", \"calendarSharing\": \"private\"}', -- privacy
+    user_company_name, -- company_name (from signup options)
+    initial_companies, -- dynamically set companies array
+    new_company_id, -- dynamically set current_company_id
+    NOW(), -- last_activity_at
+    'USD' -- currency
+  );
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -155,6 +206,11 @@ BEGIN
     ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
     ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS expenses NUMERIC(10, 2);
     ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS description TEXT;
+    -- NEW: Add notification_dismissed_at column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tasks' AND column_name = 'notification_dismissed_at') THEN
+        ALTER TABLE public.tasks ADD COLUMN notification_dismissed_at TIMESTAMP WITH TIME ZONE;
+        RAISE NOTICE 'Column notification_dismissed_at added to public.tasks table.';
+    END IF;
 END
 $$;
 

@@ -268,35 +268,84 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const currentCompany = user.companies?.find(company => company.id === user.currentCompanyId);
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      if (!user || !user.id || !currentCompany?.id) {
-        setEvents([]);
-        return;
+  // Extracted fetch functions
+  const _fetchEvents = async () => {
+    if (!user || !user.id || !currentCompany?.id) {
+      setEvents([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('company_id', currentCompany.id);
+    if (error) {
+      // console.error("Dashboard: Error fetching events:", error.message);
+      setEvents([]);
+      return;
+    }
+    const fetchedEvents = data.map(event => {
+      const [year, month, day] = event.date.split('-').map(Number);
+      const localDate = new Date(year, month - 1, day);
+      return {
+        ...event,
+        date: localDate,
+        eventTasks: event.event_tasks || []
+      };
+    });
+    setEvents(fetchedEvents);
+  };
+
+  const _fetchTasks = async () => {
+    if (!user || !user.id || !currentCompany?.id) {
+      setTasks([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('company_id', currentCompany.id);
+    if (error) {
+      // console.error("Dashboard: Error fetching tasks:", error.message);
+      setTasks([]);
+      return;
+    }
+    const fetchedTasks = data.map(task => {
+      let localDate = null;
+      if (task.due_date) {
+        const [year, month, day] = task.due_date.split('-').map(Number);
+        localDate = new Date(year, month - 1, day);
       }
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('company_id', currentCompany.id);
-      if (error) {
-        // console.error("Dashboard: Error fetching events:", error.message);
-        setEvents([]);
-        return;
-      }
-      const fetchedEvents = data.map(event => {
-        const [year, month, day] = event.date.split('-').map(Number);
-        const localDate = new Date(year, month - 1, day);
-        return {
-          ...event,
-          date: localDate,
-          eventTasks: event.event_tasks || []
-        };
-      });
-      setEvents(fetchedEvents);
-    };
-    fetchEvents();
-  }, [user?.id, currentCompany?.id]);
+      return {
+        ...task,
+        dueDate: localDate,
+      };
+    });
+    setTasks(fetchedTasks);
+  };
+
+  const _fetchInvitations = async () => {
+    if (!user || !user.email) {
+      setInvitations([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('invitations')
+      .select('*, sender_email')
+      .or(`recipient_email.eq.${user.email},sender_id.eq.${user.id}`);
+    if (error) {
+      // console.error("Dashboard: Error fetching invitations:", error.message);
+    } else {
+      setInvitations(data);
+    }
+  };
+
+  // Update useEffects to call these functions
+  useEffect(() => { _fetchEvents(); }, [user?.id, currentCompany?.id]);
+  useEffect(() => { _fetchTasks(); }, [user?.id, currentCompany?.id]);
+  useEffect(() => { _fetchInvitations(); }, [user?.id, user?.email]);
+
 
   const fetchTeamMembersForCompany = async (companyId) => {
     if (!companyId) {
@@ -323,38 +372,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     });
     setTeamMembers(membersWithRoles);
   };
-
-  useEffect(() => {
-    const fetchTasks = async () => {
-      if (!user || !user.id || !currentCompany?.id) {
-        setTasks([]);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('company_id', currentCompany.id);
-      if (error) {
-        // console.error("Dashboard: Error fetching tasks:", error.message);
-        setTasks([]);
-        return;
-      }
-      const fetchedTasks = data.map(task => {
-        let localDate = null;
-        if (task.due_date) {
-          const [year, month, day] = task.due_date.split('-').map(Number);
-          localDate = new Date(year, month - 1, day);
-        }
-        return {
-          ...task,
-          dueDate: localDate,
-        };
-      });
-      setTasks(fetchedTasks);
-    };
-    fetchTasks();
-  }, [user?.id, currentCompany?.id]);
 
   useEffect(() => {
     fetchTeamMembersForCompany(currentCompany?.id);
@@ -411,25 +428,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     }
   };
 
-  useEffect(() => {
-    const fetchInvitations = async () => {
-      if (!user || !user.email) {
-        setInvitations([]);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('invitations')
-        .select('*, sender_email')
-        .or(`recipient_email.eq.${user.email},sender_id.eq.${user.id}`);
-      if (error) {
-        // console.error("Dashboard: Error fetching invitations:", error.message);
-      } else {
-        setInvitations(data);
-      }
-    };
-    fetchInvitations();
-  }, [user?.id, user?.email]);
-
   const handleInvitationResponse = async (invitationId, response) => {
     const { error: updateError } = await supabase
       .from('invitations')
@@ -460,11 +458,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         await onUserUpdate(updatedUser);
       }
     }
-    const { data: freshInvitations } = await supabase
-      .from('invitations')
-      .select('*, sender_email')
-      .or(`recipient_email.eq.${user.email},sender_id.eq.${user.id}`);
-    setInvitations(freshInvitations || []);
+    await _fetchInvitations(); // Re-fetch invitations to update UI
     updateLastActivity();
   }
 
@@ -543,11 +537,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
       if (response.ok || response.status === 202) { // 202 means saved but not emailed
         alert(result.message);
-        const { data: freshInvitations } = await supabase
-          .from('invitations')
-          .select('*, sender_email')
-          .or(`recipient_email.eq.${user.email},sender_id.eq.${user.id}`);
-        setInvitations(freshInvitations || []);
+        await _fetchInvitations(); // Re-fetch invitations to update UI
       } else {
         throw new Error(result.message || 'Failed to send invitation');
       }
@@ -718,8 +708,12 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     return date.toDateString() === selectedDate.toDateString();
   };
 
+  // UPDATED: isTaskOverdue to consider notification_dismissed_at
   const isTaskOverdue = (task) => {
     if (task.completed || !task.dueDate) return false;
+    // If notification was dismissed, it's not "overdue" for notification purposes
+    if (task.notification_dismissed_at) return false;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const taskDueDate = new Date(task.dueDate);
@@ -1327,6 +1321,39 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     };
   }, [allTasks]);
 
+  // NEW: handleMarkAllAsRead function
+  const handleMarkAllAsRead = async () => {
+    // Dismiss pending invitations
+    const pendingInvitesToDismiss = invitations.filter(inv => inv.status === 'pending' && inv.recipient_email === user.email);
+    if (pendingInvitesToDismiss.length > 0) {
+      const { error: inviteError } = await supabase
+        .from('invitations')
+        .update({ status: 'dismissed' }) // New status 'dismissed'
+        .in('id', pendingInvitesToDismiss.map(inv => inv.id));
+      if (inviteError) {
+        console.error("Failed to dismiss invitations:", inviteError.message);
+      }
+    }
+
+    // Dismiss overdue task notifications
+    const overdueTasksToDismiss = tasks.filter(task => isTaskOverdue(task) && !task.notification_dismissed_at);
+    if (overdueTasksToDismiss.length > 0) {
+      const { error: taskError } = await supabase
+        .from('tasks')
+        .update({ notification_dismissed_at: new Date().toISOString() })
+        .in('id', overdueTasksToDismiss.map(task => task.id));
+      if (taskError) {
+        console.error("Failed to dismiss task notifications:", taskError.message);
+      }
+    }
+
+    // Re-fetch data to update UI
+    await _fetchInvitations();
+    await _fetchTasks();
+    setShowNotificationsDropdown(false); // Close dropdown after action
+    updateLastActivity();
+  };
+
   return (
     <div className={`dashboard ${currentVisualTheme}-mode`}>
       <header className="dashboard-header">
@@ -1402,6 +1429,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                 <div className="notification-dropdown">
                   <div className="dropdown-header">
                     <h3>Notifications</h3>
+                    {/* NEW: Mark All as Read Button */}
+                    {totalNotifications > 0 && (
+                      <button className="btn-link" onClick={handleMarkAllAsRead}>Mark All as Read</button>
+                    )}
                   </div>
                   {upcomingEventsTodayCount > 0 && (
                     <>
