@@ -42,7 +42,7 @@ def _fetch_email_settings_row():
         print(f"Error fetching email_settings row: {e}", file=sys.stderr)
         return None
 
-# **REVERTED**: Function to send email via Maileroo HTTP API
+# **FIXED**: Function to send email via Maileroo HTTP API v2 with correct payload
 def send_email_api(recipient_email, subject, html_body):
     settings = _fetch_email_settings_row() or {}
     
@@ -50,9 +50,8 @@ def send_email_api(recipient_email, subject, html_body):
                os.environ.get('MAILEROO_SENDING_KEY') or
                os.environ.get('MAILEROO_API_KEY'))
     
-    api_endpoint = (settings.get('maileroo_api_endpoint') or
-                    os.environ.get('MAILEROO_API_ENDPOINT') or
-                    "https://smtp.maileroo.com/api/v2") # Correct API endpoint
+    # **CONFIRMED**: Use the correct Maileroo API v2 endpoint as per customer service
+    api_endpoint = "https://smtp.maileroo.com/api/v2/send"
     
     sender_email = (settings.get('mail_default_sender') or
                     os.environ.get('MAIL_DEFAULT_SENDER') or
@@ -61,12 +60,10 @@ def send_email_api(recipient_email, subject, html_body):
     if not api_key or not sender_email:
         raise ValueError("Maileroo Sending Key or Sender Email is not configured.")
 
-    # Maileroo API expects the "From" header to be in "Name <email@domain.com>" format
-    formatted_from = f"DayClap Team <{sender_email}>"
-
+    # **CORRECTED**: Maileroo v2 API payload structure based on documentation
     maileroo_payload = {
-        "from": formatted_from,
-        "to": recipient_email,
+        "from": sender_email,
+        "to": [recipient_email],
         "subject": subject,
         "html": html_body
     }
@@ -78,6 +75,8 @@ def send_email_api(recipient_email, subject, html_body):
 
     try:
         print(f"DEBUG: Sending email via Maileroo API to {recipient_email}", file=sys.stderr)
+        print(f"DEBUG: Using API endpoint: {api_endpoint}", file=sys.stderr)
+        print(f"DEBUG: Payload: {maileroo_payload}", file=sys.stderr)
         mail_response = requests.post(api_endpoint, json=maileroo_payload, headers=headers, timeout=15)
 
         # Keep detailed logging for success and failure
@@ -156,7 +155,7 @@ def send_test_email():
 
     try:
         email_subject = "DayClap Test Email"
-        email_html_body = "<p>This is a test email from your DayClap Super Admin Dashboard. If you received this, your Maileroo API integration is working correctly.</p>"
+        email_html_body = "<p>This is a test email from your DayClap Super Admin Dashboard. If you received this, your Maileroo API integration is working correctly!</p>"
         
         success, details = send_email_api(recipient_email, email_subject, email_html_body)
 
