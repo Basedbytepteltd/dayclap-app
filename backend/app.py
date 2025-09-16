@@ -62,7 +62,7 @@ def email_settings():
             
             maileroo_api_endpoint = (settings.get("maileroo_api_endpoint") or 
                                      os.environ.get("MAILEROO_API_ENDPOINT") or 
-                                     "https://api.maileroo.com/v1/emails/send")
+                                     "https://smtp.maileroo.com/api/v2")
             
             mail_default_sender = (settings.get("mail_default_sender") or 
                                    os.environ.get("MAIL_DEFAULT_SENDER") or 
@@ -133,7 +133,7 @@ def send_test_email():
                    os.environ.get('MAILEROO_API_KEY'))
         api_endpoint = (settings.get('maileroo_api_endpoint') or
                         os.environ.get('MAILEROO_API_ENDPOINT') or
-                        "https://api.maileroo.com/v1/emails/send")
+                        "https://smtp.maileroo.com/api/v2")
         default_sender = (settings.get('mail_default_sender') or
                           os.environ.get('MAIL_DEFAULT_SENDER') or
                           "no-reply@team.dayclap.com")
@@ -174,7 +174,7 @@ def send_invitation():
 
         settings = _fetch_email_settings_row() or {}
         api_key = (settings.get('maileroo_sending_key') or os.environ.get('MAILEROO_SENDING_KEY') or os.environ.get('MAILEROO_API_KEY'))
-        api_endpoint = (settings.get('maileroo_api_endpoint') or os.environ.get('MAILEROO_API_ENDPOINT') or "https://api.maileroo.com/v1/emails/send")
+        api_endpoint = (settings.get('maileroo_api_endpoint') or os.environ.get('MAILEROO_API_ENDPOINT') or "https://smtp.maileroo.com/api/v2")
         default_sender = (settings.get('mail_default_sender') or os.environ.get('MAIL_DEFAULT_SENDER') or "no-reply@team.dayclap.com")
 
         if not api_key or not default_sender:
