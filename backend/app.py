@@ -42,7 +42,7 @@ def _fetch_email_settings_row():
         print(f"Error fetching email_settings row: {e}", file=sys.stderr)
         return None
 
-# **FINAL CORRECT**: Based on actual Maileroo API documentation
+# **FIXED**: Correct field names based on Maileroo error message
 def send_email_api(recipient_email, subject, html_body):
     settings = _fetch_email_settings_row() or {}
     
@@ -50,7 +50,6 @@ def send_email_api(recipient_email, subject, html_body):
                os.environ.get('MAILEROO_SENDING_KEY') or
                os.environ.get('MAILEROO_API_KEY'))
     
-    # **CORRECT ENDPOINT**: Based on Maileroo docs - it's /emails not /email or /send
     api_endpoint = "https://smtp.maileroo.com/api/v2/emails"
     
     sender_email = (settings.get('mail_default_sender') or
@@ -60,15 +59,15 @@ def send_email_api(recipient_email, subject, html_body):
     if not api_key or not sender_email:
         raise ValueError("Maileroo Sending Key or Sender Email is not configured.")
 
-    # **CORRECT FORMAT**: Based on Maileroo API v2 documentation
+    # **CORRECTED**: Use 'address' instead of 'email' in from field
     maileroo_payload = {
         "from": {
-            "email": sender_email,
+            "address": sender_email,
             "name": "DayClap Team"
         },
         "to": [
             {
-                "email": recipient_email
+                "address": recipient_email
             }
         ],
         "subject": subject,
@@ -82,10 +81,9 @@ def send_email_api(recipient_email, subject, html_body):
     }
 
     try:
-        print(f"DEBUG: NEW VERSION - Sending email via Maileroo API to {recipient_email}", file=sys.stderr)
+        print(f"DEBUG: FIXED VERSION - Sending email via Maileroo API to {recipient_email}", file=sys.stderr)
         print(f"DEBUG: Using API endpoint: {api_endpoint}", file=sys.stderr)
         print(f"DEBUG: Payload: {maileroo_payload}", file=sys.stderr)
-        print(f"DEBUG: Headers: {headers}", file=sys.stderr)
         
         mail_response = requests.post(api_endpoint, json=maileroo_payload, headers=headers, timeout=15)
 
