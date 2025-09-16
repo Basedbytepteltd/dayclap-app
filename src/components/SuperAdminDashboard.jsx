@@ -37,7 +37,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [emailSettingsForm, setEmailSettingsForm] = useState({
     id: null,
     maileroo_sending_key: '',
-    mail_default_sender: 'DayClap Notifications <noreply@dayclap.com>'
+    mail_default_sender: 'no-reply@team.dayclap.com'
   });
   const [emailSettingsMessage, setEmailSettingsMessage] = useState('');
   const [emailSettingsLoading, setEmailSettingsLoading] = useState(false);

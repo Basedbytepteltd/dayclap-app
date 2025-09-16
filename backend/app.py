@@ -93,11 +93,11 @@ def email_settings():
 
             # --- DEBUG PRINTS FOR EMAIL SETTINGS ---
             print(f"DEBUG: Email settings from DB: {settings}", file=sys.stderr)
-            print(f"DEBUG: MAILEROO_API_KEY from env: {os.environ.get('MAILEROO_API_KEY')}", file=sys.stderr)
-            print(f"DEBUG: MAILEROO_SENDING_KEY from env: {os.environ.get('MAILEROO_SENDING_KEY')}", file=sys.stderr)
-            print(f"DEBUG: MAIL_DEFAULT_SENDER from env: {os.environ.get('MAIL_DEFAULT_SENDER')}", file=sys.stderr)
-            print(f"DEBUG: Final maileroo_sending_key: {maileroo_sending_key}", file=sys.stderr)
-            print(f"DEBUG: Final mail_default_sender: {mail_default_sender}", file=sys.stderr)
+            print(f"DEBUG: MAILEROO_API_KEY from env: {os.environ.get('MAILEROO_API_KEY')}\n", file=sys.stderr)
+            print(f"DEBUG: MAILEROO_SENDING_KEY from env: {os.environ.get('MAILEROO_SENDING_KEY')}\n", file=sys.stderr)
+            print(f"DEBUG: MAIL_DEFAULT_SENDER from env: {os.environ.get('MAIL_DEFAULT_SENDER')}\n", file=sys.stderr)
+            print(f"DEBUG: Final maileroo_sending_key: {maileroo_sending_key}\n", file=sys.stderr)
+            print(f"DEBUG: Final mail_default_sender: {mail_default_sender}\n", file=sys.stderr)
             # --- END DEBUG PRINTS ---
 
             result = {
