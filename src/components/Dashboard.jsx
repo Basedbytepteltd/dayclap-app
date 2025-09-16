@@ -216,6 +216,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     totalExpenses: 0,
   });
 
+  // State for invitation message feedback
+  const [inviteMessage, setInviteMessage] = useState('');
+  const [inviteMessageType, setInviteMessageType] = useState(''); // 'success' or 'error'
+
+  // NEW: State for invitations sub-tab
+  const [invitationsActiveTab, setInvitationsActiveTab] = useState('received'); // 'received' or 'sent'
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(event.target)) {
@@ -494,6 +501,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const companyToInviteTo = user.companies.find(c => c.id === inviteForm.companyId);
     if (!companyToInviteTo) return;
 
+    // Clear previous messages
+    setInviteMessage('');
+    setInviteMessageType('');
+
     const invitationPayload = {
       sender_id: user.id,
       sender_email: user.email,
@@ -516,18 +527,20 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       const result = await response.json();
 
       if (response.ok || response.status === 202) {
-        alert(result.message);
+        setInviteMessage(result.message || 'Invitation sent successfully!');
+        setInviteMessageType('success');
         await _fetchInvitations();
+        setInviteForm({ email: '', role: 'user', companyId: null }); // Clear form inputs
       } else {
-        throw new Error(result.message || 'Failed to send invitation');
+        setInviteMessage(result.message || 'Failed to send invitation.');
+        setInviteMessageType('error');
       }
     } catch (error) {
-      alert(`Failed to send invitation: ${error.message}`);
+      setInviteMessage(`An unexpected error occurred: ${error.message}`);
+      setInviteMessageType('error');
+    } finally {
+      updateLastActivity();
     }
-
-    setShowInviteModal(false);
-    setInviteForm({ email: '', role: 'user', companyId: null });
-    updateLastActivity();
   };
 
   const handleEventFormSubmit = async (e) => {
@@ -1148,6 +1161,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       setTasks(prev => prev.map(task =>
         task.id === data.id ? updatedTask : task
       ));
+      setTasks(prev => prev.map(task =>
+        task.id === data.id ? updatedTask : task
+      ));
       setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
       updateLastActivity();
     }
@@ -1244,6 +1260,26 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       pendingPercentage,
     };
   }, [allTasks]);
+
+  const receivedInvitations = useMemo(() =>
+    invitations.filter(inv => inv.recipient_email === user.email),
+    [invitations, user.email]
+  );
+
+  const sentInvitations = useMemo(() =>
+    invitations.filter(inv => inv.sender_id === user.id),
+    [invitations, user.id]
+  );
+
+  const invitationStats = useMemo(() => {
+    const source = invitationsActiveTab === 'received' ? receivedInvitations : sentInvitations;
+    return {
+      total: source.length,
+      pending: source.filter(inv => inv.status === 'pending').length,
+      accepted: source.filter(inv => inv.status === 'accepted').length,
+      declined: source.filter(inv => inv.status === 'declined').length,
+    };
+  }, [invitationsActiveTab, receivedInvitations, sentInvitations]);
 
   const handleMarkAllAsRead = async () => {
     const now = new Date().toISOString();
@@ -1907,101 +1943,113 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   <div className="invitations-stats">
                     <div className="stat-card">
                       <div className="stat-icon"><Mail size={24} /></div>
-                      <div className="stat-content"><h3>{invitations.length}</h3><p>Total Invitations</p></div>
+                      <div className="stat-content"><h3>{invitationStats.total}</h3><p>Total Invitations</p></div>
                     </div>
                     <div className="stat-card">
                       <div className="stat-icon pending"><Clock size={24} /></div>
-                      <div className="stat-content"><h3>{invitations.filter(inv => inv.status === 'pending').length}</h3><p>Pending</p></div>
+                      <div className="stat-content"><h3>{invitationStats.pending}</h3><p>Pending</p></div>
                     </div>
                     <div className="stat-card">
                       <div className="stat-icon accepted"><Check size={24} /></div>
-                      <div className="stat-content"><h3>{invitations.filter(inv => inv.status === 'accepted').length}</h3><p>Accepted</p></div>
+                      <div className="stat-content"><h3>{invitationStats.accepted}</h3><p>Accepted</p></div>
                     </div>
                     <div className="stat-card">
                       <div className="stat-icon declined"><X size={24} /></div>
-                      <div className="stat-content"><h3>{invitations.filter(inv => inv.status === 'declined').length}</h3><p>Declined</p></div>
+                      <div className="stat-content"><h3>{invitationStats.declined}</h3><p>Declined</p></div>
                     </div>
                   </div>
+
+                  <nav className="invitations-nav">
+                    <button 
+                      className={`invitations-nav-tab ${invitationsActiveTab === 'received' ? 'active' : ''}`}
+                      onClick={() => setInvitationsActiveTab('received')}
+                    >
+                      <Building2 /> Received Invitations
+                    </button>
+                    <button 
+                      className={`invitations-nav-tab ${invitationsActiveTab === 'sent' ? 'active' : ''}`}
+                      onClick={() => setInvitationsActiveTab('sent')}
+                    >
+                      <Users /> Sent Invitations
+                    </button>
+                  </nav>
 
                   <div className="invitations-sections">
                     {currentCompany ? (
                       <>
-                        <div className="section">
-                          <h3 className="section-title">Invitations to Join Companies</h3>
-                          <div className="invitations-list">
-                            {invitations.filter(inv => inv.recipient_email === user.email).length > 0 ? (
-                              invitations.filter(inv => inv.recipient_email === user.email).map(inv => (
-                                <div key={inv.id} className={`invitation-card ${inv.status}`}>
-                                  <div className="invitation-header">
-                                    <div className="invitation-info">
-                                      <h4 className="invitation-title">Join {inv.company_name}</h4>
-                                      <p className="invitation-organizer">From: {inv.sender_email}</p>
+                        {invitationsActiveTab === 'received' && (
+                          <div className="section">
+                            <h3 className="section-title">Invitations to Join Companies</h3>
+                            <div className="invitations-list">
+                              {receivedInvitations.length > 0 ? (
+                                receivedInvitations.map(inv => (
+                                  <div key={inv.id} className={`invitation-card ${inv.status}`}>
+                                    <div className="invitation-header">
+                                      <div className="invitation-info">
+                                        <h4 className="invitation-title">Join {inv.company_name}</h4>
+                                        <p className="invitation-organizer">From: {inv.sender_email}</p>
+                                      </div>
+                                      <div className="invitation-status"><span className={`status-badge ${inv.status}`}>{inv.status}</span></div>
                                     </div>
-                                    <div className="invitation-status"><span className={`status-badge ${inv.status}`}>{inv.status}</span></div>
-                                  </div>
-                                  <div className="invitation-details">
-                                    <div className="detail-row"><Building2 size={16} /><span>Company: {inv.company_name}</span></div>
-                                    <div className="detail-row"><UserCheck size={16} /><span>Your Role: {inv.role}</span></div>
-                                    <div className="detail-row"><Clock size={16} /><span>Sent: {new Date(inv.created_at).toLocaleDateString()}</span></div>
-                                  </div>
-                                  {inv.status === 'pending' && (
-                                    <div className="invitation-actions">
-                                      <button
-                                        className="btn btn-success btn-small"
-                                        onClick={() => handleInvitationResponse(inv.id, 'accepted')}
-                                        disabled={inv.role !== 'user'}
-                                        title={inv.role !== 'user' ? "This is not a team member invitation" : "Accept invitation to join as a team member"}
-                                      >
-                                        <Check size={16} /> Add to Team
-                                      </button>
-                                      <button
-                                        className="btn btn-success btn-small"
-                                        onClick={() => handleInvitationResponse(inv.id, 'accepted')}
-                                        disabled={inv.role === 'user'}
-                                        title={inv.role === 'user' ? "This is not a company admin/owner invitation" : `Accept invitation to join as ${inv.role}`}
-                                      >
-                                        <Check size={16} /> Add to Company
-                                      </button>
-                                      <button className="btn btn-outline btn-small" onClick={() => handleInvitationResponse(inv.id, 'declined')}><X size={16} /> Decline</button>
+                                    <div className="invitation-details">
+                                      <div className="detail-row"><Building2 size={16} /><span>Company: {inv.company_name}</span></div>
+                                      <div className="detail-row"><UserCheck size={16} /><span>Your Role: {inv.role}</span></div>
+                                      <div className="detail-row"><Clock size={16} /><span>Sent: {new Date(inv.created_at).toLocaleDateString()}</span></div>
                                     </div>
-                                  )}
-                                </div>
-                              ))
-                            ) : (
-                              <div className="no-invitations"><Mail className="no-invitations-icon" /><p>No invitations received.</p></div>
-                            )}
+                                    {inv.status === 'pending' && (
+                                      <div className="invitation-actions">
+                                        {inv.role === 'user' ? (
+                                          <button className="btn btn-success btn-small" onClick={() => handleInvitationResponse(inv.id, 'accepted')}>
+                                            <Check size={16} /> Add to Team
+                                          </button>
+                                        ) : (
+                                          <button className="btn btn-success btn-small" onClick={() => handleInvitationResponse(inv.id, 'accepted')}>
+                                            <Check size={16} /> Add to Company
+                                          </button>
+                                        )}
+                                        <button className="btn btn-outline btn-small" onClick={() => handleInvitationResponse(inv.id, 'declined')}><X size={16} /> Decline</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="no-invitations"><Mail className="no-invitations-icon" /><p>No invitations received.</p></div>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        <div className="section">
-                          <h3 className="section-title">Invitations Sent from {currentCompany.name}</h3>
-                          <div className="invitations-list">
-                            {invitations.filter(inv => inv.sender_id === user.id && inv.company_id === currentCompany.id && inv.status === 'pending').length > 0 ? (
-                              invitations.filter(inv => inv.sender_id === user.id && inv.company_id === currentCompany.id && inv.status === 'pending').map(inv => (
-                                <div key={inv.id} className="team-invite-item">
-                                  <div className="team-invite-info">
-                                    <div className="team-invite-avatar"><Mail size={18} /></div>
-                                    <div>
-                                      <p className="team-invite-email">{inv.recipient_email}</p>
-                                      <p className="team-invite-company-name">To join: {inv.company_name}</p>
-                                      <p className="team-invite-date">Invited: {new Date(inv.created_at).toLocaleDateString()}</p>
+                        {invitationsActiveTab === 'sent' && (
+                          <div className="section">
+                            <h3 className="section-title">Invitations Sent from {currentCompany.name}</h3>
+                            <div className="invitations-list">
+                              {sentInvitations.filter(inv => inv.company_id === currentCompany.id).length > 0 ? (
+                                sentInvitations.filter(inv => inv.company_id === currentCompany.id).map(inv => (
+                                  <div key={inv.id} className="team-invite-item">
+                                    <div className="team-invite-info">
+                                      <div className="team-invite-avatar"><Mail size={18} /></div>
+                                      <div>
+                                        <p className="team-invite-email">{inv.recipient_email}</p>
+                                        <p className="team-invite-company-name">To join: {inv.company_name}</p>
+                                        <p className="team-invite-date">Invited: {new Date(inv.created_at).toLocaleDateString()}</p>
+                                      </div>
                                     </div>
+                                    <div className="team-invite-role"><span className={`role-badge ${inv.role}`}>{inv.role}</span></div>
+                                    <div className="team-invite-actions"></div>
                                   </div>
-                                  <div className="team-invite-role"><span className={`role-badge ${inv.role}`}>{inv.role}</span></div>
-                                  <div className="team-invite-actions"></div>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="no-data">No pending invitations for this company.</p>
-                            )}
+                                ))
+                              ) : (
+                                <p className="no-data">No pending invitations for this company.</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </>
                     ) : (
                       <div className="no-companies-message">
                         <Building2 className="no-companies-icon" />
                         <h4>No Company Selected</h4>
-                        <p>Select or create a company to manage your team.</p>
+                        <p>Select or create a company from the dropdown above to manage its team members and invitations.</p>
                         <button className="btn btn-primary" onClick={handleAddCompany}><Plus size={16} /> Create Company</button>
                       </div>
                     )}
@@ -2272,14 +2320,19 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       )}
 
       {showInviteModal && (
-        <div className="modal-backdrop" onClick={() => setShowInviteModal(false)}>
+        <div className="modal-backdrop" onClick={() => { setShowInviteModal(false); setInviteMessage(''); setInviteMessageType(''); }}>
           <div className="modal-content invite-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Invite Team Member</h3>
-              <button className="modal-close" onClick={() => setShowInviteModal(false)}><X /></button>
+              <button className="modal-close" onClick={() => { setShowInviteModal(false); setInviteMessage(''); setInviteMessageType(''); }}><X /></button>
             </div>
             <form onSubmit={handleInviteFormSubmit}>
               <div className="modal-body">
+                {inviteMessage && (
+                  <div className={`info-message ${inviteMessageType}`} style={{ marginBottom: '1rem', textAlign: 'center' }}>
+                    {inviteMessage}
+                  </div>
+                )}
                 <div className="form-group">
                   <label className="form-label">Recipient Email</label>
                   <div className="input-wrapper"><Mail className="input-icon" /><input type="email" name="email" value={inviteForm.email} onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))} className="form-input" placeholder="member@example.com" required /></div>
@@ -2307,7 +2360,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                 <div className="invite-info"><p>An invitation email will be sent to the recipient. They will need to accept it to join your company.</p></div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setShowInviteModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-outline" onClick={() => { setShowInviteModal(false); setInviteMessage(''); setInviteMessageType(''); }}>Cancel</button>
                 <button type="submit" className="btn btn-primary"><UserPlus size={16} /> Send Invitation</button>
               </div>
             </form>
