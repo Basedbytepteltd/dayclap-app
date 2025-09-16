@@ -144,7 +144,14 @@ def send_test_email():
         email_subject = "DayClap Test Email"
         email_html_body = "<p>This is a test email from your DayClap Super Admin Dashboard. If you received this, your Maileroo integration is working correctly.</p>"
         
-        maileroo_payload = {"from": default_sender, "to": recipient_email, "subject": email_subject, "html": email_html_body}
+        # **FIX**: Use simple string format for 'from' and 'to' as per Maileroo v2 docs
+        maileroo_payload = {
+            "from": default_sender,
+            "to": recipient_email,
+            "subject": email_subject,
+            "html": email_html_body
+        }
+        
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         mail_response = requests.post(api_endpoint, json=maileroo_payload, headers=headers, timeout=15)
 
@@ -184,7 +191,14 @@ def send_invitation():
         frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
         email_html_body = f"<p><b>{data['sender_email']}</b> has invited you to join <b>'{data['company_name']}'</b> on DayClap. <a href='{frontend_url}'>Accept here</a>.</p>"
         
-        maileroo_payload = {"from": default_sender, "to": data['recipient_email'], "subject": email_subject, "html": email_html_body}
+        # **FIX**: Use simple string format for 'from' and 'to' as per Maileroo v2 docs
+        maileroo_payload = {
+            "from": default_sender,
+            "to": data['recipient_email'],
+            "subject": email_subject,
+            "html": email_html_body
+        }
+        
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         mail_response = requests.post(api_endpoint, json=maileroo_payload, headers=headers, timeout=15)
 
