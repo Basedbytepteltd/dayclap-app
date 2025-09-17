@@ -2,6 +2,11 @@
 -- It is designed to be run multiple times safely, creating tables and adding columns only if they don't already exist,
 -- and dropping/recreating policies and functions to ensure they are always up-to-date.
 
+-- Enable pg_net extension for HTTP requests from triggers
+-- IMPORTANT: You must enable this in your Supabase dashboard under Database -> Extensions first.
+-- Also, configure network restrictions for pg_net to allow outbound requests to your backend URL.
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
 -- Create a table for public profiles if it doesn't already exist.
 CREATE TABLE IF NOT EXISTS profiles (
   id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
@@ -103,8 +108,8 @@ BEGIN
     'light', -- theme
     'en', -- language
     'UTC', -- timezone
-    '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "push": true, "reminders": true, "invitations": true}', -- notifications
-    '{"profileVisibility": "team", "calendarSharing": "private"}', -- privacy
+    '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "push": true, "reminders": true, "invitations": true}'::jsonb, -- notifications
+    '{"profileVisibility": "team", "calendarSharing": "private"}'::jsonb, -- privacy
     user_company_name, -- company_name (from signup options)
     initial_companies, -- dynamically set companies array
     new_company_id, -- dynamically set current_company_id
@@ -120,6 +125,49 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- NEW: Function to send welcome email via backend API after email confirmation
+CREATE OR REPLACE FUNCTION public.send_welcome_email_on_confirm()
+RETURNS TRIGGER AS $$
+DECLARE
+    backend_url TEXT := 'https://dayclap-backend-api.onrender.com'; -- REPLACE THIS WITH YOUR ACTUAL BACKEND URL
+    api_key TEXT := 'your_strong_unique_key_for_supabase_trigger_calls'; -- REPLACE THIS WITH THE SAME KEY FROM backend/.env
+    payload JSONB;
+    headers JSONB;
+    request_id BIGINT;
+BEGIN
+    -- Only send if email_confirmed_at was NULL and is now set (i.e., email just confirmed)
+    IF OLD.email_confirmed_at IS NULL AND NEW.email_confirmed_at IS NOT NULL THEN
+        payload := jsonb_build_object(
+            'email', NEW.email,
+            'user_name', NEW.raw_user_meta_data->>'name'
+        );
+        
+        headers := jsonb_build_object(
+            'Content-Type', 'application/json',
+            'X-API-Key', api_key
+        );
+
+        -- Make an asynchronous HTTP POST request to your Flask backend
+        -- This will not block the database transaction.
+        SELECT extensions.http_post(
+            uri := backend_url || '/api/send-welcome-email',
+            content := payload,
+            headers := headers
+        ) INTO request_id;
+
+        RAISE NOTICE 'Sent welcome email request for user % (ID: %)', NEW.email, NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- NEW: Trigger to call the welcome email function after auth.users update
+DROP TRIGGER IF EXISTS on_auth_user_confirmed ON auth.users;
+CREATE TRIGGER on_auth_user_confirmed
+AFTER UPDATE OF email_confirmed_at ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.send_welcome_email_on_confirm();
+
 
 -- Create 'invitations' table
 CREATE TABLE IF NOT EXISTS invitations (
@@ -284,3 +332,132 @@ BEGIN
     END IF;
 END
 $$;
+
+-- NEW: Create 'email_templates' table
+CREATE TABLE IF NOT EXISTS email_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT UNIQUE NOT NULL,
+  subject TEXT NOT NULL,
+  html_content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS for 'email_templates'
+ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Super admin can manage email templates." ON email_templates;
+CREATE POLICY "Super admin can manage email templates." ON email_templates FOR ALL USING ( auth.email() = 'admin@example.com' );
+
+-- Insert default email templates if they don't exist
+INSERT INTO email_templates (name, subject, html_content)
+SELECT 'welcome_email', 'Welcome to DayClap!',
+$$<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { padding: 20px; line-height: 1.6; color: #333333; }
+        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Welcome to DayClap!</h2>
+        </div>
+        <div class="content">
+            <p>Hello {{ user_name }},</p>
+            <p>Your DayClap account is now active! We're thrilled to have you on board.</p>
+            <p>DayClap helps you streamline your schedule, manage tasks effortlessly, and collaborate with your team. Get ready to boost your productivity!</p>
+            <p style="text-align: center;">
+                <a href="{{ frontend_url }}" class="button">Go to Dashboard</a>
+            </p>
+            <p>If you have any questions, feel free to reach out to our support team.</p>
+            <p>Best regards,<br>The DayClap Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>$$
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'welcome_email');
+
+INSERT INTO email_templates (name, subject, html_content)
+SELECT 'invitation_to_company', 'You''re Invited to Join a Team on DayClap!',
+$$<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { padding: 20px; line-height: 1.6; color: #333333; }
+        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>You're Invited to Join a Team on DayClap!</h2>
+        </div>
+        <div class="content">
+            <p>Hello,</p>
+            <p><b>{{ sender_email }}</b> has invited you to join their team, <b>'{{ company_name }}'</b>, on DayClap as a <b>{{ role }}</b>.</p>
+            <p>DayClap helps teams collaborate on schedules, manage tasks, and boost overall productivity.</p>
+            <p style="text-align: center;">
+                <a href="{{ invitation_link }}" class="button">Accept Invitation</a>
+            </p>
+            <p>If you have any questions, please contact {{ sender_email }}.</p>
+            <p>Best regards,<br>The DayClap Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>$$
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'invitation_to_company');
+
+-- NEW: Add default 'verification_email' template
+-- NOTE: This template is for backend-initiated verification emails.
+-- Supabase Auth's built-in signUp function uses the template configured in the Supabase Dashboard (Authentication -> Email Templates).
+INSERT INTO email_templates (name, subject, html_content)
+SELECT 'verification_email', 'Confirm Your DayClap Account',
+$$<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { padding: 20px; line-height: 1.6; color: #333333; }
+        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Confirm Your DayClap Account</h2>
+        </div>
+        <div class="content">
+            <p>Hello {{ user_name }},</p>
+            <p>Thank you for signing up for DayClap! Please click the button below to confirm your email address and activate your account:</p>
+            <p style="text-align: center;">
+                <a href="{{ .ConfirmationURL }}" class="button">Confirm Your Email</a>
+            </p>
+            <p>If you did not sign up for DayClap, please ignore this email.</p>
+            <p>Best regards,<br>The DayClap Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>$$
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'verification_email');

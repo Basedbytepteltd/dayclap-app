@@ -2,7 +2,7 @@ import os
 import sys
 import traceback
 from flask import Flask, request, jsonify
-from flask_cors import CORS, cross_origin # Import cross_origin
+from flask_cors import CORS, cross_origin
 from supabase import create_client, Client
 import requests
 from dotenv import load_dotenv
@@ -25,6 +25,10 @@ if not supabase_url or not supabase_service_key:
 supabase: Client = create_client(supabase_url, supabase_service_key)
 
 SUPER_ADMIN_EMAIL = 'admin@example.com'
+BACKEND_API_KEY = os.environ.get("BACKEND_API_KEY") # NEW: Fetch backend API key
+
+if not BACKEND_API_KEY:
+    print("WARNING: BACKEND_API_KEY is not set. Welcome email endpoint will be insecure.", file=sys.stderr)
 
 def is_super_admin(email):
     return email == SUPER_ADMIN_EMAIL
@@ -238,6 +242,42 @@ def send_invitation():
             return jsonify({"message": "Invitation saved, but failed to send email.", "details": details}), 202
 
     except Exception as e:
+        return jsonify({"message": f"An unexpected error occurred: {e}"}), 500
+
+# NEW: Endpoint to send welcome email, called by Supabase trigger
+@app.route('/api/send-welcome-email', methods=['POST'])
+@cross_origin()
+def send_welcome_email_endpoint():
+    # Security check: Verify API Key
+    api_key_header = request.headers.get('X-API-Key')
+    if not BACKEND_API_KEY or api_key_header != BACKEND_API_KEY:
+        print(f"Unauthorized access attempt to /api/send-welcome-email. Provided key: {api_key_header}", file=sys.stderr)
+        return jsonify({"message": "Unauthorized"}), 403
+
+    data = request.get_json() or {}
+    recipient_email = data.get('email')
+    user_name = data.get('user_name', 'New User') # Default name if not provided
+
+    if not recipient_email:
+        return jsonify({"message": "Recipient email is required"}), 400
+
+    try:
+        frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
+        template_data = {
+            "user_name": user_name,
+            "frontend_url": frontend_url,
+            "current_year": datetime.now().year
+        }
+        
+        success, details = send_email_api(recipient_email, "welcome_email", template_data)
+
+        if success:
+            return jsonify({"message": "Welcome email sent successfully!", "details": details}), 200
+        else:
+            return jsonify({"message": "Failed to send welcome email.", "details": details}), 500
+
+    except Exception as e:
+        traceback.print_exc(file=sys.stderr)
         return jsonify({"message": f"An unexpected error occurred: {e}"}), 500
 
 # NEW: API Endpoints for Email Template Management
