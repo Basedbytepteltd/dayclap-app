@@ -19,7 +19,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // NEW: OTP specific states
+  // OTP specific states
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [otpError, setOtpError] = useState('');
@@ -43,7 +43,6 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     setOtpError('');
   }
 
-  // NEW: Handle OTP input change
   const handleOtpChange = (e) => {
     setOtpCode(e.target.value);
     setOtpError('');
@@ -78,8 +77,8 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    // If OTP was already sent, this submission is for OTP verification
     if (otpSent) {
-      // If OTP was sent, this submission is for OTP verification
       await handleOtpVerification();
       return;
     }
@@ -98,58 +97,46 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     setOtpError('');
 
     try {
-      let authResponse;
       if (mode === 'login') {
-        authResponse = await supabase.auth.signInWithPassword({
+        // Standard password login
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: formData.email.toLowerCase(),
           password: formData.password,
         });
-      } else { // Signup flow
-        authResponse = await supabase.auth.signUp({
+
+        if (error) {
+          setErrors({ submit: error.message });
+          return;
+        }
+        if (data.user && data.session) {
+          onAuthSuccess(data.user);
+          onClose();
+        } else {
+          setErrors({ submit: 'An unexpected login response occurred.' });
+        }
+
+      } else { // Signup flow (or passwordless login if user exists)
+        // Use signInWithOtp to send the code. It will create the user if they don't exist.
+        setResendMessage('Sending verification code to your email...');
+        const { error: otpSendError } = await supabase.auth.signInWithOtp({
           email: formData.email.toLowerCase(),
-          password: formData.password,
           options: {
-            data: {
+            data: { // Pass metadata for new user creation
               name: formData.name,
               company: formData.company
-            }
-          }
-        });
-      }
-
-      if (authResponse.error) {
-        setErrors({ submit: authResponse.error.message });
-        // If the error is related to email not confirmed, show resend button
-        if (authResponse.error.message.includes('Email not confirmed') || authResponse.error.message.includes('Email link is invalid or has expired')) {
-          setShowResendButton(true);
-        }
-        return;
-      }
-
-      const { user, session } = authResponse.data;
-
-      if (user && session) {
-        // User is immediately logged in (e.g., email confirmation is off, or already confirmed)
-        onAuthSuccess(user);
-        onClose();
-      } else if (user && !session) {
-        // User created, but email confirmation is pending. Now send OTP.
-        setResendMessage('Account created! Sending verification code to your email...');
-        const { error: resendError } = await supabase.auth.resend({
-          type: 'signup', // Corrected: Use 'signup' for initial OTP
-          email: formData.email.toLowerCase(),
+            },
+            emailRedirectTo: window.location.origin + '/verified', // Optional: Redirect after successful verification
+          },
         });
 
-        if (resendError) {
-          setErrors({ submit: `Failed to send OTP: ${resendError.message}` });
+        if (otpSendError) {
+          setErrors({ submit: `Failed to send verification code: ${otpSendError.message}` });
           setResendMessage('');
           setShowResendButton(true); // Allow resending if initial OTP send fails
         } else {
           setOtpSent(true);
           setResendMessage('A verification code has been sent to your email. Please check your inbox (and spam folder).');
         }
-      } else {
-        setErrors({ submit: 'An unexpected authentication response occurred.' });
       }
       
     } catch (error) {
@@ -159,7 +146,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     }
   }
 
-  // NEW: Function to handle OTP verification
+  // Function to handle OTP verification
   const handleOtpVerification = async () => {
     setOtpLoading(true);
     setOtpError('');
@@ -197,7 +184,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     }
   };
 
-  // Function to handle resending verification email (now adapted for OTP)
+  // Function to handle resending verification code (using signInWithOtp)
   const handleResendVerification = async () => {
     setIsLoading(true);
     setResendMessage('');
@@ -206,9 +193,11 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     setShowResendButton(false);
 
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup', // Corrected: Use 'signup' to resend OTP
+      const { error } = await supabase.auth.signInWithOtp({
         email: formData.email.toLowerCase(),
+        options: {
+          emailRedirectTo: window.location.origin + '/verified',
+        },
       });
 
       if (error) {
@@ -357,7 +346,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
               )}
             </>
           ) : (
-            // NEW: OTP Input Form
+            // OTP Input Form
             <div className="form-group">
               <label className="form-label">Verification Code</label>
               <div className="input-wrapper">
@@ -389,7 +378,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
             </div>
           )}
 
-          {/* NEW: Resend OTP Button (replaces old resend verification email button) */}
+          {/* Resend OTP Button */}
           {showResendButton && formData.email && (
             <button
               type="button"
