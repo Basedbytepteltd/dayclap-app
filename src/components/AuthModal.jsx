@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, Mail, Lock, User, Building2 } from 'lucide-react'
+import { X, Mail, Lock, User, Building2, Eye, EyeOff } from 'lucide-react' // Import Eye and EyeOff icons
 import { supabase } from '../supabaseClient'
 import './AuthModal.css'
 
@@ -15,6 +15,10 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [showResendButton, setShowResendButton] = useState(false); // NEW: State to control resend button visibility
   const [resendMessage, setResendMessage] = useState(''); // NEW: State for resend feedback
+
+  // NEW: States for password visibility toggles
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Removed localStorage.removeItem calls to prevent interference with Supabase session persistence.
   // useEffect(() => {
@@ -229,13 +233,21 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
             <div className="input-wrapper">
               <Lock className="input-icon" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'} // Toggle type
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
                 className={`form-input ${errors.password ? 'error' : ''}`}
                 placeholder="Enter your password"
               />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(prev => !prev)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
@@ -246,13 +258,21 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
               <div className="input-wrapper">
                 <Lock className="input-icon" />
                 <input
-                  type="password"
+                  type={showConfirmPassword ? 'text' : 'password'} // Toggle type
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
                   placeholder="Confirm your password"
                 />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
               {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
             </div>

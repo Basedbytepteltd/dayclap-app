@@ -167,6 +167,35 @@
   color: var(--accent-hover);
 }
 
+/* NEW: Password Toggle Button */
+.password-toggle {
+  position: absolute;
+  right: 1rem; /* Position to the right of the input */
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--secondary-text);
+  cursor: pointer;
+  padding: 0.25rem; /* Add some padding for click area */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  z-index: 10; /* Ensure it's above the input */
+}
+
+.password-toggle:hover {
+  color: var(--primary-text);
+}
+
+/* Adjust input padding when toggle is present to prevent overlap */
+.input-wrapper .form-input[type=\"password\"] + .password-toggle + input,
+.input-wrapper .form-input[type=\"text\"] + .password-toggle + input {
+  padding-right: 3rem; /* Make space for the toggle button */
+}
+
+
 /* Responsive Design */
 @media (max-width: 640px) {
   .modal-content {
@@ -189,5 +218,15 @@
   
   .form-group {
     margin-bottom: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .input-wrapper .form-input[type=\"password\"] + .password-toggle + input,
+  .input-wrapper .form-input[type=\"text\"] + .password-toggle + input {
+    padding-right: 2.5rem; /* Smaller padding for smaller screens */
+  }
+  .password-toggle {
+    right: 0.75rem; /* Adjust position for smaller screens */
   }
 }
