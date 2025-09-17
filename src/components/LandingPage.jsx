@@ -36,13 +36,9 @@ const LandingPage = () => {
 
         if (profileError && profileError.code === 'PGRST116') { // No profile found, create one
           const userName = session.user.user_metadata?.name || session.user.email.split('@')[0];
-          // Removed userCompany as it's no longer collected at signup
-          // const userCompany = session.user.user_metadata?.company || null;
-
-          // Simplified: No company is created at initial signup
+          
           let initialCompanies = [];
           let initialCurrentCompanyId = null;
-          // Removed conditional logic for creating company based on userCompany
 
           const { data: newProfile, error: insertError } = await supabase
             .from('profiles')
@@ -50,7 +46,7 @@ const LandingPage = () => {
               id: session.user.id,
               name: userName,
               email: session.user.email,
-              company_name: null, // Default to null as company is not provided at signup
+              company_name: null,
               companies: initialCompanies,
               current_company_id: initialCurrentCompanyId,
               last_activity_at: new Date().toISOString(),
@@ -65,7 +61,6 @@ const LandingPage = () => {
           throw profileError;
         }
 
-        // Combine user and profile data
         const combinedUserData = {
           ...session.user,
           ...profile,
@@ -77,13 +72,12 @@ const LandingPage = () => {
 
       } catch (error) {
         console.error("LandingPage: Error handling auth session:", error.message);
-        setUser(session.user); // Fallback to auth user data if profile fails
+        setUser(session.user);
       } finally {
         setLoading(false);
       }
     };
 
-    // Initial check for an existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleAuthSession(session);
     }).catch(err => {
@@ -92,13 +86,11 @@ const LandingPage = () => {
         setLoading(false);
     });
 
-    // Listener for auth state changes (login, logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('LandingPage: Auth state changed event:', _event, 'Session:', session);
       handleAuthSession(session);
     });
 
-    // Cleanup listener on component unmount
     return () => {
       subscription?.unsubscribe();
     };
@@ -112,12 +104,10 @@ const LandingPage = () => {
       if (theme === 'dark') {
         document.body.classList.add('dark-mode');
       } else if (theme === 'light') {
-        // Light theme selected, ensuring dark-mode is removed.
+        // Light theme selected
       } else if (theme === 'system') {
         if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
           document.body.classList.add('dark-mode');
-        } else {
-          // System theme (light) applied.
         }
       }
     };
@@ -129,12 +119,7 @@ const LandingPage = () => {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         const handleSystemThemeChange = (e) => {
           if (user.theme === 'system') {
-            document.body.classList.remove('dark-mode');
-            if (e.matches) {
-              document.body.classList.add('dark-mode');
-            } else {
-              // System theme (light) re-applied due to system change.
-            }
+            document.body.classList.toggle('dark-mode', e.matches);
           }
         };
 
@@ -153,7 +138,7 @@ const LandingPage = () => {
   }, [user?.theme, user, loading]);
 
 
-  const handleAuthSuccess = (supabaseUser) => {
+  const handleAuthSuccess = () => {
     console.log('LandingPage: Auth success, closing modal.');
     setAuthMode(null);
   };
@@ -171,7 +156,7 @@ const LandingPage = () => {
   const handleUserUpdate = async (updatedUser) => {
     const { id, name, email, theme, language, timezone, notifications, privacy, company_name, companies, currentCompanyId, currency } = updatedUser;
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ 
         name, 
@@ -191,7 +176,6 @@ const LandingPage = () => {
 
     if (error) {
       console.error("LandingPage: Error updating user profile in Supabase:", error.message);
-      console.error("LandingPage: Full Supabase update error object:", error);
     } else {
       const { data: freshProfile, error: fetchError } = await supabase
         .from('profiles')
@@ -216,7 +200,6 @@ const LandingPage = () => {
   };
 
   if (loading) {
-    console.log('LandingPage: Rendering loading screen.');
     return (
       <div className="loading-screen">
         <div className="loading-calendar">
@@ -235,7 +218,6 @@ const LandingPage = () => {
   const isSuperAdmin = user && user.email === 'admin@example.com';
 
   if (user) {
-    console.log('LandingPage: User is logged in, rendering dashboard.');
     if (isSuperAdmin) {
       return <SuperAdminDashboard user={user} onLogout={handleLogout} />;
     } else {
@@ -243,7 +225,6 @@ const LandingPage = () => {
     }
   }
 
-  console.log('LandingPage: User is NOT logged in, rendering landing page content.');
   return (
     <div className="landing-page">
       <header className="header">
@@ -256,19 +237,19 @@ const LandingPage = () => {
             <div className="nav-buttons">
               <button 
                 className="btn btn-outline"
-                onClick={() => { console.log('Super Admin Login button clicked'); setAuthMode('login'); }}
+                onClick={() => setAuthMode('login')}
               >
                 Super Admin Login
               </button>
               <button 
                 className="btn btn-outline"
-                onClick={() => { console.log('Sign In button clicked'); setAuthMode('login'); }}
+                onClick={() => setAuthMode('login')}
               >
                 Sign In
               </button>
               <button 
                 className="btn btn-primary"
-                onClick={() => { console.log('Get Started button clicked (header)'); setAuthMode('signup'); }}
+                onClick={() => setAuthMode('signup')}
               >
                 Get Started
               </button>
@@ -291,7 +272,7 @@ const LandingPage = () => {
             <div className="hero-buttons">
               <button 
                 className="btn btn-primary btn-large"
-                onClick={() => { console.log('Start Free Today button clicked (hero)'); setAuthMode('signup'); }}
+                onClick={() => setAuthMode('signup')}
               >
                 Start Free Today
               </button>
@@ -391,7 +372,7 @@ const LandingPage = () => {
             </p>
             <button 
               className="btn btn-primary btn-large"
-              onClick={() => { console.log('Get Started Free button clicked (CTA)'); setAuthMode('signup'); }}
+              onClick={() => setAuthMode('signup')}
             >
               Get Started Free
             </button>
@@ -445,7 +426,7 @@ const LandingPage = () => {
       {authMode && (
         <AuthModal
           mode={authMode}
-          onClose={() => { console.log('AuthModal onClose called'); setAuthMode(null); }}
+          onClose={() => setAuthMode(null)}
           onSwitchMode={setAuthMode}
           onAuthSuccess={handleAuthSuccess}
         />

@@ -264,7 +264,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const currentCompany = user.companies?.find(company => company.id === user.currentCompanyId);
 
   const _fetchEvents = async () => {
-    if (!user || !user.id || !currentCompany?.id) {
+    if (!user || !user.id || !currentCompany?.id) { // Check for currentCompany.id
       setEvents([]);
       return;
     }
@@ -290,7 +290,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const _fetchTasks = async () => {
-    if (!user || !user.id || !currentCompany?.id) {
+    if (!user || !user.id || !currentCompany?.id) { // Check for currentCompany.id
       setTasks([]);
       return;
     }
@@ -379,6 +379,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   }, []);
 
   const toggleTaskCompletion = async (taskId, isEventTask, parentEventId) => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first.');
+      return;
+    }
     if (isEventTask && parentEventId) {
       const eventToUpdate = events.find(event => event.id === parentEventId);
       if (!eventToUpdate) return;
@@ -546,6 +550,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const handleEventFormSubmit = async (e) => {
     e.preventDefault();
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to add events.');
+      return;
+    }
     if (!eventForm.title.trim() || !eventForm.date) {
       alert('Event Title and Date are required.');
       return;
@@ -558,7 +566,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       location: eventForm.location || null,
       event_tasks: eventForm.eventTasks || [],
       user_id: user.id,
-      company_id: currentCompany?.id,
+      company_id: currentCompany.id, // Ensure company_id is always from currentCompany
     };
     if (editingEvent) {
       const { data, error } = await supabase.from('events').update(eventPayload).eq('id', editingEvent.id).select().single();
@@ -631,6 +639,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleAddEvent = (dateToPreselect = null) => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to add events.');
+      return;
+    }
     setEditingEvent(null);
     setEventForm({ title: '', date: dateToPreselect || selectedDate, time: '17:00', description: '', location: '', eventTasks: [] });
     setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
@@ -644,6 +656,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleEditEvent = (event) => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to edit events.');
+      return;
+    }
     setEditingEvent(event);
     setEventForm({ ...event, eventTasks: event.eventTasks || [] });
     setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
@@ -652,6 +668,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   }
 
   const handleDeleteEvent = async (eventId) => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to delete events.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this event?')) return;
     const { error } = await supabase.from('events').delete().eq('id', eventId);
     if (error) {
@@ -1019,6 +1039,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const searchResults = performSearch(searchTerm);
 
   const handleAddEventTask = () => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to add tasks to events.');
+      return;
+    }
     if (!currentEventTaskForm.title.trim()) {
       alert("Task title cannot be empty.");
       return;
@@ -1080,6 +1104,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleAddGeneralTask = async () => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to add general tasks.');
+      return;
+    }
     if (!currentEventTaskForm.title.trim()) {
       alert("Task title cannot be empty.");
       return;
@@ -1092,7 +1120,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       category: currentEventTaskForm.category || null,
       completed: false,
       user_id: user.id,
-      company_id: currentCompany?.id,
+      company_id: currentCompany.id, // Ensure company_id is always from currentCompany
       expenses: currentEventTaskForm.expenses ? parseFloat(currentEventTaskForm.expenses) : null
     };
     const { data, error } = await supabase
@@ -1116,6 +1144,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleEditGeneralTask = async (taskId) => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to edit tasks.');
+      return;
+    }
     const taskToEdit = tasks.find(task => task.id === taskId);
     if (!taskToEdit) return;
     setCurrentEventTaskForm({
@@ -1131,6 +1163,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleSaveGeneralTask = async () => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to save tasks.');
+      return;
+    }
     if (!currentEventTaskForm.title.trim()) {
       alert("Task title cannot be empty.");
       return;
@@ -1163,15 +1199,16 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       setTasks(prev => prev.map(task =>
         task.id === data.id ? updatedTask : task
       ));
-      setTasks(prev => prev.map(task =>
-        task.id === data.id ? updatedTask : task
-      ));
       setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
       updateLastActivity();
     }
   };
 
   const handleDeleteGeneralTask = async (taskId) => {
+    if (!currentCompany?.id) { // Added check
+      alert('Please select or create a company first to delete tasks.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
       return;
     }
@@ -1377,7 +1414,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                           </button>
                         ))
                       ) : (
-                        <p className="no-companies-message" style={{ padding: '1rem', textAlign: 'center', color: 'var(--secondary-text)' }}>No companies yet.</p>
+                        <p className="no-companies-message" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No companies yet.</p>
                       )}
                       <div className="company-divider"></div>
                       <button className="company-option add-company" onClick={() => { handleAddCompany(); setShowCompanyDropdown(false); }}>
@@ -1548,12 +1585,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                           )}
                         </div>
                         <div className="event-actions">
-                          <button className="btn-icon-small edit" onClick={() => handleEditEvent(event)} title="Edit Event">
-                            <Edit size={16} />
-                          </button>
-                          <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(event.id)} title="Delete Event">
-                            <Trash2 size={16} />
-                          </button>
+                          <button className="btn-icon-small edit" onClick={() => handleEditEvent(event)} title="Edit Event"><Edit size={16} /></button>
+                          <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(event.id)} title="Delete Event"><Trash2 size={16} /></button>
                         </div>
                       </div>
                     ))}
@@ -1595,12 +1628,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                               </span>
                             )}
                             <div className="task-actions">
-                              <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(task.id)} title="Edit Task">
-                                <Edit size={16} />
-                              </button>
-                              <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(task.id)} title="Delete Task">
-                                <Trash2 size={16} />
-                              </button>
+                              <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(task.id)} title="Edit Task"><Edit size={16} /></button>
+                              <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(task.id)} title="Delete Task"><Trash2 size={16} /></button>
                             </div>
                           </div>
                         </div>
@@ -1614,79 +1643,153 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
             </div>
           ) : (
             <>
-              {activeTab === 'overview' && (
-                <div className="overview-content">
-                  <div className="overview-header">
-                    <h2>Welcome, {user.name || user.email}!</h2>
-                    <p className="overview-subtitle">Here's a quick overview of your DayClap activity.</p>
-                  </div>
+              {!currentCompany?.id ? (
+                <div className="no-companies-message">
+                  <Building2 className="no-companies-icon" />
+                  <h4>No Company Selected</h4>
+                  <p>It looks like you haven't created or joined any companies yet. To start organizing your events and tasks, please create your first company.</p>
+                  <button className="btn btn-primary" onClick={handleAddCompany}><Plus size={16} /> Create Your First Company</button>
+                </div>
+              ) : (
+                <>
+                  {activeTab === 'overview' && (
+                    <div className="overview-content">
+                      <div className="overview-header">
+                        <h2>Welcome, {user.name || user.email}!</h2>
+                        <p className="overview-subtitle">Here's a quick overview of your DayClap activity.</p>
+                      </div>
 
-                  <div className="stats-grid">
-                    <div className="stat-card">
-                      <div className="stat-icon"><CalendarDays size={24} /></div>
-                      <div className="stat-content"><h3>{overviewStats.totalEvents}</h3><p>Total Events</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon completed"><CheckSquare size={24} /></div>
-                      <div className="stat-content"><h3>{overviewStats.completedTasks}</h3><p>Completed Tasks</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon pending"><Flag size={24} /></div>
-                      <div className="stat-content"><h3>{overviewStats.pendingTasks}</h3><p>Pending Tasks</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon overdue"><Clock size={24} /></div>
-                      <div className="stat-content"><h3>{overviewStats.overdueTasks}</h3><p>Overdue Tasks</p></div>
-                    </div>
-                    <div className="stat-card percentage-card">
-                      <div className="stat-icon percentage-completed"><BarChart3 size={24} /></div>
-                      <div className="stat-content"><h3>{overviewStats.taskCompletionPercentage}%</h3><p>Tasks Completed</p></div>
-                    </div>
-                    <div className="stat-card percentage-card">
-                      <div className="stat-icon percentage-pending"><BarChart3 size={24} /></div>
-                      <div className="stat-content"><h3>{overviewStats.pendingTasksPercentage}%</h3><p>Tasks Pending</p></div>
-                    </div>
-                    <div className="stat-card expenses-card">
-                      <div className="stat-icon expenses"><DollarSign size={24} /></div>
-                      <div className="stat-content"><h3>{formatCurrency(overviewStats.totalExpenses, user.currency)}</h3><p>Total Expenses</p></div>
-                    </div>
-                  </div>
-
-                  <div className="overview-sections">
-                    <div className="section">
-                      <div className="section-header">
-                        <h3 className="section-title">Events</h3>
-                        <div className="header-actions">
-                          <div className="event-filter-dropdown">
-                            <select className="form-select" value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}>
-                              <option value="all">All Upcoming</option>
-                              <option value="week">This Week</option>
-                              <option value="month">This Month</option>
-                              <option value="nextMonth">Next Month</option>
-                              <option value="lastMonth">Last Month</option>
-                              <option value="lastYear">Last Year</option>
-                            </select>
-                          </div>
-                          <button className="btn btn-primary btn-small" onClick={() => handleAddEvent()}><Plus size={16} /> Add Event</button>
+                      <div className="stats-grid">
+                        <div className="stat-card">
+                          <div className="stat-icon"><CalendarDays size={24} /></div>
+                          <div className="stat-content"><h3>{overviewStats.totalEvents}</h3><p>Total Events</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon completed"><CheckSquare size={24} /></div>
+                          <div className="stat-content"><h3>{overviewStats.completedTasks}</h3><p>Completed Tasks</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon pending"><Flag size={24} /></div>
+                          <div className="stat-content"><h3>{overviewStats.pendingTasks}</h3><p>Pending Tasks</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon overdue"><Clock size={24} /></div>
+                          <div className="stat-content"><h3>{overviewStats.overdueTasks}</h3><p>Overdue Tasks</p></div>
+                        </div>
+                        <div className="stat-card percentage-card">
+                          <div className="stat-icon percentage-completed"><BarChart3 size={24} /></div>
+                          <div className="stat-content"><h3>{overviewStats.taskCompletionPercentage}%</h3><p>Tasks Completed</p></div>
+                        </div>
+                        <div className="stat-card percentage-card">
+                          <div className="stat-icon percentage-pending"><BarChart3 size={24} /></div>
+                          <div className="stat-content"><h3>{overviewStats.pendingTasksPercentage}%</h3><p>Tasks Pending</p></div>
+                        </div>
+                        <div className="stat-card expenses-card">
+                          <div className="stat-icon expenses"><DollarSign size={24} /></div>
+                          <div className="stat-content"><h3>{formatCurrency(overviewStats.totalExpenses, user.currency)}</h3><p>Total Expenses</p></div>
                         </div>
                       </div>
+
+                      <div className="overview-sections">
+                        <div className="section">
+                          <div className="section-header">
+                            <h3 className="section-title">Events</h3>
+                            <div className="header-actions">
+                              <div className="event-filter-dropdown">
+                                <select className="form-select" value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}>
+                                  <option value="all">All Upcoming</option>
+                                  <option value="week">This Week</option>
+                                  <option value="month">This Month</option>
+                                  <option value="nextMonth">Next Month</option>
+                                  <option value="lastMonth">Last Month</option>
+                                  <option value="lastYear">Last Year</option>
+                                </select>
+                              </div>
+                              <button className="btn btn-primary btn-small" onClick={() => handleAddEvent()} disabled={!currentCompany?.id}><Plus size={16} /> Add Event</button>
+                            </div>
+                          </div>
+                          <div className="events-list">
+                            {getFilteredUpcomingEvents(eventFilter).length > 0 ? (
+                              getFilteredUpcomingEvents(eventFilter).map(event => (
+                                <div key={event.id} className="event-card upcoming">
+                                  <div className="event-date">
+                                    <span className="event-day">{event.date.getDate()}</span>
+                                    <span className="event-month">{event.date.toLocaleString('en-US', { month: 'short' })}</span>
+                                  </div>
+                                  <div className="event-details">
+                                    <h4 className="event-title clickable-title" onClick={() => handleEditEvent(event)}>{event.title}</h4>
+                                    <p className="event-time-desc">
+                                      {event.time && <><Clock size={14} /> {event.time} • </>}
+                                      {event.location && <><MapPin size={14} /> {event.location}</>}
+                                    </p>
+                                    {event.eventTasks && event.eventTasks.length > 0 && (
+                                      <p className="event-task-summary"><CheckSquare size={14} /> {event.eventTasks.filter(t => !t.completed).length} pending tasks</p>
+                                    )}
+                                  </div>
+                                  <div className="event-actions">
+                                    <button className="btn-icon-small edit" onClick={() => handleEditEvent(event)} title="Edit Event"><Edit size={16} /></button>
+                                    <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(event.id)} title="Delete Event"><Trash2 size={16} /></button>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="no-events">
+                                <CalendarDays className="no-events-icon" />
+                                <p>No events for this period.</p>
+                                <button className="btn btn-primary btn-small" onClick={() => handleAddEvent()} disabled={!currentCompany?.id}><Plus size={16} /> Create Event</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'calendar' && (
+                    <div className="calendar-content">
+                      <div className="calendar-section">
+                        <div className="calendar-header">
+                          <button className="nav-arrow" onClick={() => navigateMonth(-1)}><ChevronLeft /></button>
+                          <h3 className="calendar-title">{currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</h3>
+                          <button className="nav-arrow" onClick={() => navigateMonth(1)}><ChevronRight /></button>
+                        </div>
+                        <div className="calendar-grid">
+                          {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
+                          {daysInMonth.map((date, index) => (
+                            <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
+                              {date && <span className="day-number">{date.getDate()}</span>}
+                              {date && getCalendarItemsForDate(date).slice(0, 2).map(item => (
+                                <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
+                              ))}
+                              {date && getCalendarItemCountForDate(date) > 2 && (
+                                <div className="item-indicators"><span className="item-count">+{getCalendarItemCountForDate(date) - 2}</span></div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'all-events' && (
+                    <div className="all-events-content">
+                      <div className="all-events-header">
+                        <h2>All Events</h2>
+                        <p className="all-events-subtitle">A comprehensive list of all your events, past and future.</p>
+                      </div>
                       <div className="events-list">
-                        {getFilteredUpcomingEvents(eventFilter).length > 0 ? (
-                          getFilteredUpcomingEvents(eventFilter).map(event => (
-                            <div key={event.id} className="event-card upcoming">
-                              <div className="event-date">
-                                <span className="event-day">{event.date.getDate()}</span>
-                                <span className="event-month">{event.date.toLocaleString('en-US', { month: 'short' })}</span>
+                        {events.length > 0 ? (
+                          events.sort((a, b) => b.date.getTime() - a.date.getTime()).map(event => (
+                            <div key={event.id} className="event-card detailed">
+                              <div className="event-date-time-block">
+                                <span className="event-date-display">{event.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                <span className="event-time-display">{event.time || 'All Day'}</span>
                               </div>
                               <div className="event-details">
                                 <h4 className="event-title clickable-title" onClick={() => handleEditEvent(event)}>{event.title}</h4>
-                                <p className="event-time-desc">
-                                  {event.time && <><Clock size={14} /> {event.time} • </>}
-                                  {event.location && <><MapPin size={14} /> {event.location}</>}
-                                </p>
-                                {event.eventTasks && event.eventTasks.length > 0 && (
-                                  <p className="event-task-summary"><CheckSquare size={14} /> {event.eventTasks.filter(t => !t.completed).length} pending tasks</p>
-                                )}
+                                {event.description && <p className="event-description">{event.description}</p>}
+                                {event.location && <p className="event-location"><MapPin size={14} /> {event.location}</p>}
+                                {event.eventTasks && event.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {event.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
                               </div>
                               <div className="event-actions">
                                 <button className="btn-icon-small edit" onClick={() => handleEditEvent(event)} title="Edit Event"><Edit size={16} /></button>
@@ -1697,531 +1800,468 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         ) : (
                           <div className="no-events">
                             <CalendarDays className="no-events-icon" />
-                            <p>No events for this period.</p>
-                            <button className="btn btn-primary btn-small" onClick={() => handleAddEvent()}><Plus size={16} /> Create Event</button>
+                            <p>No events found.</p>
+                            <button className="btn btn-primary btn-small" onClick={() => handleAddEvent()} disabled={!currentCompany?.id}><Plus size={16} /> Create Event</button>
                           </div>
                         )}
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {activeTab === 'calendar' && (
-                <div className="calendar-content">
-                  <div className="calendar-section">
-                    <div className="calendar-header">
-                      <button className="nav-arrow" onClick={() => navigateMonth(-1)}><ChevronLeft /></button>
-                      <h3 className="calendar-title">{currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</h3>
-                      <button className="nav-arrow" onClick={() => navigateMonth(1)}><ChevronRight /></button>
-                    </div>
-                    <div className="calendar-grid">
-                      {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
-                      {daysInMonth.map((date, index) => (
-                        <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
-                          {date && <span className="day-number">{date.getDate()}</span>}
-                          {date && getCalendarItemsForDate(date).slice(0, 2).map(item => (
-                            <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
-                          ))}
-                          {date && getCalendarItemCountForDate(date) > 2 && (
-                            <div className="item-indicators"><span className="item-count">+{getCalendarItemCountForDate(date) - 2}</span></div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'all-events' && (
-                <div className="all-events-content">
-                  <div className="all-events-header">
-                    <h2>All Events</h2>
-                    <p className="all-events-subtitle">A comprehensive list of all your events, past and future.</p>
-                  </div>
-                  <div className="events-list">
-                    {events.length > 0 ? (
-                      events.sort((a, b) => b.date.getTime() - a.date.getTime()).map(event => (
-                        <div key={event.id} className="event-card detailed">
-                          <div className="event-date-time-block">
-                            <span className="event-date-display">{event.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                            <span className="event-time-display">{event.time || 'All Day'}</span>
-                          </div>
-                          <div className="event-details">
-                            <h4 className="event-title clickable-title" onClick={() => handleEditEvent(event)}>{event.title}</h4>
-                            {event.description && <p className="event-description">{event.description}</p>}
-                            {event.location && <p className="event-location"><MapPin size={14} /> {event.location}</p>}
-                            {event.eventTasks && event.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {event.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
-                          </div>
-                          <div className="event-actions">
-                            <button className="btn-icon-small edit" onClick={() => handleEditEvent(event)} title="Edit Event"><Edit size={16} /></button>
-                            <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(event.id)} title="Delete Event"><Trash2 size={16} /></button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="no-events">
-                        <CalendarDays className="no-events-icon" />
-                        <p>No events found.</p>
-                        <button className="btn btn-primary btn-small" onClick={() => handleAddEvent()}><Plus size={16} /> Create Event</button>
+                  {activeTab === 'tasks' && (
+                    <div className="tasks-content">
+                      <div className="tasks-header">
+                        <h2>My Tasks</h2>
+                        <p className="tasks-subtitle">Manage your personal and event-related tasks.</p>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
-              {activeTab === 'tasks' && (
-                <div className="tasks-content">
-                  <div className="tasks-header">
-                    <h2>My Tasks</h2>
-                    <p className="tasks-subtitle">Manage your personal and event-related tasks.</p>
-                  </div>
-
-                  <div className="tasks-stats">
-                    <div className="stat-card">
-                      <div className="stat-icon"><CheckSquare size={24} /></div>
-                      <div className="stat-content"><h3>{taskTabStats.total}</h3><p>Total Tasks</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon completed"><CheckSquare size={24} /></div>
-                      <div className="stat-content"><h3>{taskTabStats.completed}</h3><p>Completed</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon pending"><Flag size={24} /></div>
-                      <div className="stat-content"><h3>{taskTabStats.pending}</h3><p>Pending Tasks</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon overdue"><Clock size={24} /></div>
-                      <div className="stat-content"><h3>{taskTabStats.overdue}</h3><p>Overdue Tasks</p></div>
-                    </div>
-                    <div className="stat-card percentage-card">
-                      <div className="stat-icon percentage-completed"><BarChart3 size={24} /></div>
-                      <div className="stat-content"><h3>{taskTabStats.completedPercentage}%</h3><p>Tasks Completed</p></div>
-                    </div>
-                    <div className="stat-card percentage-card">
-                      <div className="stat-icon percentage-pending"><BarChart3 size={24} /></div>
-                      <div className="stat-content"><h3>{taskTabStats.pendingPercentage}%</h3><p>Tasks Pending</p></div>
-                    </div>
-                  </div>
-
-                  <div className="tasks-sections">
-                    <div className="section">
-                      <div className="section-header">
-                        <h3 className="section-title">All Tasks</h3>
-                        <div className="header-actions">
-                          <div className="task-filter-dropdown">
-                            <select className="form-select" value={taskDueDateFilter} onChange={(e) => setTaskDueDateFilter(e.target.value)}>
-                              <option value="all">All Due Dates</option>
-                              <option value="today">Due Today</option>
-                              <option value="week">This Week</option>
-                              <option value="month">This Month</option>
-                              <option value="nextMonth">Next Month</option>
-                              <option value="lastMonth">Last Month</option>
-                              <option value="lastYear">Last Year</option>
-                              <option value="later">Later / No Due Date</option>
-                            </select>
-                          </div>
-                          <div className="task-filter-dropdown">
-                            <select className="form-select" value={taskStatusFilter} onChange={(e) => setTaskStatusFilter(e.target.value)}>
-                              <option value="all">All Statuses</option>
-                              <option value="completed">Completed</option>
-                              <option value="pending">Pending</option>
-                              <option value="overdue">Overdue</option>
-                            </select>
-                          </div>
+                      <div className="tasks-stats">
+                        <div className="stat-card">
+                          <div className="stat-icon"><CheckSquare size={24} /></div>
+                          <div className="stat-content"><h3>{taskTabStats.total}</h3><p>Total Tasks</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon completed"><CheckSquare size={24} /></div>
+                          <div className="stat-content"><h3>{taskTabStats.completed}</h3><p>Completed</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon pending"><Flag size={24} /></div>
+                          <div className="stat-content"><h3>{taskTabStats.pending}</h3><p>Pending Tasks</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon overdue"><Clock size={24} /></div>
+                          <div className="stat-content"><h3>{taskTabStats.overdue}</h3><p>Overdue Tasks</p></div>
+                        </div>
+                        <div className="stat-card percentage-card">
+                          <div className="stat-icon percentage-completed"><BarChart3 size={24} /></div>
+                          <div className="stat-content"><h3>{taskTabStats.completedPercentage}%</h3><p>Tasks Completed</p></div>
+                        </div>
+                        <div className="stat-card percentage-card">
+                          <div className="stat-icon percentage-pending"><BarChart3 size={24} /></div>
+                          <div className="stat-content"><h3>{taskTabStats.pendingPercentage}%</h3><p>Tasks Pending</p></div>
                         </div>
                       </div>
-                      <div className="tasks-list">
-                        {getFilteredAndCategorizedTasks(allTasks, taskDueDateFilter, taskStatusFilter).length > 0 ? (
-                          getFilteredAndCategorizedTasks(allTasks, taskDueDateFilter, taskStatusFilter).map(({ category, tasks: categoryTasks }) => (
-                            <div key={category} className="task-category-section">
-                              <h3 className="category-title">{category}</h3>
-                              {categoryTasks.map(task => (
-                                <div key={task.id} className={`task-card ${task.completed ? 'completed' : ''} ${isTaskOverdue(task) ? 'overdue' : ''}`}>
-                                  <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(task.id, task.type === 'event', task.parentEvent?.id)}>{task.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
-                                  <div className="task-content">
-                                    <div className="task-header">
-                                      <h4 className="task-title clickable-title" onClick={() => { if (task.type === 'general') { handleEditGeneralTask(task.id); } else { const parentEvent = events.find(e => e.id === task.parentEvent.id); if (parentEvent) handleEditEvent(parentEvent); } }}>{task.title}</h4>
-                                      <div className="task-meta">
-                                        {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
-                                        {task.category && <span className="category-badge">{task.category}</span>}
-                                      </div>
-                                    </div>
-                                    {task.description && <p className="task-description">{task.description}</p>}
-                                    <div className="task-footer">
-                                      {task.dueDate && (<span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}>Due: {task.dueDate.toLocaleDateString()}</span>)}
-                                      {task.expenses && (<span className="task-expenses"><DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}</span>)}
-                                      <div className="task-actions">
-                                        <button className="btn-icon-small edit" onClick={() => { if (task.type === 'general') { handleEditGeneralTask(task.id); } else { const parentEvent = events.find(e => e.id === task.parentEvent.id); if (parentEvent) handleEditEvent(parentEvent); } }} title={task.type === 'event' ? 'Edit Parent Event' : 'Edit Task'}><Edit size={16} /></button>
-                                        <button className="btn-icon-small delete" onClick={() => task.type === 'general' && handleDeleteGeneralTask(task.id)} title={task.type === 'event' ? 'Delete from event view' : 'Delete Task'} disabled={task.type === 'event'}><Trash2 size={16} /></button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="no-tasks">
-                            <CheckSquare className="no-tasks-icon" />
-                            <p>No tasks found for the selected filters.</p>
-                            <button className="btn btn-primary btn-small" onClick={() => handleAddEvent()}><Plus size={16} /> Create an Event to add tasks</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {activeTab === 'invitations' && (
-                <div className="invitations-content">
-                  <div className="invitations-header">
-                    <h2>My Invitations</h2>
-                    <p className="invitations-subtitle">Manage invitations to join companies and teams.</p>
-                  </div>
-
-                  <div className="invitations-stats">
-                    <div className="stat-card">
-                      <div className="stat-icon"><Mail size={24} /></div>
-                      <div className="stat-content"><h3>{invitationStats.total}</h3><p>Total Invitations</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon pending"><Clock size={24} /></div>
-                      <div className="stat-content"><h3>{invitationStats.pending}</h3><p>Pending</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon accepted"><Check size={24} /></div>
-                      <div className="stat-content"><h3>{invitationStats.accepted}</h3><p>Accepted</p></div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon declined"><X size={24} /></div>
-                      <div className="stat-content"><h3>{invitationStats.declined}</h3><p>Declined</p></div>
-                    </div>
-                  </div>
-
-                  <nav className="invitations-nav">
-                    <button 
-                      className={`invitations-nav-tab ${invitationsActiveTab === 'received' ? 'active' : ''}`}
-                      onClick={() => setInvitationsActiveTab('received')}
-                    >
-                      <Building2 /> Received Invitations
-                    </button>
-                    <button 
-                      className={`invitations-nav-tab ${invitationsActiveTab === 'sent' ? 'active' : ''}`}
-                      onClick={() => setInvitationsActiveTab('sent')}
-                    >
-                      <Users /> Sent Invitations
-                    </button>
-                  </nav>
-
-                  <div className="invitations-sections">
-                    {currentCompany ? (
-                      <>
-                        {invitationsActiveTab === 'received' && (
-                          <div className="section">
-                            <h3 className="section-title">Invitations to Join Companies</h3>
-                            <div className="invitations-list">
-                              {receivedInvitations.length > 0 ? (
-                                receivedInvitations.map(inv => (
-                                  <div key={inv.id} className={`invitation-card ${inv.status}`}>
-                                    <div className="invitation-header">
-                                      <div className="invitation-info">
-                                        <h4 className="invitation-title">Join {inv.company_name}</h4>
-                                        <p className="invitation-organizer">From: {inv.sender_email}</p>
-                                      </div>
-                                      <div className="invitation-status"><span className={`status-badge ${inv.status}`}>{inv.status}</span></div>
-                                    </div>
-                                    <div className="invitation-details">
-                                      <div className="detail-row"><Building2 size={16} /><span>Company: {inv.company_name}</span></div>
-                                      <div className="detail-row"><UserCheck size={16} /><span>Your Role: {inv.role}</span></div>
-                                      <div className="detail-row"><Clock size={16} /><span>Sent: {new Date(inv.created_at).toLocaleDateString()}</span></div>
-                                    </div>
-                                    {inv.status === 'pending' && (
-                                      <div className="invitation-actions">
-                                        {inv.role === 'user' ? (
-                                          <button className="btn btn-success btn-small" onClick={() => handleInvitationResponse(inv.id, 'accepted')}>
-                                            <Check size={16} /> Add to Team
-                                          </button>
-                                        ) : (
-                                          <button className="btn btn-success btn-small" onClick={() => handleInvitationResponse(inv.id, 'accepted')}>
-                                            <Check size={16} /> Add to Company
-                                          </button>
-                                        )}
-                                        <button className="btn btn-outline btn-small" onClick={() => handleInvitationResponse(inv.id, 'declined')}><X size={16} /> Decline</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="no-invitations"><Mail className="no-invitations-icon" /><p>No invitations received.</p></div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {invitationsActiveTab === 'sent' && (
-                          <div className="section">
-                            <h3 className="section-title">Invitations Sent from {currentCompany.name}</h3>
-                            <div className="invitations-list">
-                              {sentInvitations.filter(inv => inv.company_id === currentCompany.id).length > 0 ? (
-                                sentInvitations.filter(inv => inv.company_id === currentCompany.id).map(inv => (
-                                  <div key={inv.id} className="team-invite-item">
-                                    <div className="team-invite-info">
-                                      <div className="team-invite-avatar"><Mail size={18} /></div>
-                                      <div>
-                                        <p className="team-invite-email">{inv.recipient_email}</p>
-                                        <p className="team-invite-company-name">To join: {inv.company_name}</p>
-                                        <p className="team-invite-date">Invited: {new Date(inv.created_at).toLocaleDateString()}</p>
-                                      </div>
-                                    </div>
-                                    <div className="team-invite-role"><span className={`role-badge ${inv.role}`}>{inv.role}</span></div>
-                                    <div className="team-invite-actions"></div>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="no-data">No pending invitations for this company.</p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="no-companies-message">
-                        <Building2 className="no-companies-icon" />
-                        <h4>No Company Selected</h4>
-                        <p>Select or create a company from the dropdown above to manage its team members and invitations.</p>
-                        <button className="btn btn-primary" onClick={handleAddCompany}><Plus size={16} /> Create Company</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'settings' && (
-                <div className="settings-content">
-                  <div className="settings-header">
-                    <h2>Settings</h2>
-                    <p className="settings-subtitle">Manage your profile, preferences, and account settings.</p>
-                  </div>
-                  <nav className="settings-nav">
-                    <button className={`settings-nav-tab ${settingsActiveTab === 'profile' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('profile')}><User /> Profile</button>
-                    <button className={`settings-nav-tab ${settingsActiveTab === 'preferences' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('preferences')}><Palette /> Preferences</button>
-                    <button className={`settings-nav-tab ${settingsActiveTab === 'security' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('security')}><Shield /> Security</button>
-                    <button className={`settings-nav-tab ${settingsActiveTab === 'team' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('team')}><Building2 /> Manage Companies</button>
-                    <button className={`settings-nav-tab ${settingsActiveTab === 'team-members' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('team-members')}><Users /> Team Members</button>
-                  </nav>
-                  <div className="settings-tab-content">
-                    {settingsActiveTab === 'profile' && (
-                      <div className="settings-section">
-                        <div className="settings-section-header">
-                          <div>
-                            <h3 className="settings-section-title">Personal Information</h3>
-                            <p className="settings-section-subtitle">Update your name and email address.</p>
-                          </div>
-                        </div>
-                        <form className="settings-form" onSubmit={handleProfileFormSubmit}>
-                          <div className="form-group">
-                            <label className="form-label">Full Name</label>
-                            <div className="input-wrapper"><User className="input-icon" /><input type="text" className="form-input" value={profileForm.name} onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))} /></div>
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label">Email Address</label>
-                            <div className="input-wrapper"><Mail className="input-icon" /><input type="email" className="form-input" value={profileForm.email} onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))} /></div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Save Changes</button></div>
-                        </form>
-                      </div>
-                    )}
-                    {settingsActiveTab === 'preferences' && (
-                      <div className="settings-section">
-                        <div className="settings-section-header">
-                          <div>
-                            <h3 className="settings-section-title">Appearance & Behavior</h3>
-                            <p className="settings-section-subtitle">Customize the look and feel of your dashboard.</p>
-                          </div>
-                        </div>
-                        <form className="settings-form" onSubmit={handleSettingsFormSubmit}>
-                          <div className="form-group">
-                            <label className="form-label">Currency</label>
-                            <div className="input-wrapper" ref={currencyDropdownRef}>
-                              <Globe className="input-icon" />
-                              <div className="selected-currency-display form-input" onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}>
-                                {allCurrencyOptions.find(opt => opt.value === settingsForm.currency)?.label || 'Select Currency'}
-                                <ChevronDown size={16} className={`dropdown-arrow ${showCurrencyDropdown ? 'open' : ''}`} />
+                      <div className="tasks-sections">
+                        <div className="section">
+                          <div className="section-header">
+                            <h3 className="section-title">All Tasks</h3>
+                            <div className="header-actions">
+                              <div className="task-filter-dropdown">
+                                <select className="form-select" value={taskDueDateFilter} onChange={(e) => setTaskDueDateFilter(e.target.value)}>
+                                  <option value="all">All Due Dates</option>
+                                  <option value="today">Due Today</option>
+                                  <option value="week">This Week</option>
+                                  <option value="month">This Month</option>
+                                  <option value="nextMonth">Next Month</option>
+                                  <option value="lastMonth">Last Month</option>
+                                  <option value="lastYear">Last Year</option>
+                                  <option value="later">Later / No Due Date</option>
+                                </select>
                               </div>
-                              {showCurrencyDropdown && (
-                                <div className="currency-dropdown-options">
-                                  <input type="text" className="currency-search-input" placeholder="Search currency..." value={currencySearchTerm} onChange={(e) => setCurrencySearchTerm(e.target.value)} autoFocus />
-                                  <div className="options-list">
-                                    {filteredFavorites.length > 0 && (
-                                      <>
-                                        {filteredFavorites.map(option => (<div key={option.value} className={`currency-option-item ${settingsForm.currency === option.value ? 'selected' : ''}`} onClick={() => { setSettingsForm(prev => ({ ...prev, currency: option.value })); setShowCurrencyDropdown(false); setCurrencySearchTerm(''); }}>{option.label}</div>))}
-                                        {filteredNonFavorites.length > 0 && <div className="currency-divider"></div>}
-                                      </>
-                                    )}
-                                    {filteredNonFavorites.length > 0 ? (
-                                      filteredNonFavorites.map(option => (<div key={option.value} className={`currency-option-item ${settingsForm.currency === option.value ? 'selected' : ''}`} onClick={() => { setSettingsForm(prev => ({ ...prev, currency: option.value })); setShowCurrencyDropdown(false); setCurrencySearchTerm(''); }}>{option.label}</div>))
-                                    ) : (
-                                      filteredFavorites.length === 0 && <div className="no-options-message">No matching currencies</div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+                              <div className="task-filter-dropdown">
+                                <select className="form-select" value={taskStatusFilter} onChange={(e) => setTaskStatusFilter(e.target.value)}>
+                                  <option value="all">All Statuses</option>
+                                  <option value="completed">Completed</option>
+                                  <option value="pending">Pending</option>
+                                  <option value="overdue">Overdue</option>
+                                </select>
+                              </div>
                             </div>
                           </div>
-                          <div className="form-group">
-                            <label className="form-label">Theme</label>
-                            <select className="form-select" value={settingsForm.theme} onChange={(e) => setSettingsForm(prev => ({ ...prev, theme: e.target.value }))}>
-                              <option value="light">Light</option>
-                              <option value="dark">Dark</option>
-                              <option value="system">System</option>
-                            </select>
-                          </div>
-                          
-                          <div className="form-group">
-                            <label className="form-label">Email Notification Settings</label>
-                            <div className="setting-item">
-                              <div className="setting-info"><h4>Daily Email Summary</h4><p>Receive a daily email with upcoming events and pending tasks.</p></div>
-                              <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_daily} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_daily: e.target.checked } }))} /><span className="toggle-slider"></span></label>
-                            </div>
-                            <div className="setting-item">
-                              <div className="setting-info"><h4>Weekly Email Update</h4><p>Get a summary of your week ahead, including events and tasks.</p></div>
-                              <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_weekly} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_weekly: e.target.checked } }))} /><span className="toggle-slider"></span></label>
-                            </div>
-                            <div className="setting-item">
-                              <div className="setting-info"><h4>Monthly Overview</h4><p>Receive a monthly email with a comprehensive overview of your schedule.</p></div>
-                              <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_monthly} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_monthly: e.target.checked } }))} /><span className="toggle-slider"></span></label>
-                            </div>
-                            <div className="setting-item">
-                              <div className="setting-info"><h4>3-Day Countdown Alerts</h4><p>Receive an email alert for events and tasks due in 3 days.</p></div>
-                              <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_3day_countdown} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_3day_countdown: e.target.checked } }))} /><span className="toggle-slider"></span></label>
-                            </div>
-                          </div>
-
-                          <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Save Preferences</button></div>
-                        </form>
-                      </div>
-                    )}
-                    {settingsActiveTab === 'security' && (
-                      <div className="settings-section">
-                        <div className="settings-section-header">
-                          <div>
-                            <h3 className="settings-section-title">Password</h3>
-                            <p className="settings-section-subtitle">Change your password. It's a good idea to use a strong password that you're not using elsewhere.</p>
-                          </div>
-                        </div>
-                        <form className="settings-form" onSubmit={(e) => { e.preventDefault(); handleChangePasswordClick(); }}>
-                          <div className="form-group">
-                            <label className="form-label">Current Password</label>
-                            <div className="input-wrapper"><Lock className="input-icon" /><input type={showCurrentPassword ? 'text' : 'password'} className="form-input" value={profileForm.currentPassword} onChange={(e) => setProfileForm(prev => ({ ...prev, currentPassword: e.target.value }))} /><button type="button" className="password-toggle" onClick={() => setShowCurrentPassword(!showCurrentPassword)}>{showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label">New Password</label>
-                            <div className="input-wrapper"><Lock className="input-icon" /><input type={showNewPassword ? 'text' : 'password'} className="form-input" value={profileForm.newPassword} onChange={(e) => setProfileForm(prev => ({ ...prev, newPassword: e.target.value }))} /><button type="button" className="password-toggle" onClick={() => setShowNewPassword(!showNewPassword)}>{showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label">Confirm New Password</label>
-                            <div className="input-wrapper"><Lock className="input-icon" /><input type={showConfirmPassword ? 'text' : 'password'} className="form-input" value={profileForm.confirmPassword} onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))} /><button type="button" className="password-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Change Password</button></div>
-                        </form>
-                      </div>
-                    )}
-                    {settingsActiveTab === 'team' && (
-                      <div className="settings-section">
-                        <div className="settings-section-header">
-                          <div>
-                            <h3 className="settings-section-title">Manage Companies</h3>
-                            <p className="settings-section-subtitle">Add, edit, or delete your companies.</p>
-                          </div>
-                          <button className="btn btn-primary btn-small" onClick={handleAddCompany}><Plus size={16} /> Add Company</button>
-                        </div>
-                        <div className="companies-list">
-                          {user.companies && user.companies.length > 0 ? (
-                            user.companies.map(company => {
-                              const currentUserRoleForThisCompany = user.companies.find(c => c.id === company.id)?.role;
-                              const canManageCompany = currentUserRoleForThisCompany === 'owner' || currentUserRoleForThisCompany === 'admin';
-
-                              return (
-                                <div key={company.id} className="company-item">
-                                  <div className="company-item-info">
-                                    <Building2 className="company-item-icon" />
-                                    <div>
-                                      <p className="company-item-name">{company.name}</p>
-                                      <p className="company-item-date">Created: {new Date(company.createdAt).toLocaleDateString()}</p>
-                                    </div>
-                                    {user.currentCompanyId === company.id && <span className="current-badge">Current</span>}
-                                  </div>
-                                  <div className="company-item-actions">
-                                    {canManageCompany && (<button className="btn btn-outline btn-small" onClick={() => handleEditCompany(company)} title="Edit Company"><Edit size={16} /></button>)}
-                                    {canManageCompany && (<button className="btn btn-primary btn-small" onClick={() => { setInviteForm(prev => ({ ...prev, companyId: company.id })); setShowInviteModal(true); }} title="Invite Team Member"><UserPlus size={16} /></button>)}
-                                  </div>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <p>You haven't created or joined any companies yet.</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {settingsActiveTab === 'team-members' && (
-                      <div className="settings-section">
-                        <div className="settings-section-header">
-                          <div>
-                            <h3 className="settings-section-title">Manage Team Members</h3>
-                            <p className="settings-section-subtitle">View and manage members of your currently selected company.</p>
-                          </div>
-                          {currentCompany?.id && (<button className="btn btn-primary btn-small" onClick={() => { setInviteForm(prev => ({ ...prev, companyId: currentCompany.id })); setShowInviteModal(true); }} title="Invite Team Member"><UserPlus size={16} /></button>)}
-                        </div>
-
-                        {currentCompany ? (
-                          <div className="team-members-list">
-                            {teamMembers.length > 0 ? (
-                              teamMembers.map(member => {
-                                const currentUserRole = currentCompany?.role;
-                                const canEditRole = (currentUserRole === 'owner' || currentUserRole === 'admin') && member.id !== user.id && member.role !== 'owner';
-                                const canRemoveMember = (currentUserRole === 'owner' || currentUserRole === 'admin') && member.id !== user.id && member.role !== 'owner';
-
-                                return (
-                                  <div key={member.id} className="team-member-item">
-                                    <div className="team-member-info">
-                                      <div className="team-member-avatar">{member.name?.charAt(0).toUpperCase() || member.email?.charAt(0).toUpperCase()}</div>
-                                      <div>
-                                        <p className="team-member-name">{member.name || member.email}</p>
-                                        <p className="team-member-email">{member.email}</p>
+                          <div className="tasks-list">
+                            {getFilteredAndCategorizedTasks(allTasks, taskDueDateFilter, taskStatusFilter).length > 0 ? (
+                              getFilteredAndCategorizedTasks(allTasks, taskDueDateFilter, taskStatusFilter).map(({ category, tasks: categoryTasks }) => (
+                                <div key={category} className="task-category-section">
+                                  <h3 className="category-title">{category}</h3>
+                                  {categoryTasks.map(task => (
+                                    <div key={task.id} className={`task-card ${task.completed ? 'completed' : ''} ${isTaskOverdue(task) ? 'overdue' : ''}`}>
+                                      <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(task.id, task.type === 'event', task.parentEvent?.id)}>{task.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
+                                      <div className="task-content">
+                                        <div className="task-header">
+                                          <h4 className="task-title clickable-title" onClick={() => { if (task.type === 'general') { handleEditGeneralTask(task.id); } else { const parentEvent = events.find(e => e.id === task.parentEvent.id); if (parentEvent) handleEditEvent(parentEvent); } }}>{task.title}</h4>
+                                          <div className="task-meta">
+                                            {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
+                                            {task.category && <span className="category-badge">{task.category}</span>}
+                                          </div>
+                                        </div>
+                                        {task.description && <p className="task-description">{task.description}</p>}
+                                        <div className="task-footer">
+                                          {task.dueDate && (<span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}>Due: {task.dueDate.toLocaleDateString()}</span>)}
+                                          {task.expenses && (<span className="task-expenses"><DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}</span>)}
+                                          <div className="task-actions">
+                                            <button className="btn-icon-small edit" onClick={() => { if (task.type === 'general') { handleEditGeneralTask(task.id); } else { const parentEvent = events.find(e => e.id === task.parentEvent.id); if (parentEvent) handleEditEvent(parentEvent); } }} title={task.type === 'event' ? 'Edit Parent Event' : 'Edit Task'}><Edit size={16} /></button>
+                                            <button className="btn-icon-small delete" onClick={() => task.type === 'general' && handleDeleteGeneralTask(task.id)} title={task.type === 'event' ? 'Delete from event view' : 'Delete Task'} disabled={task.type === 'event'}><Trash2 size={16} /></button>
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
-                                    <div className="team-member-role">
-                                      <select className="role-select" value={member.role} onChange={(e) => handleUpdateMemberRole(member.id, e.target.value, currentCompany.id)} disabled={!canEditRole}>
-                                        <option value="user">User</option>
-                                        <option value="admin">Admin</option>
-                                        {member.role === 'owner' && <option value="owner">Owner</option>}
-                                      </select>
-                                    </div>
-                                    <div className="team-member-actions">
-                                      {canRemoveMember && (<button className="btn-icon-small delete" onClick={() => handleRemoveMember(member.id, currentCompany.id)} title="Remove Member"><Trash2 size={16} /></button>)}
-                                    </div>
-                                  </div>
-                                );
-                              })
+                                  ))}
+                                </div>
+                              ))
                             ) : (
-                              <p className="no-data-message">No team members found for this company.</p>
+                              <div className="no-tasks">
+                                <CheckSquare className="no-tasks-icon" />
+                                <p>No tasks found for the selected filters.</p>
+                                <button className="btn btn-primary btn-small" onClick={() => handleAddEvent()} disabled={!currentCompany?.id}><Plus size={16} /> Create an Event to add tasks</button>
+                              </div>
                             )}
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'invitations' && (
+                    <div className="invitations-content">
+                      <div className="invitations-header">
+                        <h2>My Invitations</h2>
+                        <p className="invitations-subtitle">Manage invitations to join companies and teams.</p>
+                      </div>
+
+                      <div className="invitations-stats">
+                        <div className="stat-card">
+                          <div className="stat-icon"><Mail size={24} /></div>
+                          <div className="stat-content"><h3>{invitationStats.total}</h3><p>Total Invitations</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon pending"><Clock size={24} /></div>
+                          <div className="stat-content"><h3>{invitationStats.pending}</h3><p>Pending</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon accepted"><Check size={24} /></div>
+                          <div className="stat-content"><h3>{invitationStats.accepted}</h3><p>Accepted</p></div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon declined"><X size={24} /></div>
+                          <div className="stat-content"><h3>{invitationStats.declined}</h3><p>Declined</p></div>
+                        </div>
+                      </div>
+
+                      <nav className="invitations-nav">
+                        <button 
+                          className={`invitations-nav-tab ${invitationsActiveTab === 'received' ? 'active' : ''}`}
+                          onClick={() => setInvitationsActiveTab('received')}
+                        >
+                          <Building2 /> Received Invitations
+                        </button>
+                        <button 
+                          className={`invitations-nav-tab ${invitationsActiveTab === 'sent' ? 'active' : ''}`}
+                          onClick={() => setInvitationsActiveTab('sent')}
+                        >
+                          <Users /> Sent Invitations
+                        </button>
+                      </nav>
+
+                      <div className="invitations-sections">
+                        {currentCompany ? (
+                          <>
+                            {invitationsActiveTab === 'received' && (
+                              <div className="section">
+                                <h3 className="section-title">Invitations to Join Companies</h3>
+                                <div className="invitations-list">
+                                  {receivedInvitations.length > 0 ? (
+                                    receivedInvitations.map(inv => (
+                                      <div key={inv.id} className={`invitation-card ${inv.status}`}>
+                                        <div className="invitation-header">
+                                          <div className="invitation-info">
+                                            <h4 className="invitation-title">Join {inv.company_name}</h4>
+                                            <p className="invitation-organizer">From: {inv.sender_email}</p>
+                                          </div>
+                                          <div className="invitation-status"><span className={`status-badge ${inv.status}`}>{inv.status}</span></div>
+                                        </div>
+                                        <div className="invitation-details">
+                                          <div className="detail-row"><Building2 size={16} /><span>Company: {inv.company_name}</span></div>
+                                          <div className="detail-row"><UserCheck size={16} /><span>Your Role: {inv.role}</span></div>
+                                          <div className="detail-row"><Clock size={16} /><span>Sent: {new Date(inv.created_at).toLocaleDateString()}</span></div>
+                                        </div>
+                                        {inv.status === 'pending' && (
+                                          <div className="invitation-actions">
+                                            {inv.role === 'user' ? (
+                                              <button className="btn btn-success btn-small" onClick={() => handleInvitationResponse(inv.id, 'accepted')}>
+                                                <Check size={16} /> Add to Team
+                                              </button>
+                                            ) : (
+                                              <button className="btn btn-success btn-small" onClick={() => handleInvitationResponse(inv.id, 'accepted')}>
+                                                <Check size={16} /> Add to Company
+                                              </button>
+                                            )}
+                                            <button className="btn btn-outline btn-small" onClick={() => handleInvitationResponse(inv.id, 'declined')}><X size={16} /> Decline</button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="no-invitations"><Mail className="no-invitations-icon" /><p>No invitations received.</p></div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {invitationsActiveTab === 'sent' && (
+                              <div className="section">
+                                <h3 className="section-title">Invitations Sent from {currentCompany.name}</h3>
+                                <div className="invitations-list">
+                                  {sentInvitations.filter(inv => inv.company_id === currentCompany.id).length > 0 ? (
+                                    sentInvitations.filter(inv => inv.company_id === currentCompany.id).map(inv => (
+                                      <div key={inv.id} className="team-invite-item">
+                                        <div className="team-invite-info">
+                                          <div className="team-invite-avatar"><Mail size={18} /></div>
+                                          <div>
+                                            <p className="team-invite-email">{inv.recipient_email}</p>
+                                            <p className="team-invite-company-name">To join: {inv.company_name}</p>
+                                            <p className="team-invite-date">Invited: {new Date(inv.created_at).toLocaleDateString()}</p>
+                                          </div>
+                                        </div>
+                                        <div className="team-invite-role"><span className={`role-badge ${inv.role}`}>{inv.role}</span></div>
+                                        <div className="team-invite-actions"></div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="no-data">No pending invitations for this company.</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <div className="no-companies-message">
                             <Building2 className="no-companies-icon" />
                             <h4>No Company Selected</h4>
-                            <p>Please select a company from the main dashboard dropdown to manage its team members.</p>
+                            <p>Select or create a company from the dropdown above to manage its team members and invitations.</p>
                             <button className="btn btn-primary" onClick={handleAddCompany}><Plus size={16} /> Create Company</button>
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'settings' && (
+                    <div className="settings-content">
+                      <div className="settings-header">
+                        <h2>Settings</h2>
+                        <p className="settings-subtitle">Manage your profile, preferences, and account settings.</p>
+                      </div>
+                      <nav className="settings-nav">
+                        <button className={`settings-nav-tab ${settingsActiveTab === 'profile' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('profile')}><User /> Profile</button>
+                        <button className={`settings-nav-tab ${settingsActiveTab === 'preferences' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('preferences')}><Palette /> Preferences</button>
+                        <button className={`settings-nav-tab ${settingsActiveTab === 'security' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('security')}><Shield /> Security</button>
+                        <button className={`settings-nav-tab ${settingsActiveTab === 'team' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('team')}><Building2 /> Manage Companies</button>
+                        <button className={`settings-nav-tab ${settingsActiveTab === 'team-members' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('team-members')}><Users /> Team Members</button>
+                      </nav>
+                      <div className="settings-tab-content">
+                        {settingsActiveTab === 'profile' && (
+                          <div className="settings-section">
+                            <div className="settings-section-header">
+                              <div>
+                                <h3 className="settings-section-title">Personal Information</h3>
+                                <p className="settings-section-subtitle">Update your name and email address.</p>
+                              </div>
+                            </div>
+                            <form className="settings-form" onSubmit={handleProfileFormSubmit}>
+                              <div className="form-group">
+                                <label className="form-label">Full Name</label>
+                                <div className="input-wrapper"><User className="input-icon" /><input type="text" className="form-input" value={profileForm.name} onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))} /></div>
+                              </div>
+                              <div className="form-group">
+                                <label className="form-label">Email Address</label>
+                                <div className="input-wrapper"><Mail className="input-icon" /><input type="email" className="form-input" value={profileForm.email} onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))} /></div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Save Changes</button></div>
+                            </form>
+                          </div>
+                        )}
+                        {settingsActiveTab === 'preferences' && (
+                          <div className="settings-section">
+                            <div className="settings-section-header">
+                              <div>
+                                <h3 className="settings-section-title">Appearance & Behavior</h3>
+                                <p className="settings-section-subtitle">Customize the look and feel of your dashboard.</p>
+                              </div>
+                            </div>
+                            <form className="settings-form" onSubmit={handleSettingsFormSubmit}>
+                              <div className="form-group">
+                                <label className="form-label">Currency</label>
+                                <div className="input-wrapper" ref={currencyDropdownRef}>
+                                  <Globe className="input-icon" />
+                                  <div className="selected-currency-display form-input" onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}>
+                                    {allCurrencyOptions.find(opt => opt.value === settingsForm.currency)?.label || 'Select Currency'}
+                                    <ChevronDown size={16} className={`dropdown-arrow ${showCurrencyDropdown ? 'open' : ''}`} />
+                                  </div>
+                                  {showCurrencyDropdown && (
+                                    <div className="currency-dropdown-options">
+                                      <input type="text" className="currency-search-input" placeholder="Search currency..." value={currencySearchTerm} onChange={(e) => setCurrencySearchTerm(e.target.value)} autoFocus />
+                                      <div className="options-list">
+                                        {filteredFavorites.length > 0 && (
+                                          <>
+                                            {filteredFavorites.map(option => (<div key={option.value} className={`currency-option-item ${settingsForm.currency === option.value ? 'selected' : ''}`} onClick={() => { setSettingsForm(prev => ({ ...prev, currency: option.value })); setShowCurrencyDropdown(false); setCurrencySearchTerm(''); }}>{option.label}</div>))}
+                                            {filteredNonFavorites.length > 0 && <div className="currency-divider"></div>}
+                                          </>
+                                        )}
+                                        {filteredNonFavorites.length > 0 ? (
+                                          filteredNonFavorites.map(option => (<div key={option.value} className={`currency-option-item ${settingsForm.currency === option.value ? 'selected' : ''}`} onClick={() => { setSettingsForm(prev => ({ ...prev, currency: option.value })); setShowCurrencyDropdown(false); setCurrencySearchTerm(''); }}>{option.label}</div>))
+                                        ) : (
+                                          filteredFavorites.length === 0 && <div className="no-options-message">No matching currencies</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="form-group">
+                                <label className="form-label">Theme</label>
+                                <select className="form-select" value={settingsForm.theme} onChange={(e) => setSettingsForm(prev => ({ ...prev, theme: e.target.value }))}>
+                                  <option value="light">Light</option>
+                                  <option value="dark">Dark</option>
+                                  <option value="system">System</option>
+                                </select>
+                              </div>
+                              
+                              <div className="form-group">
+                                <label className="form-label">Email Notification Settings</label>
+                                <div className="setting-item">
+                                  <div className="setting-info"><h4>Daily Email Summary</h4><p>Receive a daily email with upcoming events and pending tasks.</p></div>
+                                  <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_daily} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_daily: e.target.checked } }))} /><span className="toggle-slider"></span></label>
+                                </div>
+                                <div className="setting-item">
+                                  <div className="setting-info"><h4>Weekly Email Update</h4><p>Get a summary of your week ahead, including events and tasks.</p></div>
+                                  <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_weekly} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_weekly: e.target.checked } }))} /><span className="toggle-slider"></span></label>
+                                </div>
+                                <div className="setting-item">
+                                  <div className="setting-info"><h4>Monthly Overview</h4><p>Receive a monthly email with a comprehensive overview of your schedule.</p></div>
+                                  <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_monthly} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_monthly: e.target.checked } }))} /><span className="toggle-slider"></span></label>
+                                </div>
+                                <div className="setting-item">
+                                  <div className="setting-info"><h4>3-Day Countdown Alerts</h4><p>Receive an email alert for events and tasks due in 3 days.</p></div>
+                                  <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_3day_countdown} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_3day_countdown: e.target.checked } }))} /><span className="toggle-slider"></span></label>
+                                </div>
+                              </div>
+
+                              <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Save Preferences</button></div>
+                            </form>
+                          </div>
+                        )}
+                        {settingsActiveTab === 'security' && (
+                          <div className="settings-section">
+                            <div className="settings-section-header">
+                              <div>
+                                <h3 className="settings-section-title">Password</h3>
+                                <p className="settings-section-subtitle">Change your password. It's a good idea to use a strong password that you're not using elsewhere.</p>
+                              </div>
+                            </div>
+                            <form className="settings-form" onSubmit={(e) => { e.preventDefault(); handleChangePasswordClick(); }}>
+                              <div className="form-group">
+                                <label className="form-label">Current Password</label>
+                                <div className="input-wrapper"><Lock className="input-icon" /><input type={showCurrentPassword ? 'text' : 'password'} className="form-input" value={profileForm.currentPassword} onChange={(e) => setProfileForm(prev => ({ ...prev, currentPassword: e.target.value }))} /><button type="button" className="password-toggle" onClick={() => setShowCurrentPassword(!showCurrentPassword)}>{showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
+                              </div>
+                              <div className="form-group">
+                                <label className="form-label">New Password</label>
+                                <div className="input-wrapper"><Lock className="input-icon" /><input type={showNewPassword ? 'text' : 'password'} className="form-input" value={profileForm.newPassword} onChange={(e) => setProfileForm(prev => ({ ...prev, newPassword: e.target.value }))} /><button type="button" className="password-toggle" onClick={() => setShowNewPassword(!showNewPassword)}>{showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
+                              </div>
+                              <div className="form-group">
+                                <label className="form-label">Confirm New Password</label>
+                                <div className="input-wrapper"><Lock className="input-icon" /><input type={showConfirmPassword ? 'text' : 'password'} className="form-input" value={profileForm.confirmPassword} onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))} /><button type="button" className="password-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Change Password</button></div>
+                            </form>
+                          </div>
+                        )}
+                        {settingsActiveTab === 'team' && (
+                          <div className="settings-section">
+                            <div className="settings-section-header">
+                              <div>
+                                <h3 className="settings-section-title">Manage Companies</h3>
+                                <p className="settings-section-subtitle">Add, edit, or delete your companies.</p>
+                              </div>
+                              <button className="btn btn-primary btn-small" onClick={handleAddCompany}><Plus size={16} /> Add Company</button>
+                            </div>
+                            <div className="companies-list">
+                              {user.companies && user.companies.length > 0 ? (
+                                user.companies.map(company => {
+                                  const currentUserRoleForThisCompany = user.companies.find(c => c.id === company.id)?.role;
+                                  const canManageCompany = currentUserRoleForThisCompany === 'owner' || currentUserRoleForThisCompany === 'admin';
+
+                                  return (
+                                    <div key={company.id} className="company-item">
+                                      <div className="company-item-info">
+                                        <Building2 className="company-item-icon" />
+                                        <div>
+                                          <p className="company-item-name">{company.name}</p>
+                                          <p className="company-item-date">Created: {new Date(company.createdAt).toLocaleDateString()}</p>
+                                        </div>
+                                        {user.currentCompanyId === company.id && <span className="current-badge">Current</span>}
+                                      </div>
+                                      <div className="company-item-actions">
+                                        {canManageCompany && (<button className="btn btn-outline btn-small" onClick={() => handleEditCompany(company)} title="Edit Company"><Edit size={16} /></button>)}
+                                        {canManageCompany && (<button className="btn btn-primary btn-small" onClick={() => { setInviteForm(prev => ({ ...prev, companyId: company.id })); setShowInviteModal(true); }} title="Invite Team Member"><UserPlus size={16} /></button>)}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p>You haven't created or joined any companies yet.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {settingsActiveTab === 'team-members' && (
+                          <div className="settings-section">
+                            <div className="settings-section-header">
+                              <div>
+                                <h3 className="settings-section-title">Manage Team Members</h3>
+                                <p className="settings-section-subtitle">View and manage members of your currently selected company.</p>
+                              </div>
+                              {currentCompany?.id && (<button className="btn btn-primary btn-small" onClick={() => { setInviteForm(prev => ({ ...prev, companyId: currentCompany.id })); setShowInviteModal(true); }} title="Invite Team Member"><UserPlus size={16} /></button>)}
+                            </div>
+
+                            {currentCompany ? (
+                              <div className="team-members-list">
+                                {teamMembers.length > 0 ? (
+                                  teamMembers.map(member => {
+                                    const currentUserRole = currentCompany?.role;
+                                    const canEditRole = (currentUserRole === 'owner' || currentUserRole === 'admin') && member.id !== user.id && member.role !== 'owner';
+                                    const canRemoveMember = (currentUserRole === 'owner' || currentUserRole === 'admin') && member.id !== user.id && member.role !== 'owner';
+
+                                    return (
+                                      <div key={member.id} className="team-member-item">
+                                        <div className="team-member-info">
+                                          <div className="team-member-avatar">{member.name?.charAt(0).toUpperCase() || member.email?.charAt(0).toUpperCase()}</div>
+                                          <div>
+                                            <p className="team-member-name">{member.name || member.email}</p>
+                                            <p className="team-member-email">{member.email}</p>
+                                          </div>
+                                        </div>
+                                        <div className="team-member-role">
+                                          <select className="role-select" value={member.role} onChange={(e) => handleUpdateMemberRole(member.id, e.target.value, currentCompany.id)} disabled={!canEditRole}>
+                                            <option value="user">User</option>
+                                            <option value="admin">Admin</option>
+                                            {member.role === 'owner' && <option value="owner">Owner</option>}
+                                          </select>
+                                        </div>
+                                        <div className="team-member-actions">
+                                          {canRemoveMember && (<button className="btn-icon-small delete" onClick={() => handleRemoveMember(member.id, currentCompany.id)} title="Remove Member"><Trash2 size={16} /></button>)}
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <p className="no-data-message">No team members found for this company.</p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="no-companies-message">
+                                <Building2 className="no-companies-icon" />
+                                <h4>No Company Selected</h4>
+                                <p>Please select a company from the main dashboard dropdown to manage its team members.</p>
+                                <button className="btn btn-primary" onClick={handleAddCompany}><Plus size={16} /> Create Company</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -2370,7 +2410,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-primary" onClick={() => handleAddEventFromModal(selectedDateForModal)}><Plus size={16} /> Add Event for this Day</button>
+              <button type="button" className="btn btn-primary" onClick={() => handleAddEventFromModal(selectedDateForModal)} disabled={!currentCompany?.id}><Plus size={16} /> Add Event for this Day</button>
             </div>
           </div>
         </div>
