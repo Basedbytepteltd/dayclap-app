@@ -36,15 +36,13 @@ const LandingPage = () => {
 
         if (profileError && profileError.code === 'PGRST116') { // No profile found, create one
           const userName = session.user.user_metadata?.name || session.user.email.split('@')[0];
-          const userCompany = session.user.user_metadata?.company || null;
+          // Removed userCompany as it's no longer collected at signup
+          // const userCompany = session.user.user_metadata?.company || null;
 
+          // Simplified: No company is created at initial signup
           let initialCompanies = [];
           let initialCurrentCompanyId = null;
-          if (userCompany) {
-            const newCompanyId = crypto.randomUUID();
-            initialCompanies.push({ id: newCompanyId, name: userCompany, role: 'owner', createdAt: new Date().toISOString() });
-            initialCurrentCompanyId = newCompanyId;
-          }
+          // Removed conditional logic for creating company based on userCompany
 
           const { data: newProfile, error: insertError } = await supabase
             .from('profiles')
@@ -52,7 +50,7 @@ const LandingPage = () => {
               id: session.user.id,
               name: userName,
               email: session.user.email,
-              company_name: userCompany,
+              company_name: null, // Default to null as company is not provided at signup
               companies: initialCompanies,
               current_company_id: initialCurrentCompanyId,
               last_activity_at: new Date().toISOString(),
@@ -226,7 +224,8 @@ const LandingPage = () => {
           <div className="loading-calendar-grid">
             {Array.from({ length: 25 }, (_, i) => (
               <div key={i} className="loading-date">{i + 1}</div>
-            ))}          </div>
+            ))}
+          </div>
         </div>
         <p>Loading DayClap...</p>
       </div>
