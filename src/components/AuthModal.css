@@ -190,8 +190,8 @@
 }
 
 /* Adjust input padding when toggle is present to prevent overlap */
-.input-wrapper .form-input[type=\"password\"] + .password-toggle + input,
-.input-wrapper .form-input[type=\"text\"] + .password-toggle + input {
+.input-wrapper .form-input[type="password"] + .password-toggle + input,
+.input-wrapper .form-input[type="text"] + .password-toggle + input {
   padding-right: 3rem; /* Make space for the toggle button */
 }
 
@@ -222,8 +222,8 @@
 }
 
 @media (max-width: 480px) {
-  .input-wrapper .form-input[type=\"password\"] + .password-toggle + input,
-  .input-wrapper .form-input[type=\"text\"] + .password-toggle + input {
+  .input-wrapper .form-input[type="password"] + .password-toggle + input,
+  .input-wrapper .form-input[type="text"] + .password-toggle + input {
     padding-right: 2.5rem; /* Smaller padding for smaller screens */
   }
   .password-toggle {
