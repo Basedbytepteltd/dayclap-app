@@ -2,11 +2,11 @@ import os
 import sys
 import traceback
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin # Import cross_origin
 from supabase import create_client, Client
 import requests
 from dotenv import load_dotenv
-from datetime import datetime # Moved to the top for global availability
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,9 +17,6 @@ CORS(app)  # Enable CORS for all routes
 # Initialize Supabase client (service role)
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-
-print(f"DEBUG: SUPABASE_URL (from os.environ): {supabase_url}", file=sys.stderr)
-print(f"DEBUG: SUPABASE_SERVICE_ROLE_KEY (from os.environ): {'<PRESENT>' if supabase_service_key else '<MISSING>'}", file=sys.stderr)
 
 if not supabase_url or not supabase_service_key:
     print("ERROR: Supabase URL and/or service role key missing.", file=sys.stderr)
@@ -43,88 +40,29 @@ def _fetch_email_settings_row():
         print(f"Error fetching email_settings row: {e}", file=sys.stderr)
         return None
 
-# NEW: Email Templates
-EMAIL_TEMPLATES = {
-    "welcome_email": """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
-            .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
-            .content { padding: 20px; line-height: 1.6; color: #333333; }
-            .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-            .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2>Welcome to DayClap!</h2>
-            </div>
-            <div class="content">
-                <p>Hello {{ user_name }},</p>
-                <p>Your DayClap account is now active! We're thrilled to have you on board.</p>
-                <p>DayClap helps you streamline your schedule, manage tasks effortlessly, and collaborate with your team. Get ready to boost your productivity!</p>
-                <p style="text-align: center;">
-                    <a href="{{ frontend_url }}" class="button">Go to Dashboard</a>
-                </p>
-                <p>If you have any questions, feel free to reach out to our support team.</p>
-                <p>Best regards,<br>The DayClap Team</p>
-            </div>
-            <div class="footer">
-                <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """,
-    "invitation_to_company": """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
-            .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
-            .content { padding: 20px; line-height: 1.6; color: #333333; }
-            .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-            .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2>You're Invited to Join a Team on DayClap!</h2>
-            </div>
-            <div class="content">
-                <p>Hello,</p>
-                <p><b>{{ sender_email }}</b> has invited you to join their team, <b>'{{ company_name }}'</b>, on DayClap as a <b>{{ role }}</b>.</p>
-                <p>DayClap helps teams collaborate on schedules, manage tasks, and boost overall productivity.</p>
-                <p style="text-align: center;">
-                    <a href="{{ invitation_link }}" class="button">Accept Invitation</a>
-                </p>
-                <p>If you have any questions, please contact {{ sender_email }}.</p>
-                <p>Best regards,<br>The DayClap Team</p>
-            </div>
-            <div class="footer">
-                <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-}
+# NEW: Helper function to fetch email template from DB
+def _fetch_email_template(template_name):
+    try:
+        resp = supabase.table('email_templates').select('subject, html_content').eq('name', template_name).single().execute()
+        template = resp.data if hasattr(resp, "data") else resp.get("data")
+        if isinstance(template, list) and len(template) > 0:
+            template = template[0]
+        return template
+    except Exception as e:
+        print(f"Error fetching email template '{template_name}': {e}", file=sys.stderr)
+        return None
 
 # NEW: Helper function to render email templates
 def render_email_template(template_name, data):
-    template = EMAIL_TEMPLATES.get(template_name)
-    if not template:
-        raise ValueError(f"Email template '{template_name}' not found.")
+    template_data_from_db = _fetch_email_template(template_name)
+    if not template_data_from_db:
+        raise ValueError(f"Email template '{template_name}' not found in database.")
     
+    html_body = template_data_from_db['html_content']
+    subject = template_data_from_db['subject']
+
     # Replace placeholders with actual data
-    rendered_html = template
+    rendered_html = html_body
     for key, value in data.items():
         rendered_html = rendered_html.replace(f"{{{{ {key} }}}}", str(value))
     
@@ -132,9 +70,9 @@ def render_email_template(template_name, data):
     if "{{ current_year }}" in rendered_html:
         rendered_html = rendered_html.replace("{{ current_year }}", str(datetime.now().year))
 
-    return rendered_html
+    return subject, rendered_html
 
-def send_email_api(recipient_email, subject, template_name, template_data=None):
+def send_email_api(recipient_email, template_name, template_data=None):
     settings = _fetch_email_settings_row() or {}
     
     api_key = (settings.get('maileroo_sending_key') or
@@ -155,7 +93,7 @@ def send_email_api(recipient_email, subject, template_name, template_data=None):
         raise ValueError("Maileroo Sending Key or Sender Email is not configured.")
 
     # Render the email template
-    html_body = render_email_template(template_name, template_data or {})
+    email_subject, html_body = render_email_template(template_name, template_data or {})
 
     maileroo_payload = {
         "from": {
@@ -167,7 +105,7 @@ def send_email_api(recipient_email, subject, template_name, template_data=None):
                 "address": recipient_email
             }
         ],
-        "subject": subject,
+        "subject": email_subject, # Use subject from rendered template
         "html": html_body
     }
     
@@ -178,20 +116,11 @@ def send_email_api(recipient_email, subject, template_name, template_data=None):
     }
 
     try:
-        print(f"DEBUG: Sending email via Maileroo API to {recipient_email} using template '{template_name}'", file=sys.stderr)
-        print(f"DEBUG: Using API endpoint: {api_endpoint}", file=sys.stderr)
-        print(f"DEBUG: Payload: {maileroo_payload}", file=sys.stderr)
-        
         mail_response = requests.post(api_endpoint, json=maileroo_payload, headers=headers, timeout=15)
-
-        # Keep detailed logging for success and failure
-        print(f"DEBUG: Maileroo API Response Status: {mail_response.status_code}", file=sys.stderr)
         response_json = {}
         try:
             response_json = mail_response.json()
-            print(f"DEBUG: Maileroo API Response Body: {response_json}\n", file=sys.stderr)
         except Exception:
-            print(f"DEBUG: Maileroo API Response Body (not JSON): {mail_response.text}\n", file=sys.stderr)
             response_json = {"raw_text": mail_response.text}
 
         if mail_response.status_code == 200 or mail_response.status_code == 201:
@@ -201,7 +130,6 @@ def send_email_api(recipient_email, subject, template_name, template_data=None):
             return False, f"API Error ({mail_response.status_code}): {error_message}"
 
     except requests.exceptions.RequestException as e:
-        print(f"CRITICAL API Request Error: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         return False, str(e)
 
@@ -210,6 +138,7 @@ def health_check():
     return jsonify({"status": "ok", "message": "DayClap API is running"}), 200
 
 @app.route('/api/admin/email-settings', methods=['GET', 'PUT'])
+@cross_origin() # Explicitly enable CORS for this route
 def email_settings():
     user_email = request.headers.get('X-User-Email')
     if not is_super_admin(user_email):
@@ -248,6 +177,7 @@ def email_settings():
             return jsonify({"message": f"Error updating settings: {e}"}), 500
 
 @app.route('/api/admin/send-test-email', methods=['POST'])
+@cross_origin() # Explicitly enable CORS for this route
 def send_test_email():
     user_email = request.headers.get('X-User-Email')
     if not is_super_admin(user_email):
@@ -259,15 +189,13 @@ def send_test_email():
         return jsonify({"message": "Recipient email is required"}), 400
 
     try:
-        email_subject = "DayClap Test Email"
-        # Use the welcome email template for testing purposes
         template_data = {
             "user_name": "DayClap User",
             "frontend_url": os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173'),
             "current_year": datetime.now().year
         }
         
-        success, details = send_email_api(recipient_email, email_subject, "welcome_email", template_data)
+        success, details = send_email_api(recipient_email, "welcome_email", template_data)
 
         if success:
             return jsonify({"message": "Test email sent successfully via API! (using welcome template)", "details": details}), 200
@@ -275,10 +203,10 @@ def send_test_email():
             return jsonify({"message": "Failed to send test email via API.", "details": details}), 500
 
     except Exception as e:
-        print(f"Error in send_test_email: {e}", file=sys.stderr)
         return jsonify({"message": f"An unexpected error occurred: {e}"}), 500
 
 @app.route('/api/send-invitation', methods=['POST'])
+@cross_origin() # Explicitly enable CORS for this route
 def send_invitation():
     data = request.get_json() or {}
     required_fields = ['sender_id', 'sender_email', 'recipient_email', 'company_id', 'company_name', 'role']
@@ -292,29 +220,110 @@ def send_invitation():
         if not (hasattr(invitation_resp, "data") and invitation_resp.data):
             raise Exception("Failed to save invitation to the database.")
 
-        email_subject = f"You're invited to join {data['company_name']} on DayClap"
         frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
         
-        # NEW: Use the invitation template
         template_data = {
             "sender_email": data['sender_email'],
             "company_name": data['company_name'],
             "role": data['role'],
-            "invitation_link": frontend_url, # Assuming frontend handles invitation acceptance
+            "invitation_link": frontend_url,
             "current_year": datetime.now().year
         }
         
-        success, details = send_email_api(data['recipient_email'], email_subject, "invitation_to_company", template_data)
+        success, details = send_email_api(data['recipient_email'], "invitation_to_company", template_data)
 
         if success:
             return jsonify({"message": "Invitation sent successfully!", "details": details}), 200
         else:
-            print(f"API Error on Invitation: {details}", file=sys.stderr)
             return jsonify({"message": "Invitation saved, but failed to send email.", "details": details}), 202
 
     except Exception as e:
-        print(f"Error in send_invitation: {e}", file=sys.stderr)
         return jsonify({"message": f"An unexpected error occurred: {e}"}), 500
+
+# NEW: API Endpoints for Email Template Management
+@app.route('/api/admin/email-templates', methods=['GET', 'POST'])
+@cross_origin() # Explicitly enable CORS for this route
+def email_templates_management():
+    user_email = request.headers.get('X-User-Email')
+    if not is_super_admin(user_email):
+        return jsonify({"message": "Unauthorized access"}), 403
+
+    if request.method == 'GET':
+        try:
+            resp = supabase.table('email_templates').select('*').order('name').execute()
+            templates = resp.data if hasattr(resp, "data") else resp.get("data")
+            return jsonify(templates), 200
+        except Exception as e:
+            print(f"Error fetching email templates: {e}", file=sys.stderr) # Log the specific error
+            return jsonify({"message": f"Error fetching email templates: {e}"}), 500
+
+    if request.method == 'POST':
+        try:
+            template_data = request.get_json() or {}
+            required_fields = ['name', 'subject', 'html_content']
+            if not all(field in template_data for field in required_fields):
+                return jsonify({"message": "Missing required fields: name, subject, html_content"}), 400
+            
+            # Check for existing template with the same name
+            existing_template = supabase.table('email_templates').select('id').eq('name', template_data['name']).execute()
+            if existing_template.data:
+                return jsonify({"message": f"Template with name '{template_data['name']}' already exists."}), 409
+
+            insert_payload = {
+                'name': template_data['name'],
+                'subject': template_data['subject'],
+                'html_content': template_data['html_content'],
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }
+            resp = supabase.table('email_templates').insert(insert_payload).execute()
+            inserted_template = resp.data[0] if hasattr(resp, "data") and resp.data else {}
+            return jsonify({"message": "Email template created successfully", "template": inserted_template}), 201
+        except Exception as e:
+            return jsonify({"message": f"Error creating email template: {e}"}), 500
+
+@app.route('/api/admin/email-templates/<uuid:template_id>', methods=['GET', 'PUT', 'DELETE'])
+@cross_origin() # Explicitly enable CORS for this route
+def email_template_detail_management(template_id):
+    user_email = request.headers.get('X-User-Email')
+    if not is_super_admin(user_email):
+        return jsonify({"message": "Unauthorized access"}), 403
+
+    if request.method == 'GET':
+        try:
+            resp = supabase.table('email_templates').select('*').eq('id', str(template_id)).single().execute()
+            template = resp.data if hasattr(resp, "data") else resp.get("data")
+            if not template:
+                return jsonify({"message": "Email template not found"}), 404
+            return jsonify(template), 200
+        except Exception as e:
+            return jsonify({"message": f"Error fetching email template: {e}"}), 500
+
+    if request.method == 'PUT':
+        try:
+            template_data = request.get_json() or {}
+            update_payload = {'updated_at': datetime.now().isoformat()}
+            if 'name' in template_data:
+                update_payload['name'] = template_data['name']
+            if 'subject' in template_data:
+                update_payload['subject'] = template_data['subject']
+            if 'html_content' in template_data:
+                update_payload['html_content'] = template_data['html_content']
+            
+            resp = supabase.table('email_templates').update(update_payload).eq('id', str(template_id)).execute()
+            updated_template = resp.data[0] if hasattr(resp, "data") and resp.data else {}
+            return jsonify({"message": "Email template updated successfully", "template": updated_template}), 200
+        except Exception as e:
+            return jsonify({"message": f"Error updating email template: {e}"}), 500
+
+    if request.method == 'DELETE':
+        try:
+            resp = supabase.table('email_templates').delete().eq('id', str(template_id)).execute()
+            if not (hasattr(resp, "data") and resp.data):
+                return jsonify({"message": "Email template not found or already deleted"}), 404
+            return jsonify({"message": "Email template deleted successfully"}), 204
+        except Exception as e:
+            return jsonify({"message": f"Error deleting email template: {e}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

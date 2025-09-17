@@ -155,15 +155,14 @@ const EventModal = ({
             <div className="form-group">
               <label className="form-label">Description <span className="optional-text">(Optional)</span></label>
               <div className="input-wrapper">
-                <AlignLeft className="input-icon" style={{ left: '1rem', top: '1rem', transform: 'none' }} />
+                <AlignLeft className="input-icon" />
                 <textarea
                   name="description"
                   value={eventForm.description}
                   onChange={handleInputChange}
                   className="form-textarea"
-                  rows="3"
+                  rows="5"
                   placeholder="Add a brief description of the event..."
-                  style={{ paddingLeft: '2.75rem' }}
                 ></textarea>
               </div>
             </div>
@@ -190,15 +189,14 @@ const EventModal = ({
                 <div className="form-group">
                   <label className="form-label">Description <span className="optional-text">(Optional)</span></label>
                   <div className="input-wrapper">
-                    <AlignLeft className="input-icon" style={{ left: '1rem', top: '1rem', transform: 'none' }} />
+                    <AlignLeft className="input-icon" />
                     <textarea
                       name="description"
                       value={currentEventTaskForm.description}
                       onChange={handleEventTaskInputChange}
                       className="form-textarea"
-                      rows="2"
+                      rows="4"
                       placeholder="Detailed description for the task..."
-                      style={{ paddingLeft: '2.75rem' }}
                     ></textarea>
                   </div>
                 </div>

@@ -15,7 +15,12 @@ import {
   CheckSquare,
   Settings,
   Key,
-  Send
+  Send,
+  FileText,
+  Plus,
+  Save,
+  Edit,
+  X
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
@@ -46,6 +51,20 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [testEmailMessage, setTestEmailMessage] = useState('');
   const [testEmailLoading, setTestEmailLoading] = useState(false);
 
+  // NEW: State for Email Templates
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null); // null for new, object for edit
+  const [templateForm, setTemplateForm] = useState({
+    name: '',
+    subject: '',
+    html_content: ''
+  });
+  const [templateMessage, setTemplateMessage] = useState('');
+  const [templateMessageType, setTemplateMessageType] = useState(''); // 'success' or 'error'
+  const [templateLoading, setTemplateLoading] = useState(false);
+
+
   useEffect(() => {
     loadUsersData();
   }, []);
@@ -53,6 +72,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     if (activeTab === 'email-settings') {
       fetchEmailSettings();
+    } else if (activeTab === 'email-templates') {
+      fetchEmailTemplates();
     }
   }, [activeTab]);
 
@@ -158,6 +179,147 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       setTestEmailMessage('An unexpected error occurred while sending the test email.');
     } finally {
       setTestEmailLoading(false);
+    }
+  };
+
+  // NEW: Email Template Management Functions
+  const fetchEmailTemplates = async () => {
+    setTemplateLoading(true);
+    setTemplateMessage('');
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/admin/email-templates`, {
+        headers: {
+          'X-User-Email': user.email,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setEmailTemplates(data);
+      } else {
+        setTemplateMessage(`Error: ${data.message || 'Failed to fetch email templates'}`);
+        setTemplateMessageType('error');
+      }
+    } catch (error) {
+      console.error('Error fetching email templates:', error);
+      setTemplateMessage('An unexpected error occurred while fetching email templates.');
+      setTemplateMessageType('error');
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
+  const handleAddTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateForm({ name: '', subject: '', html_content: '' });
+    setTemplateMessage('');
+    setTemplateMessageType('');
+    setShowTemplateModal(true);
+  };
+
+  const handleEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setTemplateForm({ name: template.name, subject: template.subject, html_content: template.html_content });
+    setTemplateMessage('');
+    setTemplateMessageType('');
+    setShowTemplateModal(true);
+  };
+
+  const handleSaveTemplate = async (e) => {
+    e.preventDefault();
+    setTemplateLoading(true);
+    setTemplateMessage('');
+    setTemplateMessageType('');
+
+    if (!templateForm.name.trim() || !templateForm.subject.trim() || !templateForm.html_content.trim()) {
+      setTemplateMessage('All fields are required.');
+      setTemplateMessageType('error');
+      setTemplateLoading(false);
+      return;
+    }
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      let response;
+      let url;
+
+      if (editingTemplate) {
+        url = `${backendUrl}/api/admin/email-templates/${editingTemplate.id}`;
+        response = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'X-User-Email': user.email,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(templateForm)
+        });
+      } else {
+        url = `${backendUrl}/api/admin/email-templates`;
+        response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-User-Email': user.email,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(templateForm)
+        });
+      }
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTemplateMessage(data.message || 'Template saved successfully!');
+        setTemplateMessageType('success');
+        fetchEmailTemplates(); // Refresh the list
+        setShowTemplateModal(false);
+      } else {
+        setTemplateMessage(`Error: ${data.message || 'Failed to save template'}`);
+        setTemplateMessageType('error');
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      setTemplateMessage('An unexpected error occurred while saving the template.');
+      setTemplateMessageType('error');
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    if (!window.confirm('Are you sure you want to delete this email template? This action cannot be undone.')) {
+      return;
+    }
+    setTemplateLoading(true);
+    setTemplateMessage('');
+    setTemplateMessageType('');
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/admin/email-templates/${templateId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-User-Email': user.email,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok || response.status === 204) {
+        setTemplateMessage('Template deleted successfully!');
+        setTemplateMessageType('success');
+        fetchEmailTemplates(); // Refresh the list
+      } else {
+        const data = await response.json();
+        setTemplateMessage(`Error: ${data.message || 'Failed to delete template'}`);
+        setTemplateMessageType('error');
+      }
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      setTemplateMessage('An unexpected error occurred while deleting the template.');
+      setTemplateMessageType('error');
+    } finally {
+      setTemplateLoading(false);
     }
   };
 
@@ -334,6 +496,82 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     );
   };
 
+  const TemplateModal = () => {
+    if (!showTemplateModal) return null;
+
+    return (
+      <div className="modal-backdrop" onClick={() => setShowTemplateModal(false)}>
+        <div className="modal-content template-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>{editingTemplate ? 'Edit Email Template' : 'Create New Email Template'}</h2>
+            <button className="modal-close" onClick={() => setShowTemplateModal(false)}><X /></button>
+          </div>
+          <form onSubmit={handleSaveTemplate}>
+            <div className="modal-body">
+              {templateMessage && (
+                <div className={`info-message ${templateMessageType}`} style={{ marginBottom: '1rem' }}>
+                  {templateMessage}
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label">Template Name (Unique Identifier)</label>
+                <div className="input-wrapper">
+                  <FileText className="input-icon" />
+                  <input
+                    type="text"
+                    name="name"
+                    value={templateForm.name}
+                    onChange={(e) => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="form-input"
+                    placeholder="e.g., welcome_email"
+                    required
+                    disabled={editingTemplate !== null} // Name cannot be changed for existing templates
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Subject</label>
+                <div className="input-wrapper">
+                  <Mail className="input-icon" />
+                  <input
+                    type="text"
+                    name="subject"
+                    value={templateForm.subject}
+                    onChange={(e) => setTemplateForm(prev => ({ ...prev, subject: e.target.value }))}
+                    className="form-input"
+                    placeholder="e.g., Welcome to DayClap!"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">HTML Content</label>
+                <div className="input-wrapper">
+                  <FileText className="input-icon" style={{ top: '1rem', transform: 'none' }} />
+                  <textarea
+                    name="html_content"
+                    value={templateForm.html_content}
+                    onChange={(e) => setTemplateForm(prev => ({ ...prev, html_content: e.target.value }))}
+                    className="form-textarea"
+                    rows="15"
+                    placeholder="Enter full HTML content for the email template..."
+                    required
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-outline" onClick={() => setShowTemplateModal(false)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={templateLoading}>
+                {templateLoading ? 'Saving...' : <><Save size={16} /> {editingTemplate ? 'Save Changes' : 'Create Template'}</>}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="super-admin-dashboard">
       <header className="admin-header">
@@ -393,6 +631,12 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             onClick={() => setActiveTab('email-settings')}
           >
             <Mail /> Email Settings
+          </button>
+          <button 
+            className={`admin-nav-tab ${activeTab === 'email-templates' ? 'active' : ''}`}
+            onClick={() => setActiveTab('email-templates')}
+          >
+            <FileText /> Email Templates
           </button>
           <button 
             className={`admin-nav-tab ${activeTab === 'test-sending' ? 'active' : ''}`}
@@ -531,6 +775,51 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             </div>
           )}
 
+          {activeTab === 'email-templates' && (
+            <div className="email-templates-section">
+              <div className="section-header">
+                <h2>Email Templates</h2>
+                <button className="btn btn-primary btn-small" onClick={handleAddTemplate} disabled={templateLoading}>
+                  <Plus size={16} /> Add New Template
+                </button>
+              </div>
+              {templateMessage && (
+                <div className={`info-message ${templateMessageType}`} style={{ marginBottom: '1rem' }}>
+                  {templateMessage}
+                </div>
+              )}
+              {templateLoading ? (
+                <p className="loading-message">Loading templates...</p>
+              ) : emailTemplates.length > 0 ? (
+                <div className="templates-list">
+                  {emailTemplates.map(template => (
+                    <div key={template.id} className="template-item">
+                      <div className="template-info">
+                        <FileText size={20} />
+                        <div>
+                          <p className="template-name">{template.name}</p>
+                          <p className="template-subject">Subject: {template.subject}</p>
+                          <p className="template-updated">Last Updated: {new Date(template.updated_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="template-actions">
+                        <button className="action-btn view" onClick={() => handleEditTemplate(template)} title="Edit Template"><Edit size={16} /></button>
+                        <button className="action-btn delete" onClick={() => handleDeleteTemplate(template.id)} title="Delete Template"><Trash2 size={16} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-templates">
+                  <FileText size={48} />
+                  <h3>No email templates found</h3>
+                  <p>Create your first email template to manage here.</p>
+                  <button className="btn btn-primary" onClick={handleAddTemplate}><Plus size={16} /> Add New Template</button>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'test-sending' && (
             <div className="email-settings-section">
               <div className="section-header">
@@ -570,6 +859,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       </main>
 
       {showUserModal && <UserModal />}
+      {showTemplateModal && <TemplateModal />}
     </div>
   );
 };

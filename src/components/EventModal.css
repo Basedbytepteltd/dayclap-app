@@ -4,12 +4,14 @@
   background-color: var(--primary-bg);
   border-radius: 0.75rem;
   width: 100%;
-  max-width: 600px;
+  max-width: 700px; /* Reverted to 700px */
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--border-color);
 }
+
+/* Removed .event-main-details-grid styles */
 
 .event-tasks-section {
   margin-top: 2rem;
@@ -145,45 +147,25 @@
   justify-content: flex-end;
 }
 
+/* Specific styles for textarea with icon */
+.form-group .input-wrapper .input-icon + textarea {
+  padding-left: 2.75rem; /* Ensure enough space for the icon */
+  padding-top: 0.75rem; /* Adjust top padding to align with icon */
+}
+
+/* Specific styles for select with icon */
+.form-group .input-wrapper .input-icon + select {
+  padding-left: 2.75rem; /* Ensure enough space for the icon */
+}
+
+.form-group .input-wrapper .input-icon {
+  /* Override default vertical centering for textarea icons */
+  top: 0.75rem; /* Align icon to the top padding of the textarea/select */
+  transform: none; /* Remove vertical transform */
+}
+
+
 /* Responsive adjustments for EventModal */
-@media (max-width: 640px) {
-  .event-modal {
-    max-width: 95vw; /* Allow modal to take up more width on smaller screens */
-    margin: 0.5rem; /* Add some margin around the modal */
-  }
+/* Removed @media (max-width: 880px) rule */
 
-  .event-task-item {
-    flex-wrap: wrap; /* Allow task items to wrap */
-  }
-
-  .event-task-item .task-actions {
-    margin-left: auto; /* Push actions to the right if content wraps */
-  }
-}
-
-@media (max-width: 480px) {
-  .event-modal .modal-header,
-  .event-modal .modal-body,
-  .event-modal .modal-footer {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
-  .event-tasks-section {
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-  }
-
-  .event-task-form {
-    padding: 0.75rem;
-  }
-
-  .event-task-item .task-title {
-    font-size: 0.9rem;
-  }
-
-  .event-task-item .task-meta {
-    font-size: 0.7rem;
-    gap: 0.3rem;
-  }
-}
+@media (max-width: 640px) {  .event-modal {    max-width: 95vw; /* Allow modal to take up more width on smaller screens */    margin: 0.5rem; /* Add some margin around the modal */  }  .event-task-item {    flex-wrap: wrap; /* Allow task items to wrap */  }  .event-task-item .task-actions {    margin-left: auto; /* Push actions to the right if content wraps */  }}@media (max-width: 480px) {  .event-modal .modal-header,  .event-modal .modal-body,  .event-modal .modal-footer {    padding-left: 1rem;    padding-right: 1rem;  }  .event-tasks-section {    margin-top: 1.5rem;    padding-top: 1rem;  }  .event-task-form {    padding: 0.75rem;  }  .event-task-item .task-title {    font-size: 0.9rem;  }  .event-task-item .task-meta {    font-size: 0.7rem;    gap: 0.3rem;  }}
