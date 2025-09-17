@@ -11,10 +11,16 @@ const LandingPage = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Debug log for authMode changes
+  useEffect(() => {
+    console.log('LandingPage: authMode state changed to:', authMode);
+  }, [authMode]);
+
   useEffect(() => {
     setLoading(true);
 
     const handleAuthSession = async (session) => {
+      console.log('LandingPage: handleAuthSession called with session:', session);
       if (!session) {
         setUser(null);
         setLoading(false);
@@ -72,7 +78,7 @@ const LandingPage = () => {
         setUser(combinedUserData);
 
       } catch (error) {
-        // console.error("Error handling auth session:", error.message);
+        console.error("LandingPage: Error handling auth session:", error.message);
         setUser(session.user); // Fallback to auth user data if profile fails
       } finally {
         setLoading(false);
@@ -83,13 +89,14 @@ const LandingPage = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleAuthSession(session);
     }).catch(err => {
-        // console.error("Error getting initial session:", err);
+        console.error("LandingPage: Error getting initial session:", err);
         setUser(null);
         setLoading(false);
     });
 
     // Listener for auth state changes (login, logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('LandingPage: Auth state changed event:', _event, 'Session:', session);
       handleAuthSession(session);
     });
 
@@ -149,16 +156,18 @@ const LandingPage = () => {
 
 
   const handleAuthSuccess = (supabaseUser) => {
+    console.log('LandingPage: Auth success, closing modal.');
     setAuthMode(null);
   };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
-      // console.error("LandingPage: Error logging out:", error.message);
+      console.error("LandingPage: Error logging out:", error.message);
     }
     setUser(null);
     setAuthMode(null);
+    console.log('LandingPage: User logged out.');
   };
 
   const handleUserUpdate = async (updatedUser) => {
@@ -183,8 +192,8 @@ const LandingPage = () => {
       .eq('id', id);
 
     if (error) {
-      // console.error("LandingPage: Error updating user profile in Supabase:", error.message);
-      // console.error("LandingPage: Full Supabase update error object:", error);
+      console.error("LandingPage: Error updating user profile in Supabase:", error.message);
+      console.error("LandingPage: Full Supabase update error object:", error);
     } else {
       const { data: freshProfile, error: fetchError } = await supabase
         .from('profiles')
@@ -193,7 +202,7 @@ const LandingPage = () => {
         .single();
 
       if (fetchError) {
-        // console.error("LandingPage: Error re-fetching profile after update:", fetchError);
+        console.error("LandingPage: Error re-fetching profile after update:", fetchError);
         setUser(updatedUser);
       } else {
         const combinedFreshUserData = {
@@ -209,6 +218,7 @@ const LandingPage = () => {
   };
 
   if (loading) {
+    console.log('LandingPage: Rendering loading screen.');
     return (
       <div className="loading-screen">
         <div className="loading-calendar">
@@ -226,6 +236,7 @@ const LandingPage = () => {
   const isSuperAdmin = user && user.email === 'admin@example.com';
 
   if (user) {
+    console.log('LandingPage: User is logged in, rendering dashboard.');
     if (isSuperAdmin) {
       return <SuperAdminDashboard user={user} onLogout={handleLogout} />;
     } else {
@@ -233,6 +244,7 @@ const LandingPage = () => {
     }
   }
 
+  console.log('LandingPage: User is NOT logged in, rendering landing page content.');
   return (
     <div className="landing-page">
       <header className="header">
@@ -245,19 +257,19 @@ const LandingPage = () => {
             <div className="nav-buttons">
               <button 
                 className="btn btn-outline"
-                onClick={() => setAuthMode('login')}
+                onClick={() => { console.log('Super Admin Login button clicked'); setAuthMode('login'); }}
               >
                 Super Admin Login
               </button>
               <button 
                 className="btn btn-outline"
-                onClick={() => setAuthMode('login')}
+                onClick={() => { console.log('Sign In button clicked'); setAuthMode('login'); }}
               >
                 Sign In
               </button>
               <button 
                 className="btn btn-primary"
-                onClick={() => setAuthMode('signup')}
+                onClick={() => { console.log('Get Started button clicked (header)'); setAuthMode('signup'); }}
               >
                 Get Started
               </button>
@@ -280,7 +292,7 @@ const LandingPage = () => {
             <div className="hero-buttons">
               <button 
                 className="btn btn-primary btn-large"
-                onClick={() => setAuthMode('signup')}
+                onClick={() => { console.log('Start Free Today button clicked (hero)'); setAuthMode('signup'); }}
               >
                 Start Free Today
               </button>
@@ -380,7 +392,7 @@ const LandingPage = () => {
             </p>
             <button 
               className="btn btn-primary btn-large"
-              onClick={() => setAuthMode('signup')}
+              onClick={() => { console.log('Get Started Free button clicked (CTA)'); setAuthMode('signup'); }}
             >
               Get Started Free
             </button>
@@ -434,7 +446,7 @@ const LandingPage = () => {
       {authMode && (
         <AuthModal
           mode={authMode}
-          onClose={() => setAuthMode(null)}
+          onClose={() => { console.log('AuthModal onClose called'); setAuthMode(null); }}
           onSwitchMode={setAuthMode}
           onAuthSuccess={handleAuthSuccess}
         />

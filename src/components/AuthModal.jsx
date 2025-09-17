@@ -1,327 +1,462 @@
-import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, MapPin, AlignLeft, ListTodo, User, DollarSign, Plus, Edit, Trash2, CheckSquare, Square, Flag, Save } from 'lucide-react';
-import './EventModal.css'; // Create a new CSS file for this modal if needed, or extend Dashboard.css
+import React, { useState, useEffect } from 'react'
+import { X, Mail, Lock, User, Building2, Eye, EyeOff, Key } from 'lucide-react' // Import Key icon for OTP
+import { supabase } from '../supabaseClient'
+import './AuthModal.css'
 
-// Helper function to format a Date object to YYYY-MM-DD in local time
-const formatDateToYYYYMMDD = (dateInput) => {
-  if (!dateInput) return '';
-  let date;
-  if (typeof dateInput === 'string') {
-    date = new Date(dateInput);
-  } else if (dateInput instanceof Date) {
-    date = dateInput;
-  } else {
-    return '';
-  }
-  if (isNaN(date.getTime())) {
-    return '';
-  }
-  const adjustedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-  return adjustedDate.toISOString().split('T')[0];
-};
+const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
+  // Debug log for AuthModal mounting
+  useEffect(() => {
+    console.log('AuthModal: Component mounted/rendered with mode:', mode);
+    return () => {
+      console.log('AuthModal: Component unmounted.');
+    };
+  }, [mode]);
 
-// Helper function to format currency
-const formatCurrency = (amount, currencyCode = 'USD') => {
-  if (amount === null || amount === undefined || isNaN(Number(amount))) {
-    return '';
-  }
-  const numericAmount = Number(amount);
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currencyCode,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(numericAmount);
-};
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    company: ''
+  })
+  const [errors, setErrors] = useState({})
+  const [isLoading, setIsLoading] = useState(false)
+  const [showResendButton, setShowResendButton] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
 
-const EventModal = ({
-  showModal,
-  onClose,
-  eventForm,
-  setEventForm,
-  editingEvent,
-  onSaveEvent,
-  currentEventTaskForm,
-  setCurrentEventTaskForm,
-  handleAddEventTask,
-  handleEditEventTask,
-  handleDeleteEventTask,
-  handleToggleEventTaskCompletion,
-  teamMembers,
-  user,
-}) => {
-  if (!showModal) return null;
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // OTP specific states
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setEventForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleDateChange = (e) => {
-    setEventForm(prev => ({ ...prev, date: new Date(e.target.value) }));
-  };
-
-  const handleEventTaskInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setCurrentEventTaskForm(prev => ({
+    const { name, value } = e.target
+    setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+      [name]: value
+    }))
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }))
+    }
+    // Clear resend/OTP messages when input changes
+    setResendMessage('');
+    setShowResendButton(false);
+    setOtpError('');
+  }
+
+  const handleOtpChange = (e) => {
+    setOtpCode(e.target.value);
+    setOtpError('');
   };
 
-  const isTaskOverdue = (task) => {
-    if (task.completed || !task.dueDate) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const taskDueDate = new Date(task.dueDate);
-    taskDueDate.setHours(0, 0, 0, 0);
-    return taskDueDate < today;
+  const validateForm = () => {
+    const newErrors = {}
+
+    if (mode === 'signup' && !formData.name.trim()) {
+      newErrors.name = 'Name is required'
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid'
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required'
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters'
+    }
+
+    if (mode === 'signup' && formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match'
+    }
+
+    return newErrors
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    console.log('AuthModal: handleSubmit called. Current mode:', mode, 'OTP sent:', otpSent);
+
+    // If OTP was already sent, this submission is for OTP verification
+    if (otpSent) {
+      await handleOtpVerification();
+      return;
+    }
+
+    const newErrors = validateForm()
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+
+    setIsLoading(true)
+    setErrors({});
+    setResendMessage('');
+    setShowResendButton(false);
+    setOtpError('');
+
+    try {
+      let authResponse;
+      if (mode === 'login') {
+        // Standard password login
+        authResponse = await supabase.auth.signInWithPassword({
+          email: formData.email.toLowerCase(),
+          password: formData.password,
+        });
+
+        if (authResponse.error) {
+          setErrors({ submit: authResponse.error.message });
+          console.error('AuthModal: Login error:', authResponse.error.message);
+          return;
+        }
+        if (authResponse.data.user && authResponse.data.session) {
+          onAuthSuccess(authResponse.data.user);
+          onClose();
+          console.log('AuthModal: Login successful.');
+        } else {
+          setErrors({ submit: 'An unexpected login response occurred.' });
+          console.error('AuthModal: Unexpected login response.');
+        }
+
+      } else { // Signup flow
+        // Use signUp to create the user and trigger the initial confirmation email (with OTP)
+        authResponse = await supabase.auth.signUp({
+          email: formData.email.toLowerCase(),
+          password: formData.password,
+          options: {
+            data: {
+              name: formData.name,
+              company: formData.company
+            },
+            // emailRedirectTo: window.location.origin + '/verified', // Optional: for email link confirmation
+          }
+        });
+
+        if (authResponse.error) {
+          setErrors({ submit: authResponse.error.message });
+          console.error('AuthModal: Signup error:', authResponse.error.message);
+          // If the error is related to email not confirmed, show resend button
+          if (authResponse.error.message.includes('Email not confirmed') || authResponse.error.message.includes('Email link is invalid or has expired')) {
+            setShowResendButton(true);
+          }
+          return;
+        }
+
+        const { user, session } = authResponse.data;
+
+        if (user && session) {
+          // User is immediately logged in (e.g., email confirmation is off, or already confirmed)
+          onAuthSuccess(user);
+          onClose();
+          console.log('AuthModal: Signup successful, user immediately logged in.');
+        } else if (user && !session) {
+          // User created, but email confirmation is pending. Prompt for OTP.
+          setOtpSent(true);
+          setResendMessage('Account created! A verification code has been sent to your email. Please check your inbox (and spam folder).');
+          setShowResendButton(true); // Allow resending if user doesn't receive it
+          console.log('AuthModal: Signup successful, OTP sent for verification.');
+        } else {
+          setErrors({ submit: 'An unexpected authentication response occurred.' });
+          console.error('AuthModal: Unexpected signup response.');
+        }
+      }
+      
+    } catch (error) {
+      setErrors({ submit: 'An unexpected error occurred during authentication.' });
+      console.error('AuthModal: General authentication error:', error);
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Function to handle OTP verification
+  const handleOtpVerification = async () => {
+    console.log('AuthModal: handleOtpVerification called.');
+    setOtpLoading(true);
+    setOtpError('');
+    setResendMessage('');
+
+    if (!otpCode.trim()) {
+      setOtpError('OTP code is required.');
+      setOtpLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: formData.email.toLowerCase(),
+        token: otpCode,
+        type: 'signup', // CRITICAL FIX: Use 'signup' type for signup confirmation OTP
+      });
+
+      if (error) {
+        setOtpError(`OTP verification failed: ${error.message}`);
+        setShowResendButton(true); // Allow resending OTP on failure
+        console.error('AuthModal: OTP verification error:', error.message);
+        return;
+      }
+
+      if (data.user && data.session) {
+        onAuthSuccess(data.user);
+        onClose();
+        console.log('AuthModal: OTP verification successful.');
+      } else {
+        setOtpError('An unexpected response occurred during OTP verification.');
+        console.error('AuthModal: Unexpected OTP verification response.');
+      }
+    } catch (error) {
+      setOtpError('An unexpected error occurred during OTP verification.');
+      console.error('AuthModal: General OTP verification error:', error);
+    } finally {
+      setOtpLoading(false);
+    }
   };
 
-  const handleSaveEventTask = () => {
-    handleAddEventTask();
+  // Function to handle resending verification code (using supabase.auth.resend for signup type)
+  const handleResendVerification = async () => {
+    console.log('AuthModal: handleResendVerification called.');
+    setIsLoading(true);
+    setResendMessage('');
+    setErrors({});
+    setOtpError('');
+    setShowResendButton(false);
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup', // CRITICAL FIX: Use 'signup' to re-send the signup confirmation OTP
+        email: formData.email.toLowerCase(),
+      });
+
+      if (error) {
+        setResendMessage(`Failed to resend verification code: ${error.message}`);
+        setShowResendButton(true);
+        console.error('AuthModal: Resend verification error:', error.message);
+      } else {
+        setResendMessage('New verification code sent! Please check your inbox (and spam folder).');
+        setOtpSent(true); // Ensure OTP input is shown
+        console.log('AuthModal: Resend verification successful.');
+      }
+    } catch (error) {
+      setResendMessage('An unexpected error occurred while trying to resend the code.');
+      console.error('AuthModal: General resend verification error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      console.log('AuthModal: Backdrop clicked, closing modal.');
+      onClose()
+    }
+  }
+  // Determine if we should show the OTP input form
+  const showOtpForm = mode === 'signup' && otpSent;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content event-modal" onClick={e => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-content">
         <div className="modal-header">
-          <h3>{editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
-          <button className="modal-close" onClick={onClose}><X /></button>
+          <h2 className="modal-title">
+            {showOtpForm ? 'Verify Your Account' : (mode === 'login' ? 'Welcome Back' : 'Create Account')}
+          </h2>
+          <button className="modal-close" onClick={onClose}>
+            <X />
+          </button>
         </div>
-        <form onSubmit={onSaveEvent}>
-          <div className="modal-body">
-            <div className="form-group">
-              <label className="form-label">Event Title</label>
-              <div className="input-wrapper">
-                <Calendar className="input-icon" />
-                <input
-                  type="text"
-                  name="title"
-                  value={eventForm.title}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="e.g., Team Meeting"
-                  required
-                />
-              </div>
-            </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Date</label>
-                <div className="input-wrapper">
-                  <Calendar className="input-icon" />
-                  <input
-                    type="date"
-                    name="date"
-                    value={formatDateToYYYYMMDD(eventForm.date)}
-                    onChange={handleDateChange}
-                    className="form-input"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Time <span className="optional-text">(Optional)</span></label>
-                <div className="input-wrapper">
-                  <Clock className="input-icon" />
-                  <input
-                    type="time"
-                    name="time"
-                    value={eventForm.time}
-                    onChange={handleInputChange}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Location <span className="optional-text">(Optional)</span></label>
-              <div className="input-wrapper">
-                <MapPin className="input-icon" />
-                <input
-                  type="text"
-                  name="location"
-                  value={eventForm.location}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="e.g., Conference Room A"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Description <span className="optional-text">(Optional)</span></label>
-              <div className="input-wrapper">
-                <AlignLeft className="input-icon" />
-                <textarea
-                  name="description"
-                  value={eventForm.description}
-                  onChange={handleInputChange}
-                  className="form-textarea"
-                  rows="5"
-                  placeholder="Add a brief description of the event..."
-                ></textarea>
-              </div>
-            </div>
-
-            <div className="event-tasks-section">
-              <h4 className="event-tasks-title">Event Tasks</h4>
-              <p className="task-section-description">Break down your event into manageable tasks.</p>
-
-              <div className="event-task-form">
+        <form className="auth-form" onSubmit={handleSubmit}>
+          {!showOtpForm ? (
+            <>
+              {mode === 'signup' && (
                 <div className="form-group">
-                  <label className="form-label">Task Title</label>
+                  <label className="form-label">Name</label>
                   <div className="input-wrapper">
-                    <ListTodo className="input-icon" />
+                    <User className="input-icon" />
                     <input
                       type="text"
-                      name="title"
-                      value={currentEventTaskForm.title}
-                      onChange={handleEventTaskInputChange}
-                      className="form-input"
-                      placeholder="e.g., Send out invitations"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className={`form-input ${errors.name ? 'error' : ''}`}
+                      placeholder="Enter your name"
                     />
                   </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Description <span className="optional-text">(Optional)</span></label>
-                  <div className="input-wrapper">
-                    <AlignLeft className="input-icon" />
-                    <textarea
-                      name="description"
-                      value={currentEventTaskForm.description}
-                      onChange={handleEventTaskInputChange}
-                      className="form-textarea"
-                      rows="4"
-                      placeholder="Detailed description for the task..."
-                    ></textarea>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Due Date</label>
-                    <div className="input-wrapper">
-                      <Calendar className="input-icon" />
-                      <input
-                        type="date"
-                        name="dueDate"
-                        value={currentEventTaskForm.dueDate}
-                        onChange={handleEventTaskInputChange}
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Assigned To</label>
-                    <div className="input-wrapper">
-                      <User className="input-icon" />
-                      <select
-                        name="assignedTo"
-                        value={currentEventTaskForm.assignedTo}
-                        onChange={handleEventTaskInputChange}
-                        className="form-select"
-                      >
-                        <option value={user.email}>Me ({user.name || user.email})</option>
-                        {teamMembers.map(member => (
-                          <option key={member.id} value={member.email}>{member.name || member.email}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Priority</label>
-                    <div className="input-wrapper">
-                      <Flag className="input-icon" />
-                      <select
-                        name="priority"
-                        value={currentEventTaskForm.priority}
-                        onChange={handleEventTaskInputChange}
-                        className="form-select"
-                      >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Expenses <span className="optional-text">(Optional)</span></label>
-                    <div className="input-wrapper">
-                      <DollarSign className="input-icon" />
-                      <input
-                        type="number"
-                        name="expenses"
-                        value={currentEventTaskForm.expenses}
-                        onChange={handleEventTaskInputChange}
-                        className="form-input"
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
-                    type="checkbox"
-                    name="completed"
-                    id="currentEventTaskCompleted"
-                    checked={currentEventTaskForm.completed}
-                    onChange={handleEventTaskInputChange}
-                    style={{ width: 'auto', margin: 0 }}
-                  />
-                  <label htmlFor="currentEventTaskCompleted" className="form-label" style={{ marginBottom: 0, cursor: 'pointer' }}>Mark as Completed</label>
-                </div>
-                <div className="event-tasks-footer">
-                  <button type="button" className="btn btn-primary btn-small" onClick={handleSaveEventTask}>
-                    {currentEventTaskForm.id ? <Save size={16} /> : <Plus size={16} />}
-                    {currentEventTaskForm.id ? 'Save Task' : 'Add Task'}
-                  </button>
-                </div>
-              </div>
-
-              {eventForm.eventTasks.length > 0 && (
-                <div className="event-task-list">
-                  {eventForm.eventTasks.map(task => (
-                    <div key={task.id} className={`event-task-item ${task.completed ? 'completed' : ''} ${isTaskOverdue(task) ? 'overdue' : ''}`}>
-                      <div className="task-checkbox">
-                        <button type="button" className="checkbox-btn" onClick={() => handleToggleEventTaskCompletion(task.id)}>
-                          {task.completed ? <CheckSquare size={20} /> : <Square size={20} />}
-                        </button>
-                      </div>
-                      <div className="task-details">
-                        <h5 className="task-title">{task.title}</h5>
-                        {task.description && <p className="task-description">{task.description}</p>}
-                        <div className="task-meta">
-                          {task.assignedTo && <span>Assigned to: <span className="assigned-to">{task.assignedTo === user.email ? 'Me' : task.assignedTo}</span></span>}
-                          {task.dueDate && <span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}>Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
-                          {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
-                          {task.expenses > 0 && <span className="task-expenses"><DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}</span>}
-                        </div>
-                      </div>
-                      <div className="task-actions">
-                        <button type="button" className="btn-icon-small edit" onClick={() => handleEditEventTask(task)} title="Edit Task"><Edit size={16} /></button>
-                        <button type="button" className="btn-icon-small delete" onClick={() => handleDeleteEventTask(task.id)} title="Delete Task"><Trash2 size={16} /></button>
-                      </div>
-                    </div>
-                  ))}
+                  {errors.name && <span className="error-message">{errors.name}</span>}
                 </div>
               )}
+
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <div className="input-wrapper">
+                  <Mail className="input-icon" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={`form-input ${errors.email ? 'error' : ''}`}
+                    placeholder="Enter your email"
+                    disabled={otpSent} // Disable email input if OTP is sent
+                  />
+                </div>
+                {errors.email && <span className="error-message">{errors.email}</span>}
+              </div>
+
+              {mode === 'signup' && (
+                <div className="form-group">
+                  <label className="form-label">Company <span className="optional-text">(Optional)</span></label>
+                  <div className="input-wrapper">
+                    <Building2 className="input-icon" />
+                    <input
+                      type="text"
+                      name="company"
+                      value={formData.company}
+                      onChange={handleInputChange}
+                      className={`form-input ${errors.company ? 'error' : ''}`}
+                      placeholder="Enter your company name"
+                      disabled={otpSent} // Disable company input if OTP is sent
+                    />
+                  </div>
+                  {errors.company && <span className="error-message">{errors.company}</span>}
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <div className="input-wrapper">
+                  <Lock className="input-icon" />
+                  <input
+                    type={showPassword ? 'text' : 'password'} // Toggle type
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={`form-input ${errors.password ? 'error' : ''}`}
+                    placeholder="Enter your password"
+                    disabled={otpSent} // Disable password input if OTP is sent
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    disabled={otpSent}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {errors.password && <span className="error-message">{errors.password}</span>}
+              </div>
+
+              {mode === 'signup' && (
+                <div className="form-group">
+                  <label className="form-label">Confirm Password</label>
+                  <div className="input-wrapper">
+                    <Lock className="input-icon" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'} // Toggle type
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+                      placeholder="Confirm your password"
+                      disabled={otpSent} // Disable confirm password input if OTP is sent
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowConfirmPassword(prev => !prev)}
+                      aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                      disabled={otpSent}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
+                </div>
+              )}
+            </>
+          ) : (
+            // OTP Input Form
+            <div className="form-group">
+              <label className="form-label">Verification Code</label>
+              <div className="input-wrapper">
+                <Key className="input-icon" />
+                <input
+                  type="text"
+                  name="otpCode"
+                  value={otpCode}
+                  onChange={handleOtpChange}
+                  className={`form-input ${otpError ? 'error' : ''}`}
+                  placeholder="Enter the 6-digit code"
+                  maxLength="6"
+                  required
+                  autoFocus
+                  disabled={otpLoading}
+                />
+              </div>
+              {otpError && <span className="error-message">{otpError}</span>}
             </div>
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary"><Save size={16} /> {editingEvent ? 'Save Changes' : 'Create Event'}</button>
-          </div>
+          )}
+
+          {errors.submit && (
+            <div className="error-message submit-error">{errors.submit}</div>
+          )}
+
+          {resendMessage && (
+            <div className={`info-message ${resendMessage.includes('Failed') ? 'error' : 'success'}`} style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+              {resendMessage}
+            </div>
+          )}
+
+          {/* Resend OTP Button */}
+          {showResendButton && formData.email && (
+            <button
+              type="button"
+              className="btn btn-outline btn-full"
+              onClick={handleResendVerification}
+              disabled={isLoading || otpLoading}
+              style={{ marginTop: '1rem' }}
+            >
+              {isLoading || otpLoading ? 'Sending...' : 'Resend Verification Code'}
+            </button>
+          )}
+
+          <button 
+            type="submit" 
+            className="btn btn-primary btn-full"
+            disabled={isLoading || otpLoading}
+          >
+            {showOtpForm ? (otpLoading ? 'Verifying...' : 'Verify Code') : (isLoading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account'))}
+          </button>
         </form>
+
+        <div className="auth-switch">
+          <span>
+            {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+          </span>
+          <button 
+            type="button"
+            className="switch-link"
+            onClick={() => onSwitchMode(mode === 'login' ? 'signup' : 'login')}
+            disabled={isLoading || otpLoading}
+          >
+            {mode === 'login' ? 'Sign Up' : 'Sign In'}
+          </button>
+        </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default EventModal;
+export default AuthModal
