@@ -1387,7 +1387,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
           <div className="nav-items">
             <div className="user-info">
-              <User className="user-icon" />
+              {/* Removed the User profile icon as requested */}
               <div className="user-details">
                 <span className="user-name">{user.name || user.email}</span>
                 <div className="company-selector">
