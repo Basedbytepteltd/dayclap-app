@@ -136,7 +136,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
         // User created, but email confirmation is pending. Now send OTP.
         setResendMessage('Account created! Sending verification code to your email...');
         const { error: resendError } = await supabase.auth.resend({
-          type: 'signup_otp',
+          type: 'signup', // Corrected: Use 'signup' for initial OTP
           email: formData.email.toLowerCase(),
         });
 
@@ -175,7 +175,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
       const { data, error } = await supabase.auth.verifyOtp({
         email: formData.email.toLowerCase(),
         token: otpCode,
-        type: 'email', // Use 'email' type for signup OTP verification
+        type: 'email', // Correct: Use 'email' type for OTP verification
       });
 
       if (error) {
@@ -207,7 +207,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
     try {
       const { error } = await supabase.auth.resend({
-        type: 'signup_otp', // Request a new OTP for signup
+        type: 'signup', // Corrected: Use 'signup' to resend OTP
         email: formData.email.toLowerCase(),
       });
 
