@@ -97,45 +97,61 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     setOtpError('');
 
     try {
+      let authResponse;
       if (mode === 'login') {
         // Standard password login
-        const { data, error } = await supabase.auth.signInWithPassword({
+        authResponse = await supabase.auth.signInWithPassword({
           email: formData.email.toLowerCase(),
           password: formData.password,
         });
 
-        if (error) {
-          setErrors({ submit: error.message });
+        if (authResponse.error) {
+          setErrors({ submit: authResponse.error.message });
           return;
         }
-        if (data.user && data.session) {
-          onAuthSuccess(data.user);
+        if (authResponse.data.user && authResponse.data.session) {
+          onAuthSuccess(authResponse.data.user);
           onClose();
         } else {
           setErrors({ submit: 'An unexpected login response occurred.' });
         }
 
-      } else { // Signup flow (or passwordless login if user exists)
-        // Use signInWithOtp to send the code. It will create the user if they don't exist.
-        setResendMessage('Sending verification code to your email...');
-        const { error: otpSendError } = await supabase.auth.signInWithOtp({
+      } else { // Signup flow
+        // Use signUp to create the user and trigger the initial confirmation email (with OTP)
+        authResponse = await supabase.auth.signUp({
           email: formData.email.toLowerCase(),
+          password: formData.password,
           options: {
-            data: { // Pass metadata for new user creation
+            data: {
               name: formData.name,
               company: formData.company
             },
-            emailRedirectTo: window.location.origin + '/verified', // Optional: Redirect after successful verification
-          },
+            // emailRedirectTo: window.location.origin + '/verified', // Optional: for email link confirmation
+          }
         });
 
-        if (otpSendError) {
-          setErrors({ submit: `Failed to send verification code: ${otpSendError.message}` });
-          setResendMessage('');
-          setShowResendButton(true); // Allow resending if initial OTP send fails
-        } else {
+        if (authResponse.error) {
+          setErrors({ submit: authResponse.error.message });
+          // If the error is related to email not confirmed, show resend button
+          if (authResponse.error.message.includes('Email not confirmed') || authResponse.error.message.includes('Email link is invalid or has expired')) {
+            setShowResendButton(true);
+          }
+          return;
+        }
+
+        const { user, session } = authResponse.data;
+
+        if (user && session) {
+          // User is immediately logged in (e.g., email confirmation is off, or already confirmed)
+          onAuthSuccess(user);
+          onClose();
+        } else if (user && !session) {
+          // User created, but email confirmation is pending. Prompt for OTP.
           setOtpSent(true);
-          setResendMessage('A verification code has been sent to your email. Please check your inbox (and spam folder).');
+          setResendMessage('Account created! A verification code has been sent to your email. Please check your inbox (and spam folder).');
+          setShowResendButton(true); // Allow resending if user doesn't receive it
+        } else {
+          setErrors({ submit: 'An unexpected authentication response occurred.' });
         }
       }
       
@@ -162,7 +178,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
       const { data, error } = await supabase.auth.verifyOtp({
         email: formData.email.toLowerCase(),
         token: otpCode,
-        type: 'email', // Correct: Use 'email' type for OTP verification
+        type: 'signup', // CRITICAL FIX: Use 'signup' type for signup confirmation OTP
       });
 
       if (error) {
@@ -184,7 +200,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     }
   };
 
-  // Function to handle resending verification code (using signInWithOtp)
+  // Function to handle resending verification code (using supabase.auth.resend for signup type)
   const handleResendVerification = async () => {
     setIsLoading(true);
     setResendMessage('');
@@ -193,11 +209,9 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     setShowResendButton(false);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.resend({
+        type: 'signup', // CRITICAL FIX: Use 'signup' to re-send the signup confirmation OTP
         email: formData.email.toLowerCase(),
-        options: {
-          emailRedirectTo: window.location.origin + '/verified',
-        },
       });
 
       if (error) {
