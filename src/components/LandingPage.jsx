@@ -11,7 +11,6 @@ const LandingPage = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Debug log for authMode changes
   useEffect(() => {
     console.log('LandingPage: authMode state changed to:', authMode);
   }, [authMode]);
@@ -34,31 +33,35 @@ const LandingPage = () => {
           .eq('id', session.user.id)
           .single();
 
-        if (profileError && profileError.code === 'PGRST116') { // No profile found, create one
-          const userName = session.user.user_metadata?.name || session.user.email.split('@')[0];
-          
-          let initialCompanies = [];
-          let initialCurrentCompanyId = null;
-
-          const { data: newProfile, error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: session.user.id,
-              name: userName,
-              email: session.user.email,
-              company_name: null,
-              companies: initialCompanies,
-              current_company_id: initialCurrentCompanyId,
-              last_activity_at: new Date().toISOString(),
-              currency: 'USD'
-            })
-            .select()
-            .single();
-          
-          if (insertError) throw insertError;
-          profile = newProfile;
-        } else if (profileError) {
-          throw profileError;
+        if (profileError) {
+          console.warn("LandingPage: Profile not found for user, relying on trigger or user action.");
+          setUser({
+            ...session.user,
+            name: session.user.user_metadata?.name || session.user.email.split('@')[0],
+            email: session.user.email,
+            companies: [],
+            currentCompanyId: null,
+            currency: 'USD',
+            theme: 'light',
+            language: 'en',
+            timezone: 'UTC',
+            notifications: {
+              email_daily: true,
+              email_weekly: false,
+              email_monthly: false,
+              email_3day_countdown: false,
+              push: true,
+              reminders: true,
+              invitations: true
+            },
+            privacy: {
+              profileVisibility: 'team',
+              calendarSharing: 'private'
+            },
+            account_type: session.user.user_metadata?.account_type || 'personal'
+          });
+          setLoading(false);
+          return;
         }
 
         const combinedUserData = {
@@ -67,6 +70,7 @@ const LandingPage = () => {
           companies: profile.companies || [],
           currentCompanyId: profile.current_company_id,
           currency: profile.currency || 'USD',
+          account_type: profile.account_type || 'personal'
         };
         setUser(combinedUserData);
 
@@ -81,9 +85,9 @@ const LandingPage = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleAuthSession(session);
     }).catch(err => {
-        console.error("LandingPage: Error getting initial session:", err);
-        setUser(null);
-        setLoading(false);
+      console.error("LandingPage: Error getting initial session:", err);
+      setUser(null);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -96,15 +100,12 @@ const LandingPage = () => {
     };
   }, []);
 
-
   useEffect(() => {
     const applyTheme = (theme) => {
-      document.body.classList.remove('dark-mode'); 
+      document.body.classList.remove('dark-mode');
 
       if (theme === 'dark') {
         document.body.classList.add('dark-mode');
-      } else if (theme === 'light') {
-        // Light theme selected
       } else if (theme === 'system') {
         if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
           document.body.classList.add('dark-mode');
@@ -137,7 +138,6 @@ const LandingPage = () => {
     }
   }, [user?.theme, user, loading]);
 
-
   const handleAuthSuccess = () => {
     console.log('LandingPage: Auth success, closing modal.');
     setAuthMode(null);
@@ -154,23 +154,24 @@ const LandingPage = () => {
   };
 
   const handleUserUpdate = async (updatedUser) => {
-    const { id, name, email, theme, language, timezone, notifications, privacy, company_name, companies, currentCompanyId, currency } = updatedUser;
-    
+    const { id, name, email, theme, language, timezone, notifications, privacy, company_name, companies, currentCompanyId, currency, account_type } = updatedUser;
+
     const { error } = await supabase
       .from('profiles')
-      .update({ 
-        name, 
-        email, 
-        theme, 
-        language, 
-        timezone, 
-        notifications, 
-        privacy, 
+      .update({
+        name,
+        email,
+        theme,
+        language,
+        timezone,
+        notifications,
+        privacy,
         company_name,
         companies,
         current_company_id: currentCompanyId,
         last_activity_at: new Date().toISOString(),
-        currency
+        currency,
+        account_type
       })
       .eq('id', id);
 
@@ -193,6 +194,7 @@ const LandingPage = () => {
           companies: freshProfile.companies || [],
           currentCompanyId: freshProfile.current_company_id,
           currency: freshProfile.currency,
+          account_type: freshProfile.account_type
         };
         setUser(combinedFreshUserData);
       }
@@ -235,19 +237,19 @@ const LandingPage = () => {
               <span className="logo-text">DayClap</span>
             </div>
             <div className="nav-buttons">
-              <button 
+              <button
                 className="btn btn-outline"
                 onClick={() => setAuthMode('login')}
               >
                 Super Admin Login
               </button>
-              <button 
+              <button
                 className="btn btn-outline"
                 onClick={() => setAuthMode('login')}
               >
                 Sign In
               </button>
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={() => setAuthMode('signup')}
               >
@@ -266,11 +268,11 @@ const LandingPage = () => {
               <span className="highlight"> Companion</span>
             </h1>
             <p className="hero-description">
-              Streamline your schedule, manage tasks effortlessly, and never miss important meetings. 
+              Streamline your schedule, manage tasks effortlessly, and never miss important meetings.
               DayClap brings all your productivity tools together in one beautiful interface.
             </p>
             <div className="hero-buttons">
-              <button 
+              <button
                 className="btn btn-primary btn-large"
                 onClick={() => setAuthMode('signup')}
               >
@@ -370,7 +372,7 @@ const LandingPage = () => {
             <p className="cta-description">
               Join thousands of professionals who've already made the switch to smarter scheduling.
             </p>
-            <button 
+            <button
               className="btn btn-primary btn-large"
               onClick={() => setAuthMode('signup')}
             >

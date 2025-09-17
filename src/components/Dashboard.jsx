@@ -152,7 +152,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     email: user.email || '',
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    accountType: user.account_type || 'personal', // NEW: Add accountType to profile form
+    newCompanyName: '', // NEW: For creating company when switching to business
   })
   const [settingsForm, setSettingsForm] = useState({
     theme: user.theme || 'light',
@@ -394,7 +396,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .update({ event_tasks: updatedEventTasks, last_activity_at: new Date().toISOString() })
         .eq('id', parentEventId);
       if (error) {
-        alert("Failed to update event task status: " + error.message);
+        alert('Failed to update event task status: ' + error.message);
       } else {
         setEvents(prev => prev.map(event =>
           event.id === parentEventId ? { ...event, eventTasks: updatedEventTasks } : event
@@ -410,7 +412,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .update({ completed: newCompletionStatus, last_activity_at: new Date().toISOString() })
         .eq('id', taskId);
       if (error) {
-        alert("Failed to update task status: " + error.message);
+        alert('Failed to update task status: ' + error.message);
       } else {
         setTasks(prev => prev.map(task =>
           task.id === taskId ? { ...task, completed: newCompletionStatus } : task
@@ -426,7 +428,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .update({ status: response })
       .eq('id', invitationId);
     if (updateError) {
-      alert("Failed to update invitation status: " + updateError.message);
+      alert('Failed to update invitation status: ' + updateError.message);
       return;
     }
     if (response === 'accepted') {
@@ -571,7 +573,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     if (editingEvent) {
       const { data, error } = await supabase.from('events').update(eventPayload).eq('id', editingEvent.id).select().single();
       if (error) {
-        alert("Failed to update event: " + error.message);
+        alert('Failed to update event: ' + error.message);
       } else {
         const [y, m, d] = data.date.split('-').map(Number);
         const localDate = new Date(y, m - 1, d);
@@ -580,7 +582,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     } else {
       const { data, error } = await supabase.from('events').insert(eventPayload).select().single();
       if (error) {
-        alert("Failed to add event: " + error.message);
+        alert('Failed to add event: ' + error.message);
       } else {
         const [y, m, d] = data.date.split('-').map(Number);
         const localDate = new Date(y, m - 1, d);
@@ -594,20 +596,55 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const handleProfileFormSubmit = async (e) => {
     e.preventDefault();
+
+    let updatedUser = { ...user, name: profileForm.name, email: profileForm.email, account_type: profileForm.accountType };
+    let newCurrentCompanyId = user.currentCompanyId;
+    let updatedCompanies = [...(user.companies || [])];
+
+    // Handle account type change and new company creation if applicable
+    if (profileForm.accountType === 'business' && user.account_type === 'personal' && updatedCompanies.length === 0) {
+      if (!profileForm.newCompanyName.trim()) {
+        alert('Company name is required for business accounts.');
+        return;
+      }
+      const newCompany = {
+        id: crypto.randomUUID(),
+        name: profileForm.newCompanyName,
+        role: 'owner',
+        createdAt: new Date().toISOString()
+      };
+      updatedCompanies.push(newCompany);
+      newCurrentCompanyId = newCompany.id;
+      updatedUser.companies = updatedCompanies;
+      updatedUser.currentCompanyId = newCurrentCompanyId;
+    } else if (profileForm.accountType === 'personal' && user.account_type === 'business' && updatedCompanies.length === 0) {
+      // If switching from business to personal and no companies exist, ensure currentCompanyId is null
+      newCurrentCompanyId = null;
+      updatedUser.currentCompanyId = null;
+    }
+
     const { error } = await supabase
       .from('profiles')
-      .update({ name: profileForm.name, email: profileForm.email, last_activity_at: new Date().toISOString() })
+      .update({
+        name: updatedUser.name,
+        email: updatedUser.email,
+        account_type: updatedUser.account_type,
+        companies: updatedUser.companies, // Update companies array
+        current_company_id: updatedUser.currentCompanyId, // Update current_company_id
+        last_activity_at: new Date().toISOString()
+      })
       .eq('id', user.id);
+
     if (error) {
-      alert("Failed to update profile: " + error.message);
+      alert('Failed to update profile: ' + error.message);
     } else {
-      onUserUpdate({ ...user, name: profileForm.name, email: profileForm.email });
-      alert("Profile updated successfully!");
+      onUserUpdate(updatedUser); // Pass the fully updated user object
+      alert('Profile updated successfully!');
     }
   }
 
   const handleChangePasswordClick = () => {
-    alert("Password change functionality is not yet fully implemented.");
+    alert('Password change functionality is not yet fully implemented.');
     setProfileForm(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
     updateLastActivity();
   };
@@ -619,10 +656,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .update({ ...settingsForm, last_activity_at: new Date().toISOString() })
       .eq('id', user.id);
     if (error) {
-      alert("Failed to update settings: " + error.message);
+      alert('Failed to update settings: ' + error.message);
     } else {
       onUserUpdate({ ...user, ...settingsForm });
-      alert("Settings updated successfully!");
+      alert('Settings updated successfully!');
     }
   }
 
@@ -675,7 +712,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     if (!window.confirm('Are you sure you want to delete this event?')) return;
     const { error } = await supabase.from('events').delete().eq('id', eventId);
     if (error) {
-      alert("Failed to delete event: " + error.message);
+      alert('Failed to delete event: ' + error.message);
     } else {
       setEvents(prev => prev.filter(event => event.id !== eventId));
       updateLastActivity();
@@ -1044,11 +1081,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return;
     }
     if (!currentEventTaskForm.title.trim()) {
-      alert("Task title cannot be empty.");
+      alert('Task title cannot be empty.');
       return;
     }
     if (!currentEventTaskForm.dueDate) {
-      alert("Due Date is mandatory for event tasks.");
+      alert('Due Date is mandatory for event tasks.');
       return;
     }
     const newEventTask = {
@@ -1109,7 +1146,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return;
     }
     if (!currentEventTaskForm.title.trim()) {
-      alert("Task title cannot be empty.");
+      alert('Task title cannot be empty.');
       return;
     }
     const newTaskPayload = {
@@ -1129,7 +1166,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .select()
       .single();
     if (error) {
-      alert("Failed to add task: " + error.message);
+      alert('Failed to add task: ' + error.message);
     } else {
       let dueDate = null;
       if (data.due_date) {
@@ -1168,7 +1205,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return;
     }
     if (!currentEventTaskForm.title.trim()) {
-      alert("Task title cannot be empty.");
+      alert('Task title cannot be empty.');
       return;
     }
     const updatedTaskPayload = {
@@ -1188,7 +1225,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .select()
       .single();
     if (error) {
-      alert("Failed to update task: " + error.message);
+      alert('Failed to update task: ' + error.message);
     } else {
       let dueDate = null;
       if (data.due_date) {
@@ -1217,7 +1254,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       .delete()
       .eq('id', taskId);
     if (error) {
-      alert("Failed to delete task: " + error.message);
+      alert('Failed to delete task: ' + error.message);
     } else {
       setTasks(prev => prev.filter(task => task.id !== taskId));
       updateLastActivity();
@@ -1329,7 +1366,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .update({ status: 'dismissed' })
         .in('id', pendingInvitesToDismiss.map(inv => inv.id));
       if (inviteError) {
-        console.error("Failed to dismiss invitations:", inviteError.message);
+        console.error('Failed to dismiss invitations:', inviteError.message);
       }
     }
     const overdueTasksToDismiss = tasks.filter(task => isTaskOverdue(task) && !task.notification_dismissed_at);
@@ -1339,7 +1376,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .update({ notification_dismissed_at: now })
         .in('id', overdueTasksToDismiss.map(task => task.id));
       if (taskError) {
-        console.error("Failed to dismiss task notifications:", taskError.message);
+        console.error('Failed to dismiss task notifications:', taskError.message);
       }
     }
     const upcomingEventsToDismiss = upcomingEventsToday.filter(event => !event.notification_dismissed_at);
@@ -1349,7 +1386,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .update({ notification_dismissed_at: now })
         .in('id', upcomingEventsToDismiss.map(event => event.id));
       if (eventError) {
-        console.error("Failed to dismiss event notifications:", eventError.message);
+        console.error('Failed to dismiss event notifications:', eventError.message);
       }
     }
     await _fetchInvitations();
@@ -1387,43 +1424,44 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
           <div className="nav-items">
             <div className="user-info">
-              {/* Removed the User profile icon as requested */}
               <div className="user-details">
                 <span className="user-name">{user.name || user.email}</span>
-                <div className="company-selector">
-                  <button className="company-btn" onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}>
-                    <Building2 size={16} />
-                    <span>{currentCompany ? currentCompany.name : 'No Company'}</span>
-                    <ChevronDown size={16} />
-                  </button>
-                  {showCompanyDropdown && (
-                    <div className="company-dropdown">
-                      {user.companies && user.companies.length > 0 ? (
-                        user.companies.map(company => (
-                          <button
-                            key={company.id}
-                            className={`company-option ${user.currentCompanyId === company.id ? 'active' : ''}`}
-                            onClick={() => {
-                              onUserUpdate({ ...user, currentCompanyId: company.id });
-                              setShowCompanyDropdown(false);
-                            }}
-                          >
-                            <Building2 size={16} />
-                            <span>{company.name}</span>
-                            {user.currentCompanyId === company.id && <Check size={16} />}
-                          </button>
-                        ))
-                      ) : (
-                        <p className="no-companies-message" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No companies yet.</p>
-                      )}
-                      <div className="company-divider"></div>
-                      <button className="company-option add-company" onClick={() => { handleAddCompany(); setShowCompanyDropdown(false); }}>
-                        <Plus size={16} />
-                        <span>Add New Company</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {user.account_type === 'business' && (
+                  <div className="company-selector">
+                    <button className="company-btn" onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}>
+                      <Building2 size={16} />
+                      <span>{currentCompany ? currentCompany.name : 'No Company'}</span>
+                      <ChevronDown size={16} />
+                    </button>
+                    {showCompanyDropdown && (
+                      <div className="company-dropdown">
+                        {user.companies && user.companies.length > 0 ? (
+                          user.companies.map(company => (
+                            <button
+                              key={company.id}
+                              className={`company-option ${user.currentCompanyId === company.id ? 'active' : ''}`}
+                              onClick={() => {
+                                onUserUpdate({ ...user, currentCompanyId: company.id });
+                                setShowCompanyDropdown(false);
+                              }}
+                            >
+                              <Building2 size={16} />
+                              <span>{company.name}</span>
+                              {user.currentCompanyId === company.id && <Check size={16} />}
+                            </button>
+                          ))
+                        ) : (
+                          <p className="no-companies-message" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No companies yet.</p>
+                        )}
+                        <div className="company-divider"></div>
+                        <button className="company-option add-company" onClick={() => { handleAddCompany(); setShowCompanyDropdown(false); }}>
+                          <Plus size={16} />
+                          <span>Add New Company</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1545,11 +1583,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               Tasks
               {overdueTasksCount > 0 && <span className="notification-badge overdue">{overdueTasksCount}</span>}
             </button>
-            <button className={`nav-tab ${activeTab === 'invitations' ? 'active' : ''}`} onClick={() => { setActiveTab('invitations'); setSearchTerm(''); }}>
-              <Mail className="tab-icon" />
-              Invitations
-              {pendingInvitationsCount > 0 && <span className="notification-badge">{pendingInvitationsCount}</span>}
-            </button>
+            {user.account_type === 'business' && (
+              <button className={`nav-tab ${activeTab === 'invitations' ? 'active' : ''}`} onClick={() => { setActiveTab('invitations'); setSearchTerm(''); }}>
+                <Mail className="tab-icon" />
+                Invitations
+                {pendingInvitationsCount > 0 && <span className="notification-badge">{pendingInvitationsCount}</span>}
+              </button>
+            )}
             <button className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setSearchTerm(''); }}>
               <Settings className="tab-icon" />
               Settings
@@ -1643,7 +1683,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
             </div>
           ) : (
             <>
-              {!currentCompany?.id ? (
+              {!currentCompany?.id && user.account_type === 'business' ? (
                 <div className="no-companies-message">
                   <Building2 className="no-companies-icon" />
                   <h4>No Company Selected</h4>
@@ -1912,7 +1952,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     </div>
                   )}
 
-                  {activeTab === 'invitations' && (
+                  {activeTab === 'invitations' && user.account_type === 'business' && (
                     <div className="invitations-content">
                       <div className="invitations-header">
                         <h2>My Invitations</h2>
@@ -1939,13 +1979,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       </div>
 
                       <nav className="invitations-nav">
-                        <button 
+                        <button
                           className={`invitations-nav-tab ${invitationsActiveTab === 'received' ? 'active' : ''}`}
                           onClick={() => setInvitationsActiveTab('received')}
                         >
                           <Building2 /> Received Invitations
                         </button>
-                        <button 
+                        <button
                           className={`invitations-nav-tab ${invitationsActiveTab === 'sent' ? 'active' : ''}`}
                           onClick={() => setInvitationsActiveTab('sent')}
                         >
@@ -2013,7 +2053,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                             <p className="team-invite-date">Invited: {new Date(inv.created_at).toLocaleDateString()}</p>
                                           </div>
                                         </div>
-                                        <div className="team-invite-role"><span className={`role-badge ${inv.role}`}>{inv.role}</span></div>
+                                        <div className="team-invite-role"><span className={`status-badge ${inv.status}`}>{inv.status}</span></div>
                                         <div className="team-invite-actions"></div>
                                       </div>
                                     ))
@@ -2046,8 +2086,12 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         <button className={`settings-nav-tab ${settingsActiveTab === 'profile' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('profile')}><User /> Profile</button>
                         <button className={`settings-nav-tab ${settingsActiveTab === 'preferences' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('preferences')}><Palette /> Preferences</button>
                         <button className={`settings-nav-tab ${settingsActiveTab === 'security' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('security')}><Shield /> Security</button>
-                        <button className={`settings-nav-tab ${settingsActiveTab === 'team' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('team')}><Building2 /> Manage Companies</button>
-                        <button className={`settings-nav-tab ${settingsActiveTab === 'team-members' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('team-members')}><Users /> Team Members</button>
+                        {user.account_type === 'business' && (
+                          <>
+                            <button className={`settings-nav-tab ${settingsActiveTab === 'team' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('team')}><Building2 /> Manage Companies</button>
+                            <button className={`settings-nav-tab ${settingsActiveTab === 'team-members' ? 'active' : ''}`} onClick={() => setSettingsActiveTab('team-members')}><Users /> Team Members</button>
+                          </>
+                        )}
                       </nav>
                       <div className="settings-tab-content">
                         {settingsActiveTab === 'profile' && (
@@ -2067,6 +2111,51 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 <label className="form-label">Email Address</label>
                                 <div className="input-wrapper"><Mail className="input-icon" /><input type="email" className="form-input" value={profileForm.email} onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))} /></div>
                               </div>
+
+                              {/* NEW: Account Type Selection */}
+                              <div className="form-group">
+                                <label className="form-label">Account Type</label>
+                                <div className="radio-group">
+                                  <label>
+                                    <input
+                                      type="radio"
+                                      name="accountType"
+                                      value="personal"
+                                      checked={profileForm.accountType === 'personal'}
+                                      onChange={(e) => setProfileForm(prev => ({ ...prev, accountType: e.target.value, newCompanyName: '' }))}
+                                    /> Personal
+                                  </label>
+                                  <label>
+                                    <input
+                                      type="radio"
+                                      name="accountType"
+                                      value="business"
+                                      checked={profileForm.accountType === 'business'}
+                                      onChange={(e) => setProfileForm(prev => ({ ...prev, accountType: e.target.value }))}
+                                    /> Business
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* NEW: Company Name input if switching to business and no companies exist */}
+                              {profileForm.accountType === 'business' && user.companies?.length === 0 && (
+                                <div className="form-group">
+                                  <label className="form-label">Company Name <span className="optional-text">(Required for Business Account)</span></label>
+                                  <div className="input-wrapper">
+                                    <Building2 className="input-icon" />
+                                    <input
+                                      type="text"
+                                      name="newCompanyName"
+                                      value={profileForm.newCompanyName}
+                                      onChange={(e) => setProfileForm(prev => ({ ...prev, newCompanyName: e.target.value }))}
+                                      className="form-input"
+                                      placeholder="Enter your company name"
+                                      required={profileForm.accountType === 'business' && user.companies?.length === 0}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
                               <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Save Changes</button></div>
                             </form>
                           </div>
@@ -2116,7 +2205,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                   <option value="system">System</option>
                                 </select>
                               </div>
-                              
+
                               <div className="form-group">
                                 <label className="form-label">Email Notification Settings</label>
                                 <div className="setting-item">
@@ -2166,7 +2255,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             </form>
                           </div>
                         )}
-                        {settingsActiveTab === 'team' && (
+                        {settingsActiveTab === 'team' && user.account_type === 'business' && (
                           <div className="settings-section">
                             <div className="settings-section-header">
                               <div>
@@ -2204,7 +2293,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             </div>
                           </div>
                         )}
-                        {settingsActiveTab === 'team-members' && (
+                        {settingsActiveTab === 'team-members' && user.account_type === 'business' && (
                           <div className="settings-section">
                             <div className="settings-section-header">
                               <div>
