@@ -56,8 +56,9 @@ CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT
 DROP POLICY IF EXISTS "Users can insert their own profile." ON profiles;
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK ( auth.uid() = id );
 
-DROP POLICY IF EXISTS "Users can update own profile." ON profiles;
-CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING ( auth.uid() = id );
+-- FIX: Corrected policy name in DROP statement to match CREATE statement
+DROP POLICY IF EXISTS "Users can update their own profile." ON profiles;
+CREATE POLICY "Users can update their own profile." ON profiles FOR UPDATE USING ( auth.uid() = id );
 
 -- Trigger function to handle new user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -130,8 +131,8 @@ CREATE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION public.send_welcome_email_on_confirm()
 RETURNS TRIGGER AS $$
 DECLARE
-    backend_url TEXT := 'https://dayclap-backend-api.onrender.com'; -- REPLACE THIS WITH YOUR ACTUAL BACKEND URL
-    api_key TEXT := 'your_strong_unique_key_for_supabase_trigger_calls'; -- REPLACE THIS WITH THE SAME KEY FROM backend/.env
+    backend_url TEXT := 'https://dayclap-backend-api.onrender.com'; -- <<< IMPORTANT: REPLACE THIS WITH YOUR ACTUAL DEPLOYED BACKEND URL (e.g., https://dayclap-backend-api.onrender.com)
+    api_key TEXT := 'your_strong_unique_key_for_supabase_trigger_calls'; -- <<< IMPORTANT: REPLACE THIS WITH THE SAME KEY FROM backend/.env (BACKEND_API_KEY)
     payload JSONB;
     headers JSONB;
     request_id BIGINT;
@@ -150,6 +151,8 @@ BEGIN
 
         -- Make an asynchronous HTTP POST request to your Flask backend
         -- This will not block the database transaction.
+        -- Ensure pg_net extension is enabled in Supabase (Database -> Extensions)
+        -- And your backend URL is whitelisted in Supabase Network Restrictions.
         SELECT extensions.http_post(
             uri := backend_url || '/api/send-welcome-email',
             content := payload,
@@ -164,9 +167,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- NEW: Trigger to call the welcome email function after auth.users update
 DROP TRIGGER IF EXISTS on_auth_user_confirmed ON auth.users;
-CREATE TRIGGER on_auth_user_confirmed
-AFTER UPDATE OF email_confirmed_at ON auth.users
-FOR EACH ROW EXECUTE FUNCTION public.send_welcome_email_on_confirm();
+-- Temporarily commented out to debug OTP issue. Re-enable after OTP works.
+-- CREATE TRIGGER on_auth_user_confirmed
+-- AFTER UPDATE OF email_confirmed_at ON auth.users
+-- FOR EACH ROW EXECUTE FUNCTION public.send_welcome_email_on_confirm();
 
 
 -- Create 'invitations' table
