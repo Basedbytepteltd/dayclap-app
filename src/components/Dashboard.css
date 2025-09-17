@@ -739,34 +739,10 @@
 .calendar-content {
     display: grid;
     grid-template-columns: 1fr;
-    /* Default to single column for full width */
     gap: 2rem;
-    /* Keep gap between calendar and events section */
 }
 
-@media (min-width: 1024px) {
-    /* Only apply two columns on larger screens */
-    .dashboard.calendar-active .calendar-content {
-        grid-template-columns: 2fr 1fr;
-        /* Calendar takes 2/3, events 1/3 */
-    }
-}
-
-@media (max-width: 1200px) {
-    .calendar-content {
-        gap: 1.5rem;
-        /* Adjust gap for smaller desktops/laptops */
-    }
-}
-
-@media (max-width: 1024px) {
-    .calendar-content {
-        gap: 1.5rem;
-    }
-}
-
-.calendar-section,
-.events-section {
+.calendar-section {
     min-width: 0;
 }
 
@@ -1163,85 +1139,23 @@
     }
 }
 
-/* Events Section */
-.events-section {
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-    height: fit-content;
-    /* Allow height to adjust to content */
-    max-height: none;
-    /* Remove max-height constraint */
-    overflow-y: visible;
-    /* Allow content to overflow if needed, but prefer natural flow */
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border);
-    margin-top: 2rem;
-    /* Add some margin to separate from calendar */
-}
-
-@media (min-width: 1024px) {
-    /* Remove top margin when in two-column layout */
-    .dashboard.calendar-active .events-section {
-        margin-top: 0;
-    }
-}
-
-@media (max-width: 1200px) {
-    .events-section {
-        padding: 1.5rem;
-        margin-top: 1.5rem;
-        /* Adjust margin for smaller desktops/laptops */
-    }
-}
-
-@media (max-width: 1024px) {
-    .events-section {
-        max-height: none;
-        overflow-y: visible;
-        margin-top: 1.5rem;
-    }
-}
-
-@media (max-width: 768px) {
-    .events-section {
-        padding: 1rem;
-        margin-top: 1rem;
-    }
-}
-
-.events-header {
+/* Events Section (Now inside modal) */
+.date-schedule-modal .events-list {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
+    flex-direction: column;
     gap: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
 }
 
-@media (max-width: 768px) {
-    .events-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.75rem;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.75rem;
-    }
+.date-schedule-modal .event-card,
+.date-schedule-modal .task-card {
+    box-shadow: none;
+    border: 1px solid var(--border);
 }
 
-.events-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-    line-height: 1.3;
-}
-
-@media (max-width: 480px) {
-    .events-title {
-        font-size: 1.125rem;
-    }
+.date-schedule-modal .event-card:hover,
+.date-schedule-modal .task-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
 }
 
 /* Events List */
@@ -3052,4 +2966,22 @@ input:checked+.toggle-slider:before {
 
 .invitations-content .no-companies-message p {
   margin-bottom: 1rem; /* Adjust margin */
+}
+
+/* NEW: Styles for Date Schedule Modal */
+.date-schedule-modal {
+  max-width: 700px;
+}
+
+.date-schedule-modal .modal-header h3 {
+  font-size: 1.25rem;
+}
+
+.date-schedule-modal .modal-body {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.date-schedule-modal .modal-footer {
+  justify-content: center;
 }

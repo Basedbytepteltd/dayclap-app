@@ -193,7 +193,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [showDateOptions, setShowDateOptions] = useState(null);
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
+  const [selectedDateForModal, setSelectedDateForModal] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [eventFilter, setEventFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -637,8 +638,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     updateLastActivity();
   }
 
-  const handleAddEventFromOptions = (dateToPreselect) => {
-    setShowDateOptions(null);
+  const handleAddEventFromModal = (dateToPreselect) => {
+    setIsDateModalOpen(false);
     handleAddEvent(dateToPreselect);
   };
 
@@ -664,7 +665,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const handleDateClick = (date) => {
     if (date) {
       setSelectedDate(date);
-      setShowDateOptions(date);
+      setSelectedDateForModal(date);
+      setIsDateModalOpen(true);
       updateLastActivity();
     }
   }
@@ -1728,67 +1730,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       ))}
                     </div>
                   </div>
-
-                  <div className="events-section">
-                    <div className="events-header">
-                      <h3 className="events-title">Schedule for {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
-                      <button className="btn btn-primary btn-small" onClick={() => handleAddEvent(selectedDate)}><Plus size={16} /> Add Event</button>
-                    </div>
-                    <div className="events-list">
-                      {getCalendarItemsForDate(selectedDate).length > 0 ? (
-                        <React.Fragment>
-                          {getCalendarItemsForDate(selectedDate).map(item => (
-                            item.type === 'event' ? (
-                              <div key={item.id} className="event-card detailed">
-                                <div className="event-date-time-block">
-                                  <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                                  <span className="event-time-display">{item.time || 'All Day'}</span>
-                                </div>
-                                <div className="event-details">
-                                  <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
-                                  {item.description && <p className="event-description">{item.description}</p>}
-                                  {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
-                                  {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
-                                </div>
-                                <div className="event-actions">
-                                  <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
-                                  <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
-                                <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
-                                <div className="task-content">
-                                  <div className="task-header">
-                                    <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
-                                    <div className="task-meta">
-                                      {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
-                                      {item.category && <span className="category-badge">{item.category}</span>}
-                                    </div>
-                                  </div>
-                                  {item.description && <p className="task-description">{item.description}</p>}
-                                  <div className="task-footer">
-                                    {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
-                                    {item.expenses && (<span className="task-expenses"><DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}</span>)}
-                                    <div className="task-actions">
-                                      <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
-                                      <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          ))}
-                        </React.Fragment>
-                      ) : (
-                        <div className="no-events">
-                          <CalendarDays className="no-events-icon" />
-                          <p>No events or tasks scheduled for this day.</p>
-                          <button className="btn btn-primary btn-small" onClick={() => handleAddEvent(selectedDate)}><Plus size={16} /> Add Event</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -2213,8 +2154,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                     {user.currentCompanyId === company.id && <span className="current-badge">Current</span>}
                                   </div>
                                   <div className="company-item-actions">
-                                    {canManageCompany && (<button className="btn btn-outline btn-small" onClick={() => handleEditCompany(company)} title="Edit Company"><Edit size={16} /> Edit</button>)}
-                                    {canManageCompany && (<button className="btn btn-primary btn-small" onClick={() => { setInviteForm(prev => ({ ...prev, companyId: company.id })); setShowInviteModal(true); }} title="Invite Team Member"><UserPlus size={16} /> Invite</button>)}
+                                    {canManageCompany && (<button className="btn btn-outline btn-small" onClick={() => handleEditCompany(company)} title="Edit Company"><Edit size={16} /></button>)}
+                                    {canManageCompany && (<button className="btn btn-primary btn-small" onClick={() => { setInviteForm(prev => ({ ...prev, companyId: company.id })); setShowInviteModal(true); }} title="Invite Team Member"><UserPlus size={16} /></button>)}
                                   </div>
                                 </div>
                               );
@@ -2232,7 +2173,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             <h3 className="settings-section-title">Manage Team Members</h3>
                             <p className="settings-section-subtitle">View and manage members of your currently selected company.</p>
                           </div>
-                          {currentCompany?.id && (<button className="btn btn-primary btn-small" onClick={() => { setInviteForm(prev => ({ ...prev, companyId: currentCompany.id })); setShowInviteModal(true); }} title="Invite Team Member"><UserPlus size={16} /> Invite Member</button>)}
+                          {currentCompany?.id && (<button className="btn btn-primary btn-small" onClick={() => { setInviteForm(prev => ({ ...prev, companyId: currentCompany.id })); setShowInviteModal(true); }} title="Invite Team Member"><UserPlus size={16} /></button>)}
                         </div>
 
                         {currentCompany ? (
@@ -2368,18 +2309,68 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </div>
       )}
 
-      {showDateOptions && (
-        <div className="modal-backdrop" onClick={() => setShowDateOptions(null)}>
-          <div className="modal-content date-options-modal" onClick={e => e.stopPropagation()}>
+      {isDateModalOpen && selectedDateForModal && (
+        <div className="modal-backdrop" onClick={() => setIsDateModalOpen(false)}>
+          <div className="modal-content date-schedule-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Options for {showDateOptions.toLocaleDateString()}</h3>
-              <button className="modal-close" onClick={() => setShowDateOptions(null)}><X /></button>
+              <h3>Schedule for {selectedDateForModal.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
+              <button className="modal-close" onClick={() => setIsDateModalOpen(false)}><X /></button>
             </div>
             <div className="modal-body">
-              <button type="button" className="btn btn-primary btn-full" onClick={() => handleAddEventFromOptions(showDateOptions)}><Plus size={16} /> Add Event</button>
-              {getCalendarItemCountForDate(showDateOptions) > 0 && (
-                <button type="button" className="btn btn-outline btn-full" onClick={() => { setActiveTab('calendar'); setShowDateOptions(null); }}><Eye size={16} /> View Schedule ({getCalendarItemCountForDate(showDateOptions)})</button>
-              )}
+              <div className="events-list">
+                {getCalendarItemsForDate(selectedDateForModal).length > 0 ? (
+                  getCalendarItemsForDate(selectedDateForModal).map(item => (
+                    item.type === 'event' ? (
+                      <div key={item.id} className="event-card detailed">
+                        <div className="event-date-time-block">
+                          <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                          <span className="event-time-display">{item.time || 'All Day'}</span>
+                        </div>
+                        <div className="event-details">
+                          <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
+                          {item.description && <p className="event-description">{item.description}</p>}
+                          {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
+                          {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
+                        </div>
+                        <div className="event-actions">
+                          <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
+                          <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
+                        <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
+                        <div className="task-content">
+                          <div className="task-header">
+                            <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
+                            <div className="task-meta">
+                              {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
+                              {item.category && <span className="category-badge">{item.category}</span>}
+                            </div>
+                          </div>
+                          {item.description && <p className="task-description">{item.description}</p>}
+                          <div className="task-footer">
+                            {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
+                            {item.expenses && (<span className="task-expenses"><DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}</span>)}
+                            <div className="task-actions">
+                              <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
+                              <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  ))
+                ) : (
+                  <div className="no-events">
+                    <CalendarDays className="no-events-icon" />
+                    <p>No events or tasks scheduled for this day.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-primary" onClick={() => handleAddEventFromModal(selectedDateForModal)}><Plus size={16} /> Add Event for this Day</button>
             </div>
           </div>
         </div>
