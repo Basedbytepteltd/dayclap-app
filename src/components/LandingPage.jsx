@@ -1,230 +1,31 @@
-import React, { useState, useEffect } from "react";
-import AuthModal from "./AuthModal";
-import Dashboard from "./Dashboard";
-import SuperAdminDashboard from "./SuperAdminDashboard";
-import { supabase } from '../supabaseClient';
-import "./LandingPage.css";
-import { Calendar, Clock, Users, Star } from "lucide-react";
+import React, { useState, useEffect } from 'react'
+import AuthModal from './AuthModal'
+import { supabase } from '../supabaseClient'
+import './LandingPage.css'
+import { Calendar, Clock, Users, Star } from 'lucide-react'
 
-const LandingPage = () => {
-  const [authMode, setAuthMode] = useState(null);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+// NEW: LandingPage now only handles the unauthenticated view and AuthModal
+const LandingPage = ({ onAuthSuccess }) => {
+  const [authMode, setAuthMode] = useState(null) // 'login' or 'signup'
 
+  // Effect to ensure the landing page is always in light mode
   useEffect(() => {
-    console.log('LandingPage: authMode state changed to:', authMode);
-  }, [authMode]);
+    // Ensure dark-mode class is removed when on the landing page
+    document.body.classList.remove('dark-mode')
 
-  useEffect(() => {
-    setLoading(true);
-
-    const handleAuthSession = async (session) => {
-      console.log('LandingPage: handleAuthSession called with session:', session);
-      if (!session) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        let { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profileError) {
-          console.warn("LandingPage: Profile not found for user, relying on trigger or user action.");
-          setUser({
-            ...session.user,
-            name: session.user.user_metadata?.name || session.user.email.split('@')[0],
-            email: session.user.email,
-            companies: [],
-            currentCompanyId: null,
-            currency: 'USD',
-            theme: 'light',
-            language: 'en',
-            timezone: 'UTC',
-            notifications: {
-              email_daily: true,
-              email_weekly: false,
-              email_monthly: false,
-              email_3day_countdown: false,
-              push: true,
-              reminders: true,
-              invitations: true
-            },
-            privacy: {
-              profileVisibility: 'team',
-              calendarSharing: 'private'
-            },
-            account_type: session.user.user_metadata?.account_type || 'personal'
-          });
-          setLoading(false);
-          return;
-        }
-
-        const combinedUserData = {
-          ...session.user,
-          ...profile,
-          companies: profile.companies || [],
-          currentCompanyId: profile.current_company_id,
-          currency: profile.currency || 'USD',
-          account_type: profile.account_type || 'personal'
-        };
-        setUser(combinedUserData);
-
-      } catch (error) {
-        console.error("LandingPage: Error handling auth session:", error.message);
-        setUser(session.user);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleAuthSession(session);
-    }).catch(err => {
-      console.error("LandingPage: Error getting initial session:", err);
-      setUser(null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('LandingPage: Auth state changed event:', _event, 'Session:', session);
-      handleAuthSession(session);
-    });
-
+    // No need to listen for system theme changes or apply dark mode here.
+    // The App.jsx will handle user-specific theme preferences (including 'system')
+    // once they are logged in.
     return () => {
-      subscription?.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    const applyTheme = (theme) => {
-      document.body.classList.remove('dark-mode');
-
-      if (theme === 'dark') {
-        document.body.classList.add('dark-mode');
-      } else if (theme === 'system') {
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.body.classList.add('dark-mode');
-        }
-      }
-    };
-
-    if (!loading) {
-      if (user) {
-        applyTheme(user.theme);
-
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleSystemThemeChange = (e) => {
-          if (user.theme === 'system') {
-            document.body.classList.toggle('dark-mode', e.matches);
-          }
-        };
-
-        mediaQuery.addEventListener('change', handleSystemThemeChange);
-
-        return () => {
-          mediaQuery.removeEventListener('change', handleSystemThemeChange);
-          document.body.classList.remove('dark-mode');
-        };
-      } else {
-        document.body.classList.remove('dark-mode');
-      }
-    } else {
-      document.body.classList.remove('dark-mode');
+      // Cleanup: No specific cleanup needed here as App.jsx will manage theme on login
     }
-  }, [user?.theme, user, loading]);
+  }, [])
 
-  const handleAuthSuccess = () => {
-    console.log('LandingPage: Auth success, closing modal.');
-    setAuthMode(null);
-  };
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("LandingPage: Error logging out:", error.message);
-    }
-    setUser(null);
-    setAuthMode(null);
-    console.log('LandingPage: User logged out.');
-  };
-
-  const handleUserUpdate = async (updatedUser) => {
-    const { id, name, email, theme, language, timezone, notifications, privacy, company_name, companies, currentCompanyId, currency, account_type } = updatedUser;
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        name,
-        email,
-        theme,
-        language,
-        timezone,
-        notifications,
-        privacy,
-        company_name,
-        companies,
-        current_company_id: currentCompanyId,
-        last_activity_at: new Date().toISOString(),
-        currency,
-        account_type
-      })
-      .eq('id', id);
-
-    if (error) {
-      console.error("LandingPage: Error updating user profile in Supabase:", error.message);
-    } else {
-      const { data: freshProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) {
-        console.error("LandingPage: Error re-fetching profile after update:", fetchError);
-        setUser(updatedUser);
-      } else {
-        const combinedFreshUserData = {
-          ...updatedUser,
-          ...freshProfile,
-          companies: freshProfile.companies || [],
-          currentCompanyId: freshProfile.current_company_id,
-          currency: freshProfile.currency,
-          account_type: freshProfile.account_type
-        };
-        setUser(combinedFreshUserData);
-      }
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-calendar">
-          <div className="loading-calendar-header">Loading Calendar...</div>
-          <div className="loading-calendar-grid">
-            {Array.from({ length: 25 }, (_, i) => (
-              <div key={i} className="loading-date">{i + 1}</div>
-            ))}
-          </div>
-        </div>
-        <p>Loading DayClap...</p>
-      </div>
-    );
-  }
-
-  const isSuperAdmin = user && user.email === 'admin@example.com';
-
-  if (user) {
-    if (isSuperAdmin) {
-      return <SuperAdminDashboard user={user} onLogout={handleLogout} />;
-    } else {
-      return <Dashboard user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />;
-    }
+  const handleAuthSuccess = (user) => {
+    // This function is called when AuthModal successfully logs in/signs up a user.
+    // It then calls the onAuthSuccess prop passed from App.jsx to update global state.
+    onAuthSuccess(user)
+    setAuthMode(null) // Close the modal
   }
 
   return (
@@ -237,12 +38,6 @@ const LandingPage = () => {
               <span className="logo-text">DayClap</span>
             </div>
             <div className="nav-buttons">
-              <button
-                className="btn btn-outline"
-                onClick={() => setAuthMode('login')}
-              >
-                Super Admin Login
-              </button>
               <button
                 className="btn btn-outline"
                 onClick={() => setAuthMode('login')}
@@ -268,8 +63,9 @@ const LandingPage = () => {
               <span className="highlight"> Companion</span>
             </h1>
             <p className="hero-description">
-              Streamline your schedule, manage tasks effortlessly, and never miss important meetings.
-              DayClap brings all your productivity tools together in one beautiful interface.
+              Streamline your schedule, manage tasks effortlessly, and never miss
+              important meetings. DayClap brings all your productivity tools
+              together in one beautiful interface.
             </p>
             <div className="hero-buttons">
               <button
@@ -278,9 +74,7 @@ const LandingPage = () => {
               >
                 Start Free Today
               </button>
-              <button className="btn btn-outline btn-large">
-                Watch Demo
-              </button>
+              <button className="btn btn-outline btn-large">Watch Demo</button>
             </div>
           </div>
           <div className="hero-image">
@@ -299,11 +93,17 @@ const LandingPage = () => {
                   </div>
                   <div className="calendar-grid">
                     <div className="calendar-days">
-                      <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                      <span>S</span><span>M</span><span>T</span><span>W</span>
+                      <span>T</span><span>F</span><span>S</span>
                     </div>
                     <div className="calendar-dates">
                       {Array.from({ length: 30 }, (_, i) => (
-                        <div key={i} className={`calendar-date ${i === 14 ? 'active' : ''} ${i === 20 || i === 25 ? 'has-event' : ''}`}>
+                        <div
+                          key={i}
+                          className={`calendar-date ${
+                            i === 14 ? 'active' : ''
+                          } ${i === 20 || i === 25 ? 'has-event' : ''}`}
+                        >
                           {i + 1}
                         </div>
                       ))}
@@ -319,7 +119,9 @@ const LandingPage = () => {
       <section className="features">
         <div className="container">
           <div className="section-header">
-            <h2 className="section-title">Everything you need to stay organized</h2>
+            <h2 className="section-title">
+              Everything you need to stay organized
+            </h2>
             <p className="section-description">
               Powerful features designed to boost your productivity
             </p>
@@ -331,7 +133,8 @@ const LandingPage = () => {
               </div>
               <h3 className="feature-title">Smart Scheduling</h3>
               <p className="feature-description">
-                Intelligent calendar management with automatic conflict detection and scheduling suggestions.
+                Intelligent calendar management with automatic conflict detection
+                and scheduling suggestions.
               </p>
             </div>
             <div className="feature-card">
@@ -340,7 +143,8 @@ const LandingPage = () => {
               </div>
               <h3 className="feature-title">Task Management</h3>
               <p className="feature-description">
-                Keep track of your to-dos, set priorities, and never miss a deadline with our integrated task system.
+                Keep track of your to-dos, set priorities, and never miss a
+                deadline with our integrated task system.
               </p>
             </div>
             <div className="feature-card">
@@ -349,7 +153,8 @@ const LandingPage = () => {
               </div>
               <h3 className="feature-title">Team Collaboration</h3>
               <p className="feature-description">
-                Share calendars, send invitations, and coordinate with your team seamlessly across organizations.
+                Share calendars, send invitations, and coordinate with your team
+                seamlessly across organizations.
               </p>
             </div>
             <div className="feature-card">
@@ -358,7 +163,8 @@ const LandingPage = () => {
               </div>
               <h3 className="feature-title">Smart Insights</h3>
               <p className="feature-description">
-                Get intelligent insights about your productivity patterns and optimize your daily routine.
+                Get intelligent insights about your productivity patterns and
+                optimize your daily routine.
               </p>
             </div>
           </div>
@@ -370,7 +176,8 @@ const LandingPage = () => {
           <div className="cta-content">
             <h2 className="cta-title">Ready to transform your productivity?</h2>
             <p className="cta-description">
-              Join thousands of professionals who've already made the switch to smarter scheduling.
+              Join thousands of professionals who've already made the switch to
+              smarter scheduling.
             </p>
             <button
               className="btn btn-primary btn-large"
@@ -397,25 +204,43 @@ const LandingPage = () => {
             <div className="footer-section">
               <h4>Product</h4>
               <ul className="footer-links">
-                <li><a href="#features">Features</a></li>
-                <li><a href="#pricing">Pricing</a></li>
-                <li><a href="#integrations">Integrations</a></li>
+                <li>
+                  <a href="#features">Features</a>
+                </li>
+                <li>
+                  <a href="#pricing">Pricing</a>
+                </li>
+                <li>
+                  <a href="#integrations">Integrations</a>
+                </li>
               </ul>
             </div>
             <div className="footer-section">
               <h4>Company</h4>
               <ul className="footer-links">
-                <li><a href="#about">About</a></li>
-                <li><a href="#careers">Careers</a></li>
-                <li><a href="#contact">Contact</a></li>
+                <li>
+                  <a href="#about">About</a>
+                </li>
+                <li>
+                  <a href="#careers">Careers</a>
+                </li>
+                <li>
+                  <a href="#contact">Contact</a>
+                </li>
               </ul>
             </div>
             <div className="footer-section">
               <h4>Support</h4>
               <ul className="footer-links">
-                <li><a href="#help">Help Center</a></li>
-                <li><a href="#privacy">Privacy</a></li>
-                <li><a href="#terms">Terms</a></li>
+                <li>
+                  <a href="#help">Help Center</a>
+                </li>
+                <li>
+                  <a href="#privacy">Privacy</a>
+                </li>
+                <li>
+                  <a href="#terms">Terms</a>
+                </li>
               </ul>
             </div>
           </div>
@@ -434,7 +259,7 @@ const LandingPage = () => {
         />
       )}
     </div>
-  );
-};
+  )
+}
 
-export default LandingPage;
+export default LandingPage
