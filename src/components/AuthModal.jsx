@@ -66,7 +66,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/S+@S+.S+/.test(formData.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) { // FIX: Corrected regex for email validation
       newErrors.email = 'Email is invalid';
     }
 
