@@ -4,48 +4,58 @@ import { supabase } from '../supabaseClient';
 import './AuthModal.css';
 
 const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
-  useEffect(() => {
-    console.log('AuthModal: Component mounted/rendered with mode:', mode);
-    return () => {
-      console.log('AuthModal: Component unmounted.');
-    };
-  }, [mode]);
-
+  // Internal state for form data
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    companyName: '', // New field for business account
+    companyName: '',
   });
-  const [accountType, setAccountType] = useState('personal'); // New state for account type
+  const [accountType, setAccountType] = useState('personal');
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showResendButton, setShowResendButton] = useState(false);
-  const [resendMessage, setResendMessage] = useState('');
 
+  // State for messages and actions related to email verification
+  const [infoMessage, setInfoMessage] = useState(''); // General info/success message
+  const [infoMessageType, setInfoMessageType] = useState(''); // 'success' or 'error'
+  const [showResendVerification, setShowResendVerification] = useState(false); // Show resend button
+
+  // Password visibility toggles
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Effect to reset form/messages when mode changes
+  useEffect(() => {
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      companyName: '',
+    });
+    setAccountType('personal');
+    setErrors({});
+    setInfoMessage('');
+    setInfoMessageType('');
+    setShowResendVerification(false);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  }, [mode]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: '',
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
-    setResendMessage('');
-    setShowResendButton(false);
+    setInfoMessage(''); // Clear messages on input change
+    setInfoMessageType('');
+    setShowResendVerification(false);
   };
 
   const handleAccountTypeChange = (e) => {
     setAccountType(e.target.value);
-    // Clear company name if switching to personal
     if (e.target.value === 'personal') {
       setFormData(prev => ({ ...prev, companyName: '' }));
       setErrors(prev => ({ ...prev, companyName: '' }));
@@ -54,41 +64,21 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
   const validateForm = () => {
     const newErrors = {};
-
     if (mode === 'signup') {
-      if (!formData.name.trim()) {
-        newErrors.name = 'Name is required';
-      }
-      if (accountType === 'business' && !formData.companyName.trim()) {
-        newErrors.companyName = 'Company name is required for business accounts';
-      }
+      if (!formData.name.trim()) newErrors.name = 'Name is required';
+      if (accountType === 'business' && !formData.companyName.trim()) newErrors.companyName = 'Company name is required for business accounts';
     }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) { // FIX: Corrected regex for email validation
-      newErrors.email = 'Email is invalid';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-
-    if (mode === 'signup' && formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
+    if (!formData.email.trim()) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
+    if (!formData.password) newErrors.password = 'Password is required';
+    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (mode === 'signup' && formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
     return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('AuthModal: handleSubmit called. Current mode:', mode);
-
     const newErrors = validateForm();
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -96,8 +86,9 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
     setIsLoading(true);
     setErrors({});
-    setResendMessage('');
-    setShowResendButton(false);
+    setInfoMessage('');
+    setInfoMessageType('');
+    setShowResendVerification(false);
 
     try {
       let authResponse;
@@ -109,16 +100,22 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
         if (authResponse.error) {
           setErrors({ submit: authResponse.error.message });
-          console.error('AuthModal: Login error:', authResponse.error.message);
+          setInfoMessageType('error');
+          if (authResponse.error.message.includes('Email not confirmed') || authResponse.error.message.includes('Email link is invalid or has expired')) {
+            setInfoMessage('Your email is not verified. Please check your inbox for a verification link or click below to resend.');
+            setShowResendVerification(true);
+          } else {
+            setInfoMessage(authResponse.error.message);
+          }
           return;
         }
         if (authResponse.data.user && authResponse.data.session) {
           onAuthSuccess(authResponse.data.user);
           onClose();
-          console.log('AuthModal: Login successful.');
         } else {
           setErrors({ submit: 'An unexpected login response occurred.' });
-          console.error('AuthModal: Unexpected login response.');
+          setInfoMessage('An unexpected login response occurred.');
+          setInfoMessageType('error');
         }
 
       } else { // Signup flow
@@ -128,19 +125,19 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
           options: {
             data: {
               name: formData.name,
-              account_type: accountType, // Pass account type
-              company_name_signup: accountType === 'business' ? formData.companyName : null, // Pass company name if business
+              account_type: accountType,
+              company_name_signup: accountType === 'business' ? formData.companyName : null,
             },
-            // FIX: Changed redirect URL to include .html
             emailRedirectTo: window.location.origin + '/verified.html',
           }
         });
 
         if (authResponse.error) {
           setErrors({ submit: authResponse.error.message });
-          console.error('AuthModal: Signup error:', authResponse.error.message);
+          setInfoMessage(authResponse.error.message);
+          setInfoMessageType('error');
           if (authResponse.error.message.includes('Email not confirmed') || authResponse.error.message.includes('Email link is invalid or has expired')) {
-            setShowResendButton(true);
+            setShowResendVerification(true);
           }
           return;
         }
@@ -150,31 +147,34 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
         if (user && session) {
           onAuthSuccess(user);
           onClose();
-          console.log('AuthModal: Signup successful, user immediately logged in.');
         } else if (user && !session) {
-          setResendMessage('Account created! A verification link has been sent to your email. Please check your inbox (and spam folder) to confirm your account.');
-          setShowResendButton(true);
-          console.log('AuthModal: Signup successful, verification link sent.');
+          // User created, but email verification is required
+          onSwitchMode('login'); // Switch to login screen
+          setFormData(prev => ({ ...prev, email: formData.email, password: '', confirmPassword: '' })); // Keep email, clear passwords
+          setInfoMessage('Account created! A verification link has been sent to your email. Please check your inbox (and spam folder) to confirm your account.');
+          setInfoMessageType('success');
+          setShowResendVerification(true);
         } else {
           setErrors({ submit: 'An unexpected authentication response occurred.' });
-          console.error('AuthModal: Unexpected signup response.');
+          setInfoMessage('An unexpected signup response occurred.');
+          setInfoMessageType('error');
         }
       }
 
     } catch (error) {
       setErrors({ submit: 'An unexpected error occurred during authentication.' });
-      console.error('AuthModal: General authentication error:', error);
+      setInfoMessage('An unexpected error occurred during authentication.');
+      setInfoMessageType('error');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleResendVerification = async () => {
-    console.log('AuthModal: handleResendVerification called.');
     setIsLoading(true);
-    setResendMessage('');
-    setErrors({});
-    setShowResendButton(false);
+    setInfoMessage('');
+    setInfoMessageType('');
+    setShowResendVerification(false);
 
     try {
       const { error } = await supabase.auth.resend({
@@ -183,16 +183,16 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
       });
 
       if (error) {
-        setResendMessage(`Failed to resend verification link: ${error.message}`);
-        setShowResendButton(true);
-        console.error('AuthModal: Resend verification error:', error.message);
+        setInfoMessage(`Failed to resend verification link: ${error.message}`);
+        setInfoMessageType('error');
+        setShowResendVerification(true); // Keep button visible if resend failed
       } else {
-        setResendMessage('New verification link sent! Please check your inbox (and spam folder).');
-        console.log('AuthModal: Resend verification successful.');
+        setInfoMessage('New verification link sent! Please check your inbox (and spam folder).');
+        setInfoMessageType('success');
       }
     } catch (error) {
-      setResendMessage('An unexpected error occurred while trying to resend the link.');
-      console.error('AuthModal: General resend verification error:', error);
+      setInfoMessage('An unexpected error occurred while trying to resend the link.');
+      setInfoMessageType('error');
     } finally {
       setIsLoading(false);
     }
@@ -200,7 +200,6 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
-      console.log('AuthModal: Backdrop clicked, closing modal.');
       onClose();
     }
   };
@@ -356,13 +355,13 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
               <div className="error-message submit-error">{errors.submit}</div>
             )}
 
-            {resendMessage && (
-              <div className={`info-message ${resendMessage.includes('Failed') ? 'error' : 'success'}`} style={{ marginTop: '0.5rem', textAlign: 'center' }}>
-                {resendMessage}
+            {infoMessage && (
+              <div className={`info-message ${infoMessageType}`} style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                {infoMessage}
               </div>
             )}
 
-            {showResendButton && formData.email && (
+            {showResendVerification && formData.email && (
               <button
                 type="button"
                 className="btn btn-outline btn-full"
