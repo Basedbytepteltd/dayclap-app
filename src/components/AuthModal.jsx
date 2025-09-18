@@ -66,7 +66,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (!/S+@S+.S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
     }
 
@@ -131,7 +131,8 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
               account_type: accountType, // Pass account type
               company_name_signup: accountType === 'business' ? formData.companyName : null, // Pass company name if business
             },
-            emailRedirectTo: window.location.origin + '/verified',
+            // FIX: Changed redirect URL to include .html
+            emailRedirectTo: window.location.origin + '/verified.html',
           }
         });
 
