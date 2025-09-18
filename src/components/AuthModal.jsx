@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react'
-import { X, Mail, Lock, User, Eye, EyeOff } from 'lucide-react' // Removed Building2 icon
-import { supabase } from '../supabaseClient'
-import './AuthModal.css'
+import React, { useState, useEffect } from 'react';
+import { X, Mail, Lock, User, Eye, EyeOff, Building2 } from 'lucide-react';
+import { supabase } from '../supabaseClient';
+import './AuthModal.css';
 
 const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
-  // Debug log for AuthModal mounting
   useEffect(() => {
     console.log('AuthModal: Component mounted/rendered with mode:', mode);
     return () => {
@@ -17,10 +16,11 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     email: '',
     password: '',
     confirmPassword: '',
-    // Removed company: ''
-  })
-  const [errors, setErrors] = useState({})
-  const [isLoading, setIsLoading] = useState(false)
+    companyName: '', // New field for business account
+  });
+  const [accountType, setAccountType] = useState('personal'); // New state for account type
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
 
@@ -28,60 +28,73 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
-    }))
+      [name]: value,
+    }));
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
-        [name]: ''
-      }))
+        [name]: '',
+      }));
     }
-    // Clear resend messages when input changes
     setResendMessage('');
     setShowResendButton(false);
-  }
+  };
+
+  const handleAccountTypeChange = (e) => {
+    setAccountType(e.target.value);
+    // Clear company name if switching to personal
+    if (e.target.value === 'personal') {
+      setFormData(prev => ({ ...prev, companyName: '' }));
+      setErrors(prev => ({ ...prev, companyName: '' }));
+    }
+  };
 
   const validateForm = () => {
-    const newErrors = {}
+    const newErrors = {};
 
-    if (mode === 'signup' && !formData.name.trim()) {
-      newErrors.name = 'Name is required'
+    if (mode === 'signup') {
+      if (!formData.name.trim()) {
+        newErrors.name = 'Name is required';
+      }
+      if (accountType === 'business' && !formData.companyName.trim()) {
+        newErrors.companyName = 'Company name is required for business accounts';
+      }
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required'
+      newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid'
+      newErrors.email = 'Email is invalid';
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required'
+      newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
+      newErrors.password = 'Password must be at least 6 characters';
     }
 
     if (mode === 'signup' && formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match'
+      newErrors.confirmPassword = 'Passwords do not match';
     }
 
-    return newErrors
-  }
+    return newErrors;
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     console.log('AuthModal: handleSubmit called. Current mode:', mode);
 
-    const newErrors = validateForm()
-    
+    const newErrors = validateForm();
+
     if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      return
+      setErrors(newErrors);
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     setErrors({});
     setResendMessage('');
     setShowResendButton(false);
@@ -89,7 +102,6 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
     try {
       let authResponse;
       if (mode === 'login') {
-        // Standard password login
         authResponse = await supabase.auth.signInWithPassword({
           email: formData.email.toLowerCase(),
           password: formData.password,
@@ -109,23 +121,23 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
           console.error('AuthModal: Unexpected login response.');
         }
 
-      } else { // Signup flow (now with email verification link)
+      } else { // Signup flow
         authResponse = await supabase.auth.signUp({
           email: formData.email.toLowerCase(),
           password: formData.password,
           options: {
             data: {
               name: formData.name,
-              // Removed company: formData.company
+              account_type: accountType, // Pass account type
+              company_name_signup: accountType === 'business' ? formData.companyName : null, // Pass company name if business
             },
-            emailRedirectTo: window.location.origin + '/verified', // Use email link confirmation
+            emailRedirectTo: window.location.origin + '/verified',
           }
         });
 
         if (authResponse.error) {
           setErrors({ submit: authResponse.error.message });
           console.error('AuthModal: Signup error:', authResponse.error.message);
-          // If the error is related to email not confirmed, show resend button
           if (authResponse.error.message.includes('Email not confirmed') || authResponse.error.message.includes('Email link is invalid or has expired')) {
             setShowResendButton(true);
           }
@@ -135,30 +147,27 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
         const { user, session } = authResponse.data;
 
         if (user && session) {
-          // User is immediately logged in (e.g., email confirmation is off, or already confirmed)
           onAuthSuccess(user);
           onClose();
           console.log('AuthModal: Signup successful, user immediately logged in.');
         } else if (user && !session) {
-          // User created, but email confirmation is pending. Prompt for email link.
           setResendMessage('Account created! A verification link has been sent to your email. Please check your inbox (and spam folder) to confirm your account.');
-          setShowResendButton(true); // Allow resending if user doesn't receive it
+          setShowResendButton(true);
           console.log('AuthModal: Signup successful, verification link sent.');
         } else {
           setErrors({ submit: 'An unexpected authentication response occurred.' });
           console.error('AuthModal: Unexpected signup response.');
         }
       }
-      
+
     } catch (error) {
       setErrors({ submit: 'An unexpected error occurred during authentication.' });
       console.error('AuthModal: General authentication error:', error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  // Function to handle resending verification link (using supabase.auth.resend for signup type)
   const handleResendVerification = async () => {
     console.log('AuthModal: handleResendVerification called.');
     setIsLoading(true);
@@ -168,7 +177,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
 
     try {
       const { error } = await supabase.auth.resend({
-        type: 'signup', // Use 'signup' to re-send the signup confirmation email link
+        type: 'signup',
         email: formData.email.toLowerCase(),
       });
 
@@ -191,9 +200,9 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
       console.log('AuthModal: Backdrop clicked, closing modal.');
-      onClose()
+      onClose();
     }
-  }
+  };
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
@@ -210,21 +219,67 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
         <form className="auth-form" onSubmit={handleSubmit}>
           <>
             {mode === 'signup' && (
-              <div className="form-group">
-                <label className="form-label">Name</label>
-                <div className="input-wrapper">
-                  <User className="input-icon" />
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className={`form-input ${errors.name ? 'error' : ''}`}
-                    placeholder="Enter your name"
-                  />
+              <>
+                <div className="form-group">
+                  <label className="form-label">Name</label>
+                  <div className="input-wrapper">
+                    <User className="input-icon" />
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className={`form-input ${errors.name ? 'error' : ''}`}
+                      placeholder="Enter your name"
+                      required
+                    />
+                  </div>
+                  {errors.name && <span className="error-message">{errors.name}</span>}
                 </div>
-                {errors.name && <span className="error-message">{errors.name}</span>}
-              </div>
+
+                <div className="form-group">
+                  <label className="form-label">Account Type</label>
+                  <div className="radio-group">
+                    <label>
+                      <input
+                        type="radio"
+                        name="accountType"
+                        value="personal"
+                        checked={accountType === 'personal'}
+                        onChange={handleAccountTypeChange}
+                      /> Personal
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="accountType"
+                        value="business"
+                        checked={accountType === 'business'}
+                        onChange={handleAccountTypeChange}
+                      /> Business
+                    </label>
+                  </div>
+                </div>
+
+                {accountType === 'business' && (
+                  <div className="form-group">
+                    <label className="form-label">Company Name</label>
+                    <div className="input-wrapper">
+                      <Building2 className="input-icon" />
+                      <input
+                        type="text"
+                        name="companyName"
+                        value={formData.companyName}
+                        onChange={handleInputChange}
+                        className={`form-input ${errors.companyName ? 'error' : ''}`}
+                        placeholder="Enter your company name"
+                        required
+                      />
+                    </div>
+                    {errors.companyName && <span className="error-message">{errors.companyName}</span>}
+                  </div>
+                )}
+              </>
             )}
 
             <div className="form-group">
@@ -238,24 +293,24 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
                   onChange={handleInputChange}
                   className={`form-input ${errors.email ? 'error' : ''}`}
                   placeholder="Enter your email"
+                  required
                 />
               </div>
               {errors.email && <span className="error-message">{errors.email}</span>}
             </div>
-
-            {/* Removed Company input field */}
 
             <div className="form-group">
               <label className="form-label">Password</label>
               <div className="input-wrapper">
                 <Lock className="input-icon" />
                 <input
-                  type={showPassword ? 'text' : 'password'} // Toggle type
+                  type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
                   className={`form-input ${errors.password ? 'error' : ''}`}
                   placeholder="Enter your password"
+                  required
                 />
                 <button
                   type="button"
@@ -275,12 +330,13 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
                 <div className="input-wrapper">
                   <Lock className="input-icon" />
                   <input
-                    type={showConfirmPassword ? 'text' : 'password'} // Toggle type
+                    type={showConfirmPassword ? 'text' : 'password'}
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
                     className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
                     placeholder="Confirm your password"
+                    required
                   />
                   <button
                     type="button"
@@ -294,45 +350,44 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
                 {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
               </div>
             )}
-          </>
 
-          {errors.submit && (
-            <div className="error-message submit-error">{errors.submit}</div>
-          )}
+            {errors.submit && (
+              <div className="error-message submit-error">{errors.submit}</div>
+            )}
 
-          {resendMessage && (
-            <div className={`info-message ${resendMessage.includes('Failed') ? 'error' : 'success'}`} style={{ marginTop: '0.5rem', textAlign: 'center' }}>
-              {resendMessage}
-            </div>
-          )}
+            {resendMessage && (
+              <div className={`info-message ${resendMessage.includes('Failed') ? 'error' : 'success'}`} style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                {resendMessage}
+              </div>
+            )}
 
-          {/* Resend Verification Link Button */}
-          {showResendButton && formData.email && (
+            {showResendButton && formData.email && (
+              <button
+                type="button"
+                className="btn btn-outline btn-full"
+                onClick={handleResendVerification}
+                disabled={isLoading}
+                style={{ marginTop: '1rem' }}
+              >
+                {isLoading ? 'Sending...' : 'Resend Verification Link'}
+              </button>
+            )}
+
             <button
-              type="button"
-              className="btn btn-outline btn-full"
-              onClick={handleResendVerification}
+              type="submit"
+              className="btn btn-primary btn-full"
               disabled={isLoading}
-              style={{ marginTop: '1rem' }}
             >
-              {isLoading ? 'Sending...' : 'Resend Verification Link'}
+              {isLoading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
             </button>
-          )}
-
-          <button 
-            type="submit" 
-            className="btn btn-primary btn-full"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
-          </button>
+          </>
         </form>
 
         <div className="auth-switch">
           <span>
             {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
           </span>
-          <button 
+          <button
             type="button"
             className="switch-link"
             onClick={() => onSwitchMode(mode === 'login' ? 'signup' : 'login')}
@@ -343,7 +398,7 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default AuthModal
+export default AuthModal;
