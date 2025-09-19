@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   theme TEXT DEFAULT 'light',
   language TEXT DEFAULT 'en',
   timezone TEXT DEFAULT 'UTC',
-  notifications JSONB DEFAULT '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "push": true, "reminders": true, "invitations": true}',
+  notifications JSONB DEFAULT '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}', -- UPDATED: Added "email_1week_countdown": true
   privacy JSONB DEFAULT '{"profileVisibility": "team", "calendarSharing": "private"}',
   company_name TEXT
 );
@@ -43,6 +43,12 @@ BEGIN
         ALTER TABLE public.profiles ADD COLUMN currency TEXT DEFAULT 'USD';
         RAISE NOTICE 'Column currency added to public.profiles table.';
     END IF;
+
+    -- NEW: Add account_type column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'account_type') THEN
+        ALTER TABLE public.profiles ADD COLUMN account_type TEXT DEFAULT 'personal';
+        RAISE NOTICE 'Column account_type added to public.profiles table.';
+    END IF;
 END
 $$;
 
@@ -56,7 +62,6 @@ CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT
 DROP POLICY IF EXISTS "Users can insert their own profile." ON profiles;
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK ( auth.uid() = id );
 
--- FIX: Corrected policy name in DROP statement to match CREATE statement
 DROP POLICY IF EXISTS "Users can update their own profile." ON profiles;
 CREATE POLICY "Users can update their own profile." ON profiles FOR UPDATE USING ( auth.uid() = id );
 
@@ -64,60 +69,76 @@ CREATE POLICY "Users can update their own profile." ON profiles FOR UPDATE USING
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
-    user_company_name TEXT;
+    user_account_type TEXT;
+    user_company_name_signup TEXT;
+    user_name_signup TEXT;
     new_company_id TEXT;
     initial_companies JSONB;
 BEGIN
-  user_company_name := NEW.raw_user_meta_data->>'company';
+    user_account_type := COALESCE(NEW.raw_user_meta_data->>'account_type', 'personal');
+    user_company_name_signup := NEW.raw_user_meta_data->>'company_name_signup';
+    user_name_signup := NEW.raw_user_meta_data->>'name';
 
-  IF user_company_name IS NOT NULL AND user_company_name != '' THEN
-      new_company_id := gen_random_uuid();
-      initial_companies := jsonb_build_array(
-          jsonb_build_object(
-              'id', new_company_id,
-              'name', user_company_name,
-              'role', 'owner',
-              'createdAt', NOW()::text
-          )
-      );
-  ELSE
-      initial_companies := '[]'::jsonb;
-      new_company_id := NULL;
-  END IF;
+    initial_companies := '[]'::jsonb;
+    new_company_id := NULL;
 
-  INSERT INTO public.profiles (
-    id,
-    email,
-    name,
-    created_at,
-    theme,
-    language,
-    timezone,
-    notifications,
-    privacy,
-    company_name,
-    companies,
-    current_company_id,
-    last_activity_at,
-    currency
-  )
-  VALUES (
-    NEW.id,
-    NEW.email,
-    NEW.raw_user_meta_data->>'name',
-    NOW(), -- created_at
-    'light', -- theme
-    'en', -- language
-    'UTC', -- timezone
-    '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "push": true, "reminders": true, "invitations": true}'::jsonb, -- notifications
-    '{"profileVisibility": "team", "calendarSharing": "private"}'::jsonb, -- privacy
-    user_company_name, -- company_name (from signup options)
-    initial_companies, -- dynamically set companies array
-    new_company_id, -- dynamically set current_company_id
-    NOW(), -- last_activity_at
-    'USD' -- currency
-  );
-  RETURN NEW;
+    -- NEW LOGIC START: Automatically create a default company for BOTH personal and business accounts
+    new_company_id := gen_random_uuid();
+
+    IF user_account_type = 'business' AND user_company_name_signup IS NOT NULL AND user_company_name_signup <> '' THEN
+        -- For business accounts, use the provided company name
+        initial_companies := jsonb_build_array(jsonb_build_object(
+            'id', new_company_id,
+            'name', user_company_name_signup,
+            'role', 'owner',
+            'createdAt', NOW()::text
+        ));
+    ELSE
+        -- For personal accounts (or business without a name), create a default personal space
+        initial_companies := jsonb_build_array(jsonb_build_object(
+            'id', new_company_id,
+            'name', user_name_signup || '''s Space',
+            'role', 'owner',
+            'createdAt', NOW()::text
+        ));
+    END IF;
+    -- NEW LOGIC END
+
+    INSERT INTO public.profiles (
+        id,
+        email,
+        name,
+        created_at,
+        theme,
+        language,
+        timezone,
+        notifications,
+        privacy,
+        company_name,
+        companies,
+        current_company_id,
+        last_activity_at,
+        currency,
+        account_type
+    )
+    VALUES (
+        NEW.id,
+        NEW.email,
+        user_name_signup,
+        NOW(),
+        'light',
+        'en',
+        'UTC',
+        '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}'::jsonb, -- UPDATED: Added "email_1week_countdown": true
+        '{"profileVisibility": "team", "calendarSharing": "private"}'::jsonb,
+        CASE WHEN user_account_type = 'business' THEN user_company_name_signup ELSE NULL END,
+        initial_companies,
+        new_company_id,
+        NOW(),
+        'USD',
+        user_account_type
+    );
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -227,6 +248,11 @@ BEGIN
         ALTER TABLE public.events ADD COLUMN notification_dismissed_at TIMESTAMP WITH TIME ZONE;
         RAISE NOTICE 'Column notification_dismissed_at added to public.events table.';
     END IF;
+    -- NEW: Add one_week_reminder_sent_at column to events
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'one_week_reminder_sent_at') THEN
+        ALTER TABLE public.events ADD COLUMN one_week_reminder_sent_at TIMESTAMP WITH TIME ZONE;
+        RAISE NOTICE 'Column one_week_reminder_sent_at added to public.events table.';
+    END IF;
 END
 $$;
 
@@ -283,7 +309,10 @@ CREATE TABLE IF NOT EXISTS email_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2',
   mail_default_sender TEXT DEFAULT 'no-reply@team.dayclap.com',
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  -- NEW: Columns for internal scheduler control
+  scheduler_enabled BOOLEAN DEFAULT TRUE,
+  reminder_time TEXT DEFAULT '02:00' -- Stored as HH:MM string
 );
 
 -- Idempotently add or rename the sending key column
@@ -298,6 +327,16 @@ BEGIN
             ALTER TABLE email_settings ADD COLUMN maileroo_sending_key TEXT;
             RAISE NOTICE 'Column "maileroo_sending_key" added.';
         END IF;
+        -- NEW: Add scheduler_enabled column if it doesn't exist
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='scheduler_enabled') THEN
+            ALTER TABLE email_settings ADD COLUMN scheduler_enabled BOOLEAN DEFAULT TRUE;
+            RAISE NOTICE 'Column "scheduler_enabled" added.';
+        END IF;
+        -- NEW: Add reminder_time column if it doesn't exist
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='reminder_time') THEN
+            ALTER TABLE email_settings ADD COLUMN reminder_time TEXT DEFAULT '02:00';
+            RAISE NOTICE 'Column "reminder_time" added.';
+        END IF;
     END IF;
 END
 $$;
@@ -309,8 +348,8 @@ DROP POLICY IF EXISTS "Super admin can manage email settings." ON email_settings
 CREATE POLICY "Super admin can manage email settings." ON email_settings FOR ALL USING ( auth.email() = 'admin@example.com' );
 
 -- Insert default row if table is empty
-INSERT INTO email_settings (id, maileroo_sending_key, maileroo_api_endpoint, mail_default_sender)
-SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2', 'no-reply@team.dayclap.com'
+INSERT INTO email_settings (id, maileroo_sending_key, maileroo_api_endpoint, mail_default_sender, scheduler_enabled, reminder_time)
+SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2', 'no-reply@team.dayclap.com', TRUE, '02:00'
 WHERE NOT EXISTS (SELECT 1 FROM email_settings);
 
 -- **FIX**: Correct any old, incorrect default sender email values.
@@ -465,3 +504,62 @@ $$<!DOCTYPE html>
 </body>
 </html>$$
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'verification_email');
+
+-- NEW: Add 'event_1week_reminder' template
+INSERT INTO email_templates (name, subject, html_content)
+SELECT 'event_1week_reminder', 'Reminder: Your Event is One Week Away!',
+$$<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { padding: 20px; line-height: 1.6; color: #333333; }
+        .event-details { background-color: #e7f3ff; border-left: 5px solid #3b82f6; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .event-details h3 { color: #3b82f6; margin-top: 0; }
+        .task-summary { background-color: #fffbe6; border-left: 5px solid #f59e0b; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .task-summary p { margin: 0; }
+        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Event Reminder: {{ event_title }}</h2>
+        </div>
+        <div class="content">
+            <p>Hello {{ user_name }},</p>
+            <p>This is a friendly reminder that your event, <b>"{{ event_title }}"</b>, is scheduled for <b>{{ event_date }}</b> (one week from today!).</p>
+            
+            <div class="event-details">
+                <h3>Event Details:</h3>
+                <p><b>Title:</b> {{ event_title }}</p>
+                <p><b>Date:</b> {{ event_date }}</p>
+                <p><b>Time:</b> {{ event_time }}</p>
+                {{#if event_location}}<p><b>Location:</b> {{ event_location }}</p>{{/if}}
+                {{#if event_description}}<p><b>Description:</b> {{ event_description }}</p>{{/if}}
+            </div>
+
+            {{#if has_tasks}}
+            <div class="task-summary">
+                <h3>Task Progress:</h3>
+                <p>You have <b>{{ pending_tasks_count }}</b> pending tasks for this event.</p>
+                <p>Current completion: <b>{{ task_completion_percentage }}%</b></p>
+            </div>
+            {{/if}}
+
+            <p style="text-align: center;">
+                <a href="{{ frontend_url }}" class="button">View Event in DayClap</a>
+            </p>
+            <p>Stay organized and have a productive week!</p>
+            <p>Best regards,<br>The DayClap Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>$$
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'event_1week_reminder');

@@ -166,6 +166,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       email_weekly: false,
       email_monthly: false,
       email_3day_countdown: false,
+      email_1week_countdown: true, // NEW: Default to true
       push: true,
       reminders: true,
       invitations: true
@@ -2416,6 +2417,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                   <div className="setting-info"><h4>3-Day Countdown Alerts</h4><p>Receive an email alert for events and tasks due in 3 days.</p></div>
                                   <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_3day_countdown} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_3day_countdown: e.target.checked } }))} /><span className="toggle-slider"></span></label>
                                 </div>
+                                {/* NEW: 1-Week Countdown Alert */}
+                                <div className="setting-item">
+                                  <div className="setting-info"><h4>1-Week Countdown Alerts</h4><p>Receive an email alert for events and tasks due in 1 week.</p></div>
+                                  <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_1week_countdown} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_1week_countdown: e.target.checked } }))} /><span className="toggle-slider"></span></label>
+                                </div>
                               </div>
 
                               <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Save Preferences</button></div>
@@ -2527,7 +2533,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                   })
                                 ) : (
                                   <p className="no-data-message">No team members found for this company.</p>
-                                )}\n                              </div>
+                                )}
+                              </div>
                             ) : (
                               <div className="no-companies-message">
                                 <Building2 className="no-companies-icon" />
@@ -2559,7 +2566,18 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               <div className="modal-body">
                 <div className="form-group">
                   <label className="form-label">Company Name</label>
-                  <div className="input-wrapper"><Building2 className="input-icon" /><input type="text" name="name" value={companyForm.name} onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))} className="form-input" placeholder="e.g., DayClap Inc." required /></div>
+                  <div className="input-wrapper">
+                    <Building2 className="input-icon" />
+                    <input
+                      type="text"
+                      name="name"
+                      value={companyForm.name}
+                      onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="form-input"
+                      placeholder="e.g., DayClap Inc."
+                      required
+                    />
+                  </div>
                 </div>
                 {editingCompany && (
                   (() => {
@@ -2596,13 +2614,30 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                 )}
                 <div className="form-group">
                   <label className="form-label">Recipient Email</label>
-                  <div className="input-wrapper"><Mail className="input-icon" /><input type="email" name="email" value={inviteForm.email} onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))} className="form-input" placeholder="member@example.com" required /></div>
+                  <div className="input-wrapper">
+                    <Mail className="input-icon" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={inviteForm.email}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="form-input"
+                      placeholder="member@example.com"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Company</label>
                   <div className="input-wrapper">
                     <Building2 className="input-icon" />
-                    <select name="companyId" value={inviteForm.companyId || ''} onChange={(e) => setInviteForm(prev => ({ ...prev, companyId: e.target.value }))} className="form-select" required>
+                    <select
+                      name="companyId"
+                      value={inviteForm.companyId || ''}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, companyId: e.target.value }))}
+                      className="form-select"
+                      required
+                    >
                       <option value="" disabled>Select a company</option>
                       {user.companies.map(company => (<option key={company.id} value={company.id}>{company.name}</option>))}
                     </select>
@@ -2612,7 +2647,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   <label className="form-label">Role</label>
                   <div className="input-wrapper">
                     <Crown className="input-icon" />
-                    <select name="role" value={inviteForm.role} onChange={(e) => setInviteForm(prev => ({ ...prev, role: e.target.value }))} className="form-select" required>
+                    <select
+                      name="role"
+                      value={inviteForm.role}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, role: e.target.value }))}
+                      className="form-select"
+                      required
+                    >
                       <option value="user">User</option>
                       <option value="admin">Admin</option>
                     </select>
