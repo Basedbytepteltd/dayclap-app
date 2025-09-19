@@ -833,7 +833,7 @@
     background: var(--primary-bg); /* Active button gets a solid background */
     color: var(--accent-color); /* Active text is accent color */
     font-weight: 600;
-    box-shadow: var(--shadow-md); /* Give it a slight pop */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 480px) {
