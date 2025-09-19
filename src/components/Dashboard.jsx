@@ -1375,7 +1375,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const total = allTasks.length;
     const completed = allTasks.filter(t => t.completed).length;
     const pending = allTasks.filter(t => !t.completed && !isTaskOverdue(t)).length;
-    const overdue = allTasks.filter(t => t.completed).length;
+    const overdue = allTasks.filter(t => isTaskOverdue(t)).length;
     const completedPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     const pendingPercentage = total > 0 ? Math.round((pending / total) * 100) : 0;
     return {
@@ -1614,7 +1614,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </div>
       </header>
 
-      <div className={`dashboard-layout container`}>
+      <div className={`dashboard-layout`}> {/* Removed 'container' class here */}
         <aside className="sidebar">
           <nav className="sidebar-nav">
             <button className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => { setActiveTab('overview'); setSearchTerm(''); }}>
@@ -1650,7 +1650,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
         <main className="main-content">
           {searchTerm ? (
-            <div className="search-results-content">
+            <div className="constrained-content search-results-content"> {/* Added constrained-content */}
               <h2>Search Results for "{searchTerm}"</h2>
 
               <div className="search-results-section">
@@ -1735,7 +1735,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           ) : (
             <>
               {!currentCompany?.id ? (
-                <div className="no-companies-message">
+                <div className="constrained-content no-companies-message"> {/* Added constrained-content */}
                   <Building2 className="no-companies-icon" />
                   <h4>No Company Selected</h4>
                   <p>It looks like you haven't created or joined any companies yet. To start organizing your events and tasks, please create your first company.</p>
@@ -1744,7 +1744,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               ) : (
                 <>
                   {activeTab === 'overview' && (
-                    <div className="overview-content">
+                    <div className="constrained-content overview-content"> {/* Added constrained-content */}
                       <div className="overview-header">
                         <h2>Welcome, {user.name || user.email}!</h2>
                         <p className="overview-subtitle">Here's a quick overview of your DayClap activity.</p>
@@ -1837,7 +1837,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'calendar' && (
-                    <div className="calendar-content">
+                    <div className="calendar-content"> {/* This content remains full-width */}
                       <div className="calendar-section">
                         <div className="calendar-header">
                           <button className="nav-arrow" onClick={() => calendarView === 'month' ? navigateMonth(-1) : (calendarView === 'week' ? navigateWeek(-1) : navigateDay(-1))}>
@@ -1897,7 +1897,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'all-events' && (
-                    <div className="all-events-content">
+                    <div className="constrained-content all-events-content"> {/* Added constrained-content */}
                       <div className="all-events-header">
                         <h2>All Events</h2>
                         <p className="all-events-subtitle">A comprehensive list of all your events, past and future.</p>
@@ -1934,7 +1934,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'tasks' && (
-                    <div className="tasks-content">
+                    <div className="constrained-content tasks-content"> {/* Added constrained-content */}
                       <div className="tasks-header">
                         <h2>My Tasks</h2>
                         <p className="tasks-subtitle">Manage your personal and event-related tasks.</p>
@@ -2038,7 +2038,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'invitations' && user.account_type === 'business' && (
-                    <div className="invitations-content">
+                    <div className="constrained-content invitations-content"> {/* Added constrained-content */}
                       <div className="invitations-header">
                         <h2>My Invitations</h2>
                         <p className="invitations-subtitle">Manage invitations to join companies and teams.</p>
@@ -2162,7 +2162,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'settings' && (
-                    <div className="settings-content">
+                    <div className="constrained-content settings-content"> {/* Added constrained-content */}
                       <div className="settings-header">
                         <h2>Settings</h2>
                         <p className="settings-subtitle">Manage your profile, preferences, and account settings.</p>
