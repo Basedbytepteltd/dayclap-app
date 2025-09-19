@@ -2,7 +2,7 @@
     min-height: 100vh;
     background: var(--primary-bg);
     color: var(--primary-text);
-    font-family: -apple-system, BlinkMacMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -317,22 +317,6 @@
         flex-direction: column;
     }
 }
-
-/* REMOVED: Old calendar-active container rules */
-/* .dashboard.calendar-active .dashboard-layout.container {
-    max-width: none;
-    padding: 0 2rem;
-}
-@media (max-width: 1400px) {
-    .dashboard.calendar-active .dashboard-layout.container {
-        padding: 0 1.5rem;
-    }
-}
-@media (max-width: 768px) {
-    .dashboard.calendar-active .dashboard-layout.container {
-        padding: 0 1rem;
-    }
-} */
 
 /* Sidebar */
 .sidebar {
@@ -882,11 +866,12 @@
 /* Calendar Grid */
 .calendar-grid {
     display: grid;
-    gap: 1px; /* Reduced gap for a tighter, modern look */
-    background: var(--border-color); /* Background acts as subtle grid lines */
+    grid-template-columns: repeat(7, 1fr); /* Default to 7 columns for month/week view */
+    gap: 1px;
+    background: var(--border-color);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: var(--shadow-sm); /* Softer shadow */
+    box-shadow: var(--shadow-sm);
 }
 
 @media (max-width: 1200px) {
@@ -896,21 +881,9 @@
     }
 }
 
-/* Month View Specifics */
-.calendar-grid.month-view {
-    grid-template-columns: repeat(7, 1fr);
-}
-
-/* Week View Specifics */
-.calendar-grid.week-view {
-    grid-template-columns: repeat(7, 1fr); /* 7 columns for days */
-    /* Adjust min-height for week view if needed */
-}
-
 /* Day View Specifics */
 .calendar-grid.day-view {
-    grid-template-columns: 1fr; /* Single column for the day */
-    /* Adjust min-height for day view if needed */
+    grid-template-columns: 1fr; /* Override for a single column day view */
 }
 
 
