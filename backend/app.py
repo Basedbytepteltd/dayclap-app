@@ -359,11 +359,7 @@ def send_test_email():
 
     try:
         frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
-        template_data = {
-            "user_name": "DayClap User",
-            "frontend_url": frontend_url,
-            "current_year": datetime.now().year
-        }
+        template_data = {\n            "user_name": "DayClap User",\n            "frontend_url": frontend_url,\n            "current_year": datetime.now().year\n        }
         
         success, details = send_email_api(recipient_email, "welcome_email", template_data)
 
