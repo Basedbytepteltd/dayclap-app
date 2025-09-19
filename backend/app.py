@@ -261,15 +261,14 @@ def configure_scheduler_job(enabled, reminder_time_str):
                 id='daily_1week_event_reminder',
                 replace_existing=True
             )
-            print(f"Scheduler: Daily 1-week event reminder job configured for {reminder_time_str}.", file=sys.stdout)
+            print(f"Scheduler: Daily 1-week event reminder job configured for {reminder_time_str}. (UTC)", file=sys.stdout)
         except ValueError:
             print(f"Scheduler: Invalid reminder_time format: {reminder_time_str}. Job not scheduled.", file=sys.stderr)
     else:
         print("Scheduler: Daily 1-week event reminder job disabled.", file=sys.stdout)
 
-# Flask app lifecycle hooks
-@app.before_first_request
-def initialize_scheduler():
+# NEW: Function to initialize and configure APScheduler
+def initialize_and_configure_scheduler():
     print("Initializing APScheduler...", file=sys.stdout)
     scheduler.start()
     atexit.register(lambda: scheduler.shutdown()) # Ensure scheduler shuts down cleanly
@@ -281,6 +280,10 @@ def initialize_scheduler():
     else:
         # If no settings in DB, use defaults
         configure_scheduler_job(True, '02:00')
+
+# Call the scheduler initialization function when the module is loaded.
+# This will run once per Gunicorn worker process.
+initialize_and_configure_scheduler()
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -435,9 +438,9 @@ def send_welcome_email_endpoint():
         success, details = send_email_api(recipient_email, "welcome_email", template_data)
 
         if success:
-            return jsonify({"message": "Welcome email sent successfully!", "details": details}), 200
+            return jsonify({"message": "Welcome email sent successfully! (via trigger)", "details": details}), 200
         else:
-            return jsonify({"message": "Failed to send welcome email.", "details": details}), 500
+            return jsonify({"message": "Failed to send welcome email (via trigger).", "details": details}), 500
 
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
@@ -522,7 +525,7 @@ def email_template_detail_management(template_id):
     if request.method == 'DELETE':
         try:
             resp = supabase.table('email_templates').delete().eq('id', str(template_id)).execute()
-            if not (hasattr(resp, "data") and resp.data):
+            if not (hasattr(resp, "data") and resp.data):\
                 return jsonify({"message": "Email template not found or already deleted"}), 404
             return jsonify({"message": "Email template deleted successfully"}), 204
         except Exception as e:
@@ -592,8 +595,8 @@ def control_scheduler():
 
 
 if __name__ == '__main__':
-    # Ensure scheduler is initialized before running the app
-    with app.app_context():
-        initialize_scheduler()
+    # When running directly (e.g., `python app.py`), the scheduler is already initialized
+    # by the call to `initialize_and_configure_scheduler()` above.
+    # We just need to run the Flask app.
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, port=port)
