@@ -153,8 +153,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-    accountType: user.account_type || 'personal', // NEW: Add accountType to profile form
-    newCompanyName: '', // NEW: For creating company when switching to business
+    accountType: user.account_type || 'personal',
+    newCompanyName: '',
   })
   const [settingsForm, setSettingsForm] = useState({
     theme: user.theme || 'light',
@@ -219,15 +219,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     totalExpenses: 0,
   });
 
-  // State for invitation message feedback
   const [inviteMessage, setInviteMessage] = useState('');
-  const [inviteMessageType, setInviteMessageType] = useState(''); // 'success' or 'error'
+  const [inviteMessageType, setInviteMessageType] = useState('');
 
-  // NEW: State for invitations sub-tab
-  const [invitationsActiveTab, setInvitationsActiveTab] = useState('received'); // 'received' or 'sent'
-
-  // NEW: State for calendar view filter
-  const [calendarView, setCalendarView] = useState('month'); // 'month', 'week', 'day'
+  const [invitationsActiveTab, setInvitationsActiveTab] = useState('received');
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -247,13 +242,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   useEffect(() => {
     const determineVisualTheme = () => {
-      document.body.classList.remove('dark-mode'); // Always remove first
+      document.body.classList.remove('dark-mode');
       if (settingsForm.theme === 'dark') {
         document.body.classList.add('dark-mode');
         setCurrentVisualTheme('dark');
       } else if (settingsForm.theme === 'light') {
         setCurrentVisualTheme('light');
-      } else { // System theme
+      } else {
         if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
           document.body.classList.add('dark-mode');
           setCurrentVisualTheme('dark');
@@ -272,14 +267,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     mediaQuery.addEventListener('change', handleSystemThemeChange);
     return () => {
       mediaQuery.removeEventListener('change', handleSystemThemeChange);
-      document.body.classList.remove('dark-mode'); // Clean up on unmount
+      document.body.classList.remove('dark-mode');
     };
   }, [settingsForm.theme]);
 
   const currentCompany = user.companies?.find(company => company.id === user.currentCompanyId);
 
   const _fetchEvents = async () => {
-    if (!user || !user.id || !currentCompany?.id) { // Check for currentCompany.id
+    if (!user || !user.id || !currentCompany?.id) {
       setEvents([]);
       return;
     }
@@ -305,7 +300,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const _fetchTasks = async () => {
-    if (!user || !user.id || !currentCompany?.id) { // Check for currentCompany.id
+    if (!user || !user.id || !currentCompany?.id) {
       setTasks([]);
       return;
     }
@@ -394,7 +389,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   }, []);
 
   const toggleTaskCompletion = async (taskId, isEventTask, parentEventId) => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first.');
       return;
     }
@@ -521,7 +516,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const companyToInviteTo = user.companies.find(c => c.id === inviteForm.companyId);
     if (!companyToInviteTo) return;
 
-    // Clear previous messages
     setInviteMessage('');
     setInviteMessageType('');
 
@@ -550,7 +544,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         setInviteMessage(result.message || 'Invitation sent successfully!');
         setInviteMessageType('success');
         await _fetchInvitations();
-        setInviteForm({ email: '', role: 'user', companyId: null }); // Clear form inputs
+        setInviteForm({ email: '', role: 'user', companyId: null });
       } else {
         setInviteMessage(result.message || 'Failed to send invitation.');
         setInviteMessageType('error');
@@ -565,7 +559,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const handleEventFormSubmit = async (e) => {
     e.preventDefault();
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to add events.');
       return;
     }
@@ -581,7 +575,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       location: eventForm.location || null,
       event_tasks: eventForm.eventTasks || [],
       user_id: user.id,
-      company_id: currentCompany.id, // Ensure company_id is always from currentCompany
+      company_id: currentCompany.id,
     };
     if (editingEvent) {
       const { data, error } = await supabase.from('events').update(eventPayload).eq('id', editingEvent.id).select().single();
@@ -614,7 +608,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     let newCurrentCompanyId = user.currentCompanyId;
     let updatedCompanies = [...(user.companies || [])];
 
-    // Handle account type change and new company creation if applicable
     if (profileForm.accountType === 'business' && user.account_type === 'personal' && updatedCompanies.length === 0) {
       if (!profileForm.newCompanyName.trim()) {
         alert('Company name is required for business accounts.');
@@ -631,7 +624,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       updatedUser.companies = updatedCompanies;
       updatedUser.currentCompanyId = newCurrentCompanyId;
     } else if (profileForm.accountType === 'personal' && user.account_type === 'business' && updatedCompanies.length === 0) {
-      // If switching from business to personal and no companies exist, ensure currentCompanyId is null
       newCurrentCompanyId = null;
       updatedUser.currentCompanyId = null;
     }
@@ -642,8 +634,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         name: updatedUser.name,
         email: updatedUser.email,
         account_type: updatedUser.account_type,
-        companies: updatedUser.companies, // Update companies array
-        current_company_id: updatedUser.currentCompanyId, // Update current_company_id
+        companies: updatedUser.companies,
+        current_company_id: updatedUser.currentCompanyId,
         last_activity_at: new Date().toISOString()
       })
       .eq('id', user.id);
@@ -651,7 +643,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     if (error) {
       alert('Failed to update profile: ' + error.message);
     } else {
-      onUserUpdate(updatedUser); // Pass the fully updated user object
+      onUserUpdate(updatedUser);
       alert('Profile updated successfully!');
     }
   };
@@ -689,7 +681,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleAddEvent = (dateToPreselect = null) => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to add events.');
       return;
     }
@@ -706,7 +698,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleEditEvent = (event) => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to edit events.');
       return;
     }
@@ -718,7 +710,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleDeleteEvent = async (eventId) => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to delete events.');
       return;
     }
@@ -750,52 +742,18 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     updateLastActivity();
   };
 
-  const navigateWeek = (direction) => {
-    setCurrentDate(prev => {
-      const newDate = new Date(prev);
-      newDate.setDate(newDate.getDate() + (direction * 7));
-      return newDate;
-    });
-    updateLastActivity();
-  };
-
-  const navigateDay = (direction) => {
-    setCurrentDate(prev => {
-      const newDate = new Date(prev);
-      newDate.setDate(newDate.getDate() + direction);
-      return newDate;
-    });
-    updateLastActivity();
-  };
-
-  // NEW: Refactored function to get days based on view
-  const getCalendarDays = (date, view) => {
+  const getCalendarDays = (date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
-    const day = date.getDate();
     const days = [];
 
-    if (view === 'month') {
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 for Sunday, 1 for Monday, etc.
-      // Fill leading empty days
-      for (let i = 0; i < firstDayOfMonth; i++) {
-        days.push(null);
-      }
-      // Fill days of the month
-      for (let i = 1; i <= daysInMonth; i++) {
-        days.push(new Date(year, month, i));
-      }
-    } else if (view === 'week') {
-      const startOfWeek = new Date(date);
-      startOfWeek.setDate(day - date.getDay()); // Go to Sunday of the current week
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(startOfWeek);
-        d.setDate(startOfWeek.getDate() + i);
-        days.push(d);
-      }
-    } else if (view === 'day') {
-      days.push(new Date(year, month, day));
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
     }
     return days;
   };
@@ -1127,7 +1085,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const searchResults = performSearch(searchTerm);
 
   const handleAddEventTask = () => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to add tasks to events.');
       return;
     }
@@ -1192,7 +1150,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleAddGeneralTask = async () => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to add general tasks.');
       return;
     }
@@ -1208,7 +1166,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       category: currentEventTaskForm.category || null,
       completed: false,
       user_id: user.id,
-      company_id: currentCompany.id, // Ensure company_id is always from currentCompany
+      company_id: currentCompany.id,
       expenses: currentEventTaskForm.expenses ? parseFloat(currentEventTaskForm.expenses) : null
     };
     const { data, error } = await supabase
@@ -1232,7 +1190,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleEditGeneralTask = async (taskId) => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to edit tasks.');
       return;
     }
@@ -1251,7 +1209,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleSaveGeneralTask = async () => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to save tasks.');
       return;
     }
@@ -1293,7 +1251,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const handleDeleteGeneralTask = async (taskId) => {
-    if (!currentCompany?.id) { // Added check
+    if (!currentCompany?.id) {
       alert('Please select or create a company first to delete tasks.');
       return;
     }
@@ -1345,7 +1303,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const { filteredFavorites, filteredNonFavorites } = getFilteredCurrencyOptions(currencySearchTerm);
 
-  const calendarDays = getCalendarDays(currentDate, calendarView); // Use the new function
+  const calendarDays = getCalendarDays(currentDate);
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const pendingInvitationsCount = invitations.filter(inv => inv.status === 'pending' && inv.recipient_email === user.email).length;
@@ -1577,7 +1535,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       <p className="notification-category-title" style={{ marginTop: '1rem' }}>Overdue Tasks ({overdueTasksCount})</p>
                       {tasks.filter(task => isTaskOverdue(task)).map(task => (
                         <div key={task.id} className="notification-item">
-                          <CheckSquare size={18} color="var(--error-color)" /> {/* UPDATED: Using CSS variable */}
+                          <CheckSquare size={18} color="var(--error-color)" />
                           <div className="notification-details">
                             <p className="notification-title">{task.title}</p>
                             <p className="notification-meta">Due: {task.dueDate?.toLocaleDateString()}</p>
@@ -1614,7 +1572,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </div>
       </header>
 
-      <div className={`dashboard-layout`}> {/* Removed 'container' class here */}
+      <div className={`dashboard-layout`}>
         <aside className="sidebar">
           <nav className="sidebar-nav">
             <button className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => { setActiveTab('overview'); setSearchTerm(''); }}>
@@ -1650,7 +1608,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
         <main className="main-content">
           {searchTerm ? (
-            <div className="constrained-content search-results-content"> {/* Added constrained-content */}
+            <div className="constrained-content search-results-content">
               <h2>Search Results for "{searchTerm}"</h2>
 
               <div className="search-results-section">
@@ -1735,7 +1693,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           ) : (
             <>
               {!currentCompany?.id ? (
-                <div className="constrained-content no-companies-message"> {/* Added constrained-content */}
+                <div className="constrained-content no-companies-message">
                   <Building2 className="no-companies-icon" />
                   <h4>No Company Selected</h4>
                   <p>It looks like you haven't created or joined any companies yet. To start organizing your events and tasks, please create your first company.</p>
@@ -1744,7 +1702,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               ) : (
                 <>
                   {activeTab === 'overview' && (
-                    <div className="constrained-content overview-content"> {/* Added constrained-content */}
+                    <div className="constrained-content overview-content">
                       <div className="overview-header">
                         <h2>Welcome, {user.name || user.email}!</h2>
                         <p className="overview-subtitle">Here's a quick overview of your DayClap activity.</p>
@@ -1837,67 +1795,40 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'calendar' && (
-                    <div className="calendar-content"> {/* This content remains full-width */}
+                    <div className="calendar-content">
                       <div className="calendar-section">
                         <div className="calendar-header">
-                          <button className="nav-arrow" onClick={() => calendarView === 'month' ? navigateMonth(-1) : (calendarView === 'week' ? navigateWeek(-1) : navigateDay(-1))}>
+                          <button className="nav-arrow" onClick={() => navigateMonth(-1)}>
                             <ChevronLeft />
                           </button>
                           <h3 className="calendar-title">
-                            {calendarView === 'month' && currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
-                            {calendarView === 'week' && `${currentDate.toLocaleString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 6 - currentDate.getDay()).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-                            {calendarView === 'day' && currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                            {currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
                           </h3>
-                          <button className="nav-arrow" onClick={() => calendarView === 'month' ? navigateMonth(1) : (calendarView === 'week' ? navigateWeek(1) : navigateDay(1))}>
+                          <button className="nav-arrow" onClick={() => navigateMonth(1)}>
                             <ChevronRight />
                           </button>
-                          <div className="calendar-view-toggle">
-                            <button className={`view-btn ${calendarView === 'month' ? 'active' : ''}`} onClick={() => setCalendarView('month')}>Month</button>
-                            <button className={`view-btn ${calendarView === 'week' ? 'active' : ''}`} onClick={() => setCalendarView('week')}>Week</button>
-                            <button className={`view-btn ${calendarView === 'day' ? 'active' : ''}`} onClick={() => setCalendarView('day')}>Day</button>
-                          </div>
                         </div>
-                        
-                        {calendarView === 'month' && (
-                          <div className="calendar-grid month-view">
-                            {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
-                            {calendarDays.map((date, index) => (
-                              <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
-                                {date && <span className="day-number">{date.getDate()}</span>}
-                                {date && getCalendarItemsForDate(date).slice(0, 2).map(item => (
-                                  <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
-                                ))}
-                                {date && getCalendarItemCountForDate(date) > 2 && (
-                                  <div className="item-indicators"><span className="item-count">+{getCalendarItemCountForDate(date) - 2}</span></div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
 
-                        {(calendarView === 'week' || calendarView === 'day') && ( 
-                          <div className={`calendar-grid ${calendarView}-view`}>
-                            {calendarView === 'week' && daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
-                            {calendarDays.map((date, index) => (
-                              <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
-                                {date && <span className="day-number">{date.getDate()}</span>}
-                                {date && getCalendarItemsForDate(date).length > 0 ? (
-                                  getCalendarItemsForDate(date).map(item => (
-                                    <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
-                                  ))
-                                ) : (
-                                  date && <span className="no-items-message">No items</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <div className="calendar-grid month-view">
+                          {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
+                          {calendarDays.map((date, index) => (
+                            <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
+                              {date && <span className="day-number">{date.getDate()}</span>}
+                              {date && getCalendarItemsForDate(date).slice(0, 2).map(item => (
+                                <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
+                              ))}
+                              {date && getCalendarItemCountForDate(date) > 2 && (
+                                <div className="item-indicators"><span className="item-count">+{getCalendarItemCountForDate(date) - 2}</span></div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {activeTab === 'all-events' && (
-                    <div className="constrained-content all-events-content"> {/* Added constrained-content */}
+                    <div className="constrained-content all-events-content">
                       <div className="all-events-header">
                         <h2>All Events</h2>
                         <p className="all-events-subtitle">A comprehensive list of all your events, past and future.</p>
@@ -1934,7 +1865,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'tasks' && (
-                    <div className="constrained-content tasks-content"> {/* Added constrained-content */}
+                    <div className="constrained-content tasks-content">
                       <div className="tasks-header">
                         <h2>My Tasks</h2>
                         <p className="tasks-subtitle">Manage your personal and event-related tasks.</p>
@@ -2038,7 +1969,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'invitations' && user.account_type === 'business' && (
-                    <div className="constrained-content invitations-content"> {/* Added constrained-content */}
+                    <div className="constrained-content invitations-content">
                       <div className="invitations-header">
                         <h2>My Invitations</h2>
                         <p className="invitations-subtitle">Manage invitations to join companies and teams.</p>
@@ -2162,7 +2093,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   )}
 
                   {activeTab === 'settings' && (
-                    <div className="constrained-content settings-content"> {/* Added constrained-content */}
+                    <div className="constrained-content settings-content">
                       <div className="settings-header">
                         <h2>Settings</h2>
                         <p className="settings-subtitle">Manage your profile, preferences, and account settings.</p>
@@ -2197,7 +2128,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 <div className="input-wrapper"><Mail className="input-icon" /><input type="email" className="form-input" value={profileForm.email} onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))} /></div>
                               </div>
 
-                              {/* NEW: Account Type Selection */}
                               <div className="form-group">
                                 <label className="form-label">Account Type</label>
                                 <div className="radio-group">
@@ -2222,7 +2152,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 </div>
                               </div>
 
-                              {/* NEW: Company Name input if switching to business and no companies exist */}
                               {profileForm.accountType === 'business' && user.companies?.length === 0 && (
                                 <div className="form-group">
                                   <label className="form-label">Company Name <span className="optional-text">(Required for Business Account)</span></label>
@@ -2559,7 +2488,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
                             <div className="task-meta">
                               {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
-                              {item.category && <span className="category-badge">{item.category}</span>}
+                              {item.category && <span className="category-badge\">{item.category}</span>}
                             </div>
                           </div>
                           {item.description && <p className="task-description">{item.description}</p>}
