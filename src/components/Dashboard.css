@@ -2,7 +2,7 @@
     min-height: 100vh;
     background: var(--primary-bg);
     color: var(--primary-text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    font-family: -apple-system, BlinkMacMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -703,7 +703,10 @@
     }
 }
 
-/* Calendar */
+
+/* --- REFACTORED CALENDAR CSS --- */
+
+/* Calendar Content Wrapper */
 .calendar-content {
     display: grid;
     grid-template-columns: 1fr;
@@ -714,26 +717,27 @@
     min-width: 0;
 }
 
+/* Calendar Header */
 .calendar-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
-    flex-wrap: wrap; /* Allow items to wrap */
-    gap: 1rem; /* Space between items */
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 @media (max-width: 768px) {
     .calendar-header {
         margin-bottom: 1.5rem;
-        justify-content: center; /* Center items on smaller screens */
+        justify-content: center;
     }
 }
 
 @media (max-width: 480px) {
     .calendar-header {
         margin-bottom: 1rem;
-        flex-direction: column; /* Stack items vertically */
+        flex-direction: column;
         align-items: center;
     }
 }
@@ -743,7 +747,7 @@
     font-weight: 700;
     color: var(--primary-text);
     margin: 0;
-    flex-grow: 1; /* Allow title to take available space */
+    flex-grow: 1;
     text-align: center;
 }
 
@@ -802,22 +806,18 @@
     transform: translateY(-1px);
 }
 
-/* NEW: Calendar View Toggle */
 .calendar-view-toggle {
     display: flex;
-    background-color: var(--secondary-bg); /* A subtle background for the container */
-    border-radius: var(--radius-md); /* A nice rounded shape */
-    padding: 0.25rem; /* Padding inside the container */
     border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
     flex-shrink: 0;
-    box-shadow: var(--shadow-sm);
 }
 
 .calendar-view-toggle .view-btn {
     padding: 0.5rem 1rem;
-    background: transparent; /* Buttons are transparent by default */
+    background: var(--primary-bg);
     border: none;
-    border-radius: var(--radius-sm); /* Rounded corners for buttons */
     color: var(--secondary-text);
     font-size: 0.875rem;
     font-weight: 500;
@@ -825,252 +825,158 @@
     transition: all 0.2s ease;
 }
 
-.calendar-view-toggle .view-btn:hover:not(.active) {
-    color: var(--primary-text); /* On hover, just change text color */
+.calendar-view-toggle .view-btn:hover {
+    background: var(--secondary-bg);
+    color: var(--primary-text);
 }
 
 .calendar-view-toggle .view-btn.active {
-    background: var(--primary-bg); /* Active button gets a solid background */
-    color: var(--accent-color); /* Active text is accent color */
+    background: var(--accent-color);
+    color: white;
     font-weight: 600;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 480px) {
     .calendar-view-toggle {
-        width: 100%; /* Full width on mobile */
+        width: 100%;
         justify-content: space-around;
     }
     .calendar-view-toggle .view-btn {
-        flex: 1; /* Distribute space evenly */
+        flex: 1;
         padding: 0.4rem 0.75rem;
         font-size: 0.8rem;
     }
 }
 
-
 /* Calendar Grid */
 .calendar-grid {
     display: grid;
-    gap: 2px;
-    background: var(--border-color);
+    border: 1px solid var(--border-color); /* Use a single border instead of gap background */
     border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: var(--shadow-md);
 }
 
-@media (max-width: 1200px) {
-    .calendar-grid {
-        gap: 1px;
-        box-shadow: var(--shadow-sm);
-    }
-}
-
 /* Month View Specifics */
 .calendar-grid.month-view {
     grid-template-columns: repeat(7, 1fr);
+    /* ADDED: This ensures all cells in a row share the same height,
+       preventing a jagged grid if one day has more content. */
+    grid-auto-rows: 1fr;
 }
 
-/* Week View Specifics */
+/* Week & Day View Specifics (Can be adjusted as needed) */
 .calendar-grid.week-view {
-    grid-template-columns: repeat(7, 1fr); /* 7 columns for days */
-    /* Adjust min-height for week view if needed */
+    grid-template-columns: repeat(7, 1fr);
 }
-
-/* Day View Specifics */
 .calendar-grid.day-view {
-    grid-template-columns: 1fr; /* Single column for the day */
-    /* Adjust min-height for day view if needed */
+    grid-template-columns: 1fr;
 }
-
 
 .day-header {
     background: var(--secondary-bg);
-    padding: 1rem 0.75rem;
-    /* Reduced padding */
+    padding: 0.75rem 0.5rem;
     text-align: center;
-    font-size: 0.875rem;
-    /* Reduced font size */
+    font-size: 0.8rem;
     font-weight: 700;
     color: var(--secondary-text);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-bottom: 2px solid var(--border-color);
-}
-
-@media (max-width: 1200px) {
-    .day-header {
-        padding: 0.75rem 0.5rem;
-        /* Further reduced for smaller desktops/laptops */
-        font-size: 0.8125rem;
-        border-bottom: 1px solid var(--border-color);
-    }
+    /* ADDED: A border to separate from the days below */
+    border-bottom: 1px solid var(--border-color);
 }
 
 @media (max-width: 768px) {
     .day-header {
-        padding: 0.6rem 0.4rem;
-        /* Adjusted for tablets */
-        font-size: 0.75rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .day-header {
-        padding: 0.4rem 0.2rem;
-        /* Adjusted for mobile */
-        font-size: 0.65rem;
+        font-size: 0.7rem;
+        padding: 0.5rem 0.25rem;
     }
 }
 
 .calendar-day {
     background: var(--primary-bg);
-    min-height: 120px; /* Slightly reduced from 140px */
-    padding: 0.8rem 0.7rem; /* Slightly reduced from 1rem 0.8rem */
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
+    /* REMOVED: min-height and aspect-ratio. These were too rigid and caused content to be hidden. */
+    /* ADDED: A flexible min-height and padding. The cell will now grow with its content. */
+    min-height: 8rem;
+    padding: 0.75rem;
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    border-bottom: 1px solid rgba(226, 232, 240, 0.5);
-    /* Ensure content can grow */
-    overflow: hidden; /* Hide overflowing content */
+    gap: 0.3rem;
+    /* ADDED: Borders to create the grid lines between cells */
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s ease;
+    position: relative;
 }
 
-.calendar-grid.month-view .calendar-day {
-    aspect-ratio: 1 / 1; /* Make cells square in month view */
-    min-height: unset; /* Remove fixed min-height when aspect-ratio is used */
+/* Remove borders from the edges of the grid */
+.calendar-grid.month-view .calendar-day:nth-child(7n) {
+    border-right: none;
 }
-
-@media (min-width: 1400px) {
-    .calendar-day {
-        min-height: 140px; /* Slightly reduced from 160px */
-        padding: 1rem 0.8rem; /* Slightly reduced from 1.2rem 1rem */
-        gap: 0.5rem;
-    }
-}
-
-@media (max-width: 1200px) {
-    .calendar-day {
-        min-height: 100px; /* Slightly reduced from 120px */
-        padding: 0.7rem 0.5rem; /* Slightly reduced from 0.8rem 0.6rem */
-        gap: 0.3rem;
-    }
+.calendar-grid.month-view .calendar-day:nth-last-child(-n+7) {
+    border-bottom: none;
 }
 
 @media (max-width: 768px) {
     .calendar-day {
-        min-height: 70px; /* Slightly reduced from 80px */
-        padding: 0.5rem 0.3rem; /* Slightly reduced from 0.6rem 0.4rem */
-        gap: 0.2rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .calendar-day {
-        min-height: 55px; /* Keep a minimum height for touch targets */
-        padding: 0.3rem 0.2rem; /* Slightly reduced from 0.4rem 0.3rem */
-        gap: 0.1rem; /* Reduce gap further */
-    }
-    .calendar-grid.month-view .calendar-day {
-        min-height: unset; /* Still unset for aspect-ratio */
+        min-height: 6rem;
+        padding: 0.5rem;
+        gap: 0.25rem;
     }
 }
 
 .calendar-day:hover {
     background: var(--secondary-bg);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    z-index: 10; /* Bring to front on hover */
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
 }
 
 .calendar-day.today {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
-    border: 2px solid var(--accent-color);
-    color: var(--accent-color);
-    font-weight: 600;
-    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+    background: rgba(59, 130, 246, 0.05);
 }
 
-.calendar-day.selected {
+.calendar-day.today .day-number {
     background: var(--accent-color);
     color: white;
-    box-shadow: var(--shadow-lg);
-}
-
-.calendar-day.has-item {
-    border-left: 5px solid var(--accent-color);
-}
-
-@media (max-width: 768px) {
-    .calendar-day.has-item {
-        border-left: 3px solid var(--accent-color);
-    }
+    border-radius: 50%;
 }
 
 .calendar-day.empty {
     background: var(--secondary-bg);
     cursor: default;
-    opacity: 0.4;
+    opacity: 0.5;
 }
-
 .calendar-day.empty:hover {
-    transform: none;
     box-shadow: none;
-    background: var(--secondary-bg);
+    z-index: 0;
 }
 
 .day-number {
-    font-size: 1rem; /* Slightly reduced from 1.1rem */
-    /* Reduced font size */
-    font-weight: 700;
-    margin-bottom: 0.4rem; /* Slightly reduced from 0.5rem */
-    /* Reduced margin */
-    line-height: 1;
-    color: var(--primary-text);
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    /* ADDED: Styles to make the 'today' indicator a circle */
+    width: 1.75rem;
+    height: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
 }
 
-@media (min-width: 1400px) {
-    .day-number {
-        font-size: 1.15rem; /* Slightly reduced from 1.25rem */
-        /* Adjusted for ultra-wide */
-        margin-bottom: 0.5rem; /* Slightly reduced from 0.6rem */
-    }
-}
-
-@media (max-width: 1200px) {
-    .day-number {
-        font-size: 0.9rem; /* Slightly reduced from 1rem */
-        /* Adjusted for smaller desktops/laptops */
-        margin-bottom: 0.3rem; /* Slightly reduced from 0.4rem */
-    }
-}
-
-@media (max-width: 768px) {
-    .day-number {
-        font-size: 0.8rem; /* Slightly reduced from 0.9rem */
-        /* Adjusted for tablets */
-        margin-bottom: 0.2rem; /* Slightly reduced from 0.3rem */
-    }
-}
-
-@media (max-width: 480px) {
-    .day-number {
-        font-size: 0.7rem; /* Slightly reduced from 0.8rem */
-        /* Adjusted for mobile */
-        margin-bottom: 0.15rem; /* Slightly reduced from 0.2rem */
-    }
+/* Container for events to allow for scrolling if needed */
+.day-events-list {
+    flex-grow: 1; /* Takes up remaining space */
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    overflow-y: auto; /* If content still overflows, it becomes scrollable inside the cell */
 }
 
 .item-mini-text {
     display: block;
-    font-size: 0.7rem; /* Slightly reduced from 0.75rem */
-    /* Reduced font size */
-    padding: 0.15rem 0.4rem; /* Slightly reduced from 0.2rem 0.5rem */
-    /* Reduced padding */
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
     border-radius: var(--radius);
-    margin-bottom: 0.15rem; /* Slightly reduced from 0.2rem */
-    /* Reduced margin */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1079,130 +985,23 @@
     box-shadow: var(--shadow-sm);
 }
 
-@media (min-width: 1400px) {
-    .item-mini-text {
-        font-size: 0.75rem; /* Slightly reduced from 0.8rem */
-        /* Adjusted for ultra-wide */
-        padding: 0.2rem 0.5rem; /* Slightly reduced from 0.25rem 0.6rem */
-        margin-bottom: 0.2rem; /* Slightly reduced from 0.25rem */
-    }
-}
-
-@media (max-width: 1200px) {
-    .item-mini-text {
-        font-size: 0.65rem; /* Slightly reduced from 0.7rem */
-        /* Adjusted for smaller desktops/laptops */
-        padding: 0.1rem 0.3rem; /* Slightly reduced from 0.15rem 0.4rem */
-        margin-bottom: 0.1rem; /* Slightly reduced from 0.15rem */
-    }
-}
-
-@media (max-width: 768px) {
-    .item-mini-text {
-        font-size: 0.55rem; /* Slightly reduced from 0.6rem */
-        /* Adjusted for tablets */
-        padding: 0.08rem 0.25rem; /* Slightly reduced from 0.1rem 0.3rem */
-        margin-bottom: 0.08rem; /* Slightly reduced from 0.1rem */
-    }
-}
-
-@media (max-width: 480px) {
-    /* Make item-mini-text visible on mobile, but smaller */
-    .item-mini-text {
-        display: block; /* Override display: none */
-        font-size: 0.55rem; /* Further reduce font size */
-        padding: 0.08rem 0.2rem; /* Further reduce padding */
-        margin-bottom: 0.08rem; /* Further reduce margin */
-    }
-}
-
-.item-mini-text.event-text {
-    background: var(--accent-color);
-    color: white;
-}
-
-.item-mini-text.completed-task {
-    background: var(--success-color);
-    color: white;
-}
-
-.item-mini-text.pending-task {
-    background: var(--warning-color);
-    color: white;
-}
-
-.item-mini-text.overdue-task {
-    background: var(--error-color);
-    color: white;
-}
-
-.item-indicators {
-    position: absolute;
-    bottom: 0.6rem;
-    /* Adjusted position */
-    right: 0.6rem;
-    /* Adjusted position */
-}
-
-@media (max-width: 768px) {
-    .item-indicators {
-        bottom: 0.4rem;
-        right: 0.4rem;
-    }
-}
-
-@media (max-width: 480px) {
-    /* Position indicators more subtly on mobile */
-    .item-indicators {
-        position: absolute; /* Keep absolute positioning */
-        top: 0.3rem; /* Move to top right */
-        right: 0.3rem;
-        bottom: auto; /* Reset bottom */
-        margin-top: 0; /* Reset margin */
-    }
-}
-
-.item-count {
+/* ADDED: A "more items" indicator for when content is still too much */
+.more-items-indicator {
     font-size: 0.75rem;
-    /* Reduced font size */
-    background: var(--text-muted);
-    color: white;
-    padding: 0.2rem 0.5rem;
-    /* Reduced padding */
-    border-radius: var(--radius);
-    font-weight: 600;
-    box-shadow: var(--shadow-sm);
+    font-weight: 500;
+    color: var(--accent-color);
+    margin-top: 0.25rem;
+    cursor: pointer;
+}
+.more-items-indicator:hover {
+    text-decoration: underline;
 }
 
-@media (max-width: 768px) {
-    .item-count {
-        font-size: 0.65rem;
-        padding: 0.15rem 0.4rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .item-count {
-        font-size: 0.6rem;
-        padding: 0.1rem 0.3rem;
-    }
-}
-
-
-/* NEW: No items message for week/day view */
-.calendar-day .no-items-message {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    text-align: center;
-    margin-top: auto; /* Push to bottom */
-    margin-bottom: 0.5rem;
-}
-
-@media (max-width: 480px) {
-    .calendar-day .no-items-message {
-        display: none; /* Hide on very small screens */
-    }
-}
+/* Keep your specific item colors */
+.item-mini-text.event-text { background: var(--accent-color); color: white; }
+.item-mini-text.completed-task { background: var(--success-color); color: white; }
+.item-mini-text.pending-task { background: var(--warning-color); color: white; }
+.item-mini-text.overdue-task { background: var(--error-color); color: white; }
 
 
 /* Events Section (Now inside modal) */
@@ -1292,13 +1091,7 @@
 }
 
 @media (max-width: 768px) {
-    .event-date,
-    .event-date-time-block {
-        align-self: flex-start;
-        min-width: 70px;
-        padding: 0.75rem 0.625rem;
-    }
-}
+    .event-date,    .event-date-time-block {        align-self: flex-start;        min-width: 70px;        padding: 0.75rem 0.625rem;    }}
 
 .event-day {
     font-size: 1.5rem;
@@ -2029,9 +1822,7 @@
 
 
 /* No Events/Tasks States */
-.no-events,
-.no-tasks,
-.no-invitations {
+.no-events,.no-tasks,.no-invitations {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2042,25 +1833,19 @@
 }
 
 @media (max-width: 480px) {
-    .no-events,
-    .no-tasks,
-    .no-invitations {
+    .no-events,    .no-tasks,    .no-invitations {
         padding: 1.5rem 1rem;
     }
 }
 
-.no-events-icon,
-.no-tasks-icon,
-.no-invitations-icon {
+.no-events-icon,.no-tasks-icon,.no-invitations-icon {
     width: 3rem;
     height: 3rem;
     margin-bottom: 1rem;
     opacity: 0.5;
 }
 
-.no-events p,
-.no-tasks p,
-.no-invitations p {
+.no-events p,.no-tasks p,.no-invitations p {
     margin: 0 0 1rem 0;
     font-size: 0.875rem;
 }
@@ -2406,8 +2191,7 @@ input:checked+.toggle-slider:before {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    flex: 1;
-}
+    flex: 1;}
 
 .company-item-icon {
     width: 1.5rem;
@@ -3068,84 +2852,29 @@ input:checked+.toggle-slider:before {
   color: var(--primary-text);
 }
 
-.settings-form .radio-group input[type="radio"] {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-color);
-  border-radius: 50%;
-  outline: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  flex-shrink: 0;
-}
+.settings-form .radio-group input[type=\"radio\"] {  -webkit-appearance: none;  -moz-appearance: none;  appearance: none;  width: 16px;  height: 16px;  border: 2px solid var(--border-color);  border-radius: 50%;  outline: none;  cursor: pointer;  transition: all 0.2s ease;  position: relative;  flex-shrink: 0;}
 
-.settings-form .radio-group input[type="radio"]:checked {
-  border-color: var(--accent-color);
-}
+.settings-form .radio-group input[type=\"radio\"]:checked {  border-color: var(--accent-color);}
 
-.settings-form .radio-group input[type="radio"]:checked::before {
-  content: '';
-  display: block;
-  width: 8px;
-  height: 8px;
-  background-color: var(--accent-color);
-  border-radius: 50%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
+.settings-form .radio-group input[type=\"radio\"]:checked::before {  content: '';  display: block;  width: 8px;  height: 8px;  background-color: var(--accent-color);  border-radius: 50%;  position: absolute;  top: 50%;  left: 50%;  transform: translate(-50%, -50%);}
 
-.settings-form .radio-group input[type="radio"]:focus {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
+.settings-form .radio-group input[type=\"radio\"]:focus {  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);}
 
 /* Adjustments for input-wrapper in settings form */
-.settings-form .form-group .input-wrapper {
-  margin-top: 0.5rem; /* Add some space above the input field */
-}
+.settings-form .form-group .input-wrapper {  margin-top: 0.5rem; /* Add some space above the input field */}
 
-.settings-form .form-group .input-wrapper .input-icon {
-  top: 50%;
-  transform: translateY(-50%);
-}
+.settings-form .form-group .input-wrapper .input-icon {  top: 50%;  transform: translateY(-50%);}
 
-.settings-form .form-group .input-wrapper .form-input {
-  padding-left: 2.75rem;
-}
+.settings-form .form-group .input-wrapper .form-input {  padding-left: 2.75rem;}
 
-.settings-form .form-group .input-wrapper .form-textarea {
-  padding-left: 2.75rem;
-}
+.settings-form .form-group .input-wrapper .form-textarea {  padding-left: 2.75rem;}
 
-.settings-form .form-group .input-wrapper .input-icon + textarea {
-  top: 0.75rem;
-  transform: none;
-}
+.settings-form .form-group .input-wrapper .input-icon + textarea {  top: 0.75rem;  transform: none;}
 
-.settings-form .form-group .input-wrapper .input-icon + select {
-  padding-left: 2.75rem;
-}
+.settings-form .form-group .input-wrapper .input-icon + select {  padding-left: 2.75rem;}
 
-.settings-form .form-group .input-wrapper .password-toggle {
-  right: 1rem;
-}
+.settings-form .form-group .input-wrapper .password-toggle {  right: 1rem;}
 
-.settings-form .form-group .input-wrapper .form-input[type="password"] + .password-toggle + input,
-.settings-form .form-group .input-wrapper .form-input[type="text"] + .password-toggle + input {
-  padding-right: 3rem;
-}
+.settings-form .form-group .input-wrapper .form-input[type=\"password\"] + .password-toggle + input,.settings-form .form-group .input-wrapper .form-input[type=\"text\"] + .password-toggle + input {  padding-right: 3rem;}
 
-@media (max-width: 480px) {
-  .settings-form .form-group .input-wrapper .form-input[type="password"] + .password-toggle + input,
-  .settings-form .form-group .input-wrapper .form-input[type="text"] + .password-toggle + input {
-    padding-right: 2.5rem;
-  }
-  .settings-form .form-group .input-wrapper .password-toggle {
-    right: 0.75rem;
-  }
-}
+@media (max-width: 480px) {  .settings-form .form-group .input-wrapper .form-input[type=\"password\"] + .password-toggle + input,  .settings-form .form-group .input-wrapper .form-input[type=\"text\"] + .password-toggle + input {    padding-right: 2.5rem;  }  .settings-form .form-group .input-wrapper .password-toggle {    right: 0.75rem;  }}
