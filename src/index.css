@@ -10,26 +10,38 @@
   --input-border: #d1d5db;
   --button-bg: #000000;
   --button-text: #ffffff;
-  --button-hover: #374151;
+  --primary-hover: #374151; /* Renamed from --button-hover */
   --error-color: #ef4444;
   --success-color: #10b981;
+
+  /* NEW: Additional variables for Dashboard.css consistency */
+  --warning-color: #f59e0b; /* Amber/Orange */
+  --info-color: #1e90ff; /* A distinct blue for info, different from accent */
+  --text-muted: #9ca3af; /* Lighter grey for muted text */
+  --secondary-color: #6b7280; /* A neutral grey for secondary elements */
 }
 
 /* Dark Mode Overrides */
 body.dark-mode {
-  --primary-bg: #1a1a1a; /* Darker background */
-  --secondary-bg: #2d2d2d; /* Slightly lighter dark background for cards/sections */
-  --primary-text: #e0e0e0; /* Light text */
-  --secondary-text: #a0a0a0; /* Lighter secondary text */
-  --accent-color: #60a5fa; /* Lighter blue accent for dark mode */
-  --border-color: #444444; /* Darker borders */
-  --input-bg: #2d2d2d; /* Dark input background */
-  --input-border: #555555; /* Dark input border */
-  --button-bg: #e0e0e0; /* Light button background for contrast */
-  --button-text: #1a1a1a; /* Dark text on light button */
-  --button-hover: #cccccc; /* Slightly lighter hover for dark mode buttons */
-  --error-color: #ff6b6b; /* Brighter error for dark mode */
-  --success-color: #48bb78; /* Brighter success for dark mode */
+  --primary-bg: #1a1a1a;
+  --secondary-bg: #2d2d2d;
+  --primary-text: #e0e0e0;
+  --secondary-text: #a0a0a0;
+  --accent-color: #60a5fa;
+  --border-color: #444444;
+  --input-bg: #2d2d2d;
+  --input-border: #555555;
+  --button-bg: #e0e0e0;
+  --button-text: #1a1a1a;
+  --primary-hover: #cccccc; /* Renamed from --button-hover */
+  --error-color: #ff6b6b;
+  --success-color: #48bb78;
+
+  /* NEW: Dark mode overrides for additional variables */
+  --warning-color: #fbbf24;
+  --info-color: #87cefa;
+  --text-muted: #6b7280;
+  --secondary-color: #9ca3af;
 }
 
 * {
