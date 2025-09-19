@@ -7,9 +7,6 @@ from supabase import create_client, Client
 import requests
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-import atexit
 
 # Load environment variables from .env file
 load_dotenv()
@@ -28,13 +25,10 @@ if not supabase_url or not supabase_service_key:
 supabase: Client = create_client(supabase_url, supabase_service_key)
 
 SUPER_ADMIN_EMAIL = 'admin@example.com'
-BACKEND_API_KEY = os.environ.get("BACKEND_API_KEY") # Fetch backend API key
+BACKEND_API_KEY = os.environ.get("BACKEND_API_KEY") # NEW: Fetch backend API key
 
 if not BACKEND_API_KEY:
     print("WARNING: BACKEND_API_KEY is not set. Welcome email endpoint will be insecure.", file=sys.stderr)
-
-# Initialize APScheduler
-scheduler = BackgroundScheduler()
 
 def is_super_admin(email):
     return email == SUPER_ADMIN_EMAIL
@@ -50,7 +44,7 @@ def _fetch_email_settings_row():
         print(f"Error fetching email_settings row: {e}", file=sys.stderr)
         return None
 
-# Helper function to fetch email template from DB
+# NEW: Helper function to fetch email template from DB
 def _fetch_email_template(template_name):
     try:
         resp = supabase.table('email_templates').select('subject, html_content').eq('name', template_name).single().execute()
@@ -62,7 +56,7 @@ def _fetch_email_template(template_name):
         print(f"Error fetching email template '{template_name}': {e}", file=sys.stderr)
         return None
 
-# Helper function to render email templates
+# NEW: Helper function to render email templates
 def render_email_template(template_name, data):
     template_data_from_db = _fetch_email_template(template_name)
     if not template_data_from_db:
@@ -164,127 +158,6 @@ def send_email_api(recipient_email, template_name, template_data=None):
         traceback.print_exc(file=sys.stderr)
         return False, str(e)
 
-# NEW: Function to be scheduled by APScheduler
-def _send_1week_event_reminders_scheduled():
-    """
-    This function is called by the APScheduler job.
-    It performs the logic of sending 1-week event reminders.
-    """
-    print(f"Running scheduled 1-week event reminders at {datetime.now()}", file=sys.stdout)
-    try:
-        today = datetime.now().date()
-        one_week_from_now = today + timedelta(days=7)
-        one_week_from_now_str = one_week_from_now.isoformat()
-
-        # Fetch events scheduled for exactly one week from now, where reminder hasn't been sent
-        events_resp = supabase.table('events').select('*, profiles(email, name, notifications)').eq('date', one_week_from_now_str).is_('one_week_reminder_sent_at', None).execute()
-        events_to_remind = events_resp.data if hasattr(events_resp, "data") else events_resp.get("data")
-
-        if not events_to_remind:
-            print("No events found for 1-week reminder.", file=sys.stdout)
-            return {"message": "No events found for 1-week reminder."}
-
-        sent_count = 0
-        failed_sends = []
-
-        for event in events_to_remind:
-            user_profile = event.get('profiles')
-            if not user_profile:
-                print(f"Skipping event {event['id']}: User profile not found.", file=sys.stderr)
-                continue
-
-            user_email = user_profile.get('email')
-            user_name = user_profile.get('name', user_email.split('@')[0])
-            notifications = user_profile.get('notifications', {})
-
-            # Check if 1-week countdown notification is enabled for the user
-            if not notifications.get('email_1week_countdown', False):
-                print(f"Skipping event {event['id']}: 1-week reminder disabled for user {user_email}.", file=sys.stderr)
-                continue
-
-            # Calculate pending task percentage
-            event_tasks = event.get('event_tasks', [])
-            total_tasks = len(event_tasks)
-            pending_tasks = sum(1 for task in event_tasks if not task.get('completed'))
-            completed_tasks = total_tasks - pending_tasks
-            
-            task_completion_percentage = 0
-            if total_tasks > 0:
-                task_completion_percentage = round((completed_tasks / total_tasks) * 100)
-
-            frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
-
-            template_data = {
-                "user_name": user_name,
-                "event_title": event['title'],
-                "event_date": datetime.strptime(event['date'], '%Y-%m-%d').strftime('%A, %B %d, %Y'),
-                "event_time": event['time'] if event['time'] else 'All Day',
-                "event_location": event['location'],
-                "event_description": event['description'],
-                "has_tasks": total_tasks > 0,
-                "pending_tasks_count": pending_tasks,
-                "task_completion_percentage": f"{task_completion_percentage}%",
-                "frontend_url": frontend_url,
-                "current_year": datetime.now().year
-            }
-
-            success, details = send_email_api(user_email, "event_1week_reminder", template_data)
-
-            if success:
-                # Mark reminder as sent in the database
-                supabase.table('events').update({'one_week_reminder_sent_at': datetime.now().isoformat()}).eq('id', event['id']).execute()
-                print(f"Sent 1-week reminder for event '{event['title']}' to {user_email}.", file=sys.stdout)
-                sent_count += 1
-            else:
-                failed_sends.append({"event_id": event['id'], "user_email": user_email, "reason": details})
-                print(f"Failed to send 1-week reminder for event '{event['title']}' to {user_email}: {details}", file=sys.stderr)
-
-        if failed_sends:
-            return {"message": f"Sent {sent_count} reminders, {len(failed_sends)} failed.", "failed_sends": failed_sends}
-        else:
-            return {"message": f"Successfully sent {sent_count} 1-week event reminders."}
-
-    except Exception as e:
-        traceback.print_exc(file=sys.stderr)
-        return {"message": f"An unexpected error occurred while sending 1-week event reminders: {e}"}
-
-# NEW: Function to configure the APScheduler job
-def configure_scheduler_job(enabled, reminder_time_str):
-    scheduler.remove_all_jobs() # Remove existing jobs to reconfigure
-
-    if enabled:
-        try:
-            hour, minute = map(int, reminder_time_str.split(':'))
-            scheduler.add_job(
-                _send_1week_event_reminders_scheduled,
-                CronTrigger(hour=hour, minute=minute),
-                id='daily_1week_event_reminder',
-                replace_existing=True
-            )
-            print(f"Scheduler: Daily 1-week event reminder job configured for {reminder_time_str}. (UTC)", file=sys.stdout)
-        except ValueError:
-            print(f"Scheduler: Invalid reminder_time format: {reminder_time_str}. Job not scheduled.", file=sys.stderr)
-    else:
-        print("Scheduler: Daily 1-week event reminder job disabled.", file=sys.stdout)
-
-# NEW: Function to initialize and configure APScheduler
-def initialize_and_configure_scheduler():
-    print("Initializing APScheduler...", file=sys.stdout)
-    scheduler.start()
-    atexit.register(lambda: scheduler.shutdown()) # Ensure scheduler shuts down cleanly
-
-    # Load initial settings from DB and configure the job
-    settings = _fetch_email_settings_row()
-    if settings:
-        configure_scheduler_job(settings.get('scheduler_enabled', True), settings.get('reminder_time', '02:00'))
-    else:
-        # If no settings in DB, use defaults
-        configure_scheduler_job(True, '02:00')
-
-# Call the scheduler initialization function when the module is loaded.
-# This will run once per Gunicorn worker process.
-initialize_and_configure_scheduler()
-
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "ok", "message": "DayClap API is running"}), 200
@@ -301,16 +174,7 @@ def email_settings():
             settings = _fetch_email_settings_row() or {}
             maileroo_sending_key = (settings.get("maileroo_sending_key") or os.environ.get("MAILEROO_SENDING_KEY") or os.environ.get("MAILEROO_API_KEY") or "")
             mail_default_sender = (settings.get("mail_default_sender") or os.environ.get("MAIL_DEFAULT_SENDER") or "no-reply@team.dayclap.com")
-            scheduler_enabled = settings.get("scheduler_enabled", True) # NEW
-            reminder_time = settings.get("reminder_time", "02:00") # NEW
-
-            result = {
-                "id": settings.get("id"),
-                "maileroo_sending_key": maileroo_sending_key,
-                "mail_default_sender": mail_default_sender,
-                "scheduler_enabled": scheduler_enabled, # NEW
-                "reminder_time": reminder_time # NEW
-            }
+            result = {"id": settings.get("id"), "maileroo_sending_key": maileroo_sending_key, "mail_default_sender": mail_default_sender}
             return jsonify(result), 200
         except Exception as e:
             return jsonify({"message": f"Error fetching settings: {e}"}), 500
@@ -323,24 +187,16 @@ def email_settings():
                 update_payload['maileroo_sending_key'] = settings_data['maileroo_sending_key']
             if 'mail_default_sender' in settings_data:
                 update_payload['mail_default_sender'] = settings_data['mail_default_sender']
-            if 'scheduler_enabled' in settings_data: # NEW
-                update_payload['scheduler_enabled'] = settings_data['scheduler_enabled']
-            if 'reminder_time' in settings_data: # NEW
-                update_payload['reminder_time'] = settings_data['reminder_time']
             
             existing_settings = _fetch_email_settings_row()
             if not existing_settings:
                 ins_resp = supabase.table('email_settings').insert(update_payload).execute()
                 inserted = ins_resp.data[0] if hasattr(ins_resp, "data") and ins_resp.data else {}
-                # Configure scheduler immediately after insert
-                configure_scheduler_job(inserted.get('scheduler_enabled', True), inserted.get('reminder_time', '02:00'))
                 return jsonify({"message": "Settings created successfully", "settings": inserted}), 201
             else:
                 settings_id = existing_settings.get('id')
                 resp = supabase.table('email_settings').update(update_payload).eq('id', settings_id).execute()
                 updated = resp.data[0] if hasattr(resp, "data") and resp.data else {}
-                # Reconfigure scheduler immediately after update
-                configure_scheduler_job(updated.get('scheduler_enabled', True), updated.get('reminder_time', '02:00'))
                 return jsonify({"message": "Settings updated successfully", "settings": updated}), 200
         except Exception as e:
             return jsonify({"message": f"Error updating settings: {e}"}), 500
@@ -359,7 +215,11 @@ def send_test_email():
 
     try:
         frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
-        template_data = {\n            "user_name": "DayClap User",\n            "frontend_url": frontend_url,\n            "current_year": datetime.now().year\n        }
+        template_data = {
+            "user_name": "DayClap User",
+            "frontend_url": frontend_url,
+            "current_year": datetime.now().year
+        }
         
         success, details = send_email_api(recipient_email, "welcome_email", template_data)
 
@@ -406,7 +266,7 @@ def send_invitation():
     except Exception as e:
         return jsonify({"message": f"An unexpected error occurred: {e}"}), 500
 
-# Endpoint to send welcome email, called by Supabase trigger
+# NEW: Endpoint to send welcome email, called by Supabase trigger
 @app.route('/api/send-welcome-email', methods=['POST'])
 @cross_origin()
 def send_welcome_email_endpoint():
@@ -434,15 +294,15 @@ def send_welcome_email_endpoint():
         success, details = send_email_api(recipient_email, "welcome_email", template_data)
 
         if success:
-            return jsonify({"message": "Welcome email sent successfully! (via trigger)", "details": details}), 200
+            return jsonify({"message": "Welcome email sent successfully!", "details": details}), 200
         else:
-            return jsonify({"message": "Failed to send welcome email (via trigger).", "details": details}), 500
+            return jsonify({"message": "Failed to send welcome email.", "details": details}), 500
 
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
         return jsonify({"message": f"An unexpected error occurred: {e}"}), 500
 
-# API Endpoints for Email Template Management
+# NEW: API Endpoints for Email Template Management
 @app.route('/api/admin/email-templates', methods=['GET', 'POST'])
 @cross_origin() # Explicitly enable CORS for this route
 def email_templates_management():
@@ -521,78 +381,99 @@ def email_template_detail_management(template_id):
     if request.method == 'DELETE':
         try:
             resp = supabase.table('email_templates').delete().eq('id', str(template_id)).execute()
-            if not (hasattr(resp, "data") and resp.data):\
+            if not (hasattr(resp, "data") and resp.data):
                 return jsonify({"message": "Email template not found or already deleted"}), 404
             return jsonify({"message": "Email template deleted successfully"}), 204
         except Exception as e:
             return jsonify({"message": f"Error deleting email template: {e}"}), 500
 
-# NEW: Endpoint to get scheduler status
-@app.route('/api/admin/scheduler-status', methods=['GET'])
+# NEW: Endpoint for sending 1-week event reminders
+@app.route('/api/send-1week-event-reminders', methods=['POST'])
 @cross_origin()
-def get_scheduler_status():
-    user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
-        return jsonify({"message": "Unauthorized access"}), 403
+def send_1week_event_reminders():
+    # Security check: Verify API Key
+    api_key_header = request.headers.get('X-API-Key')
+    if not BACKEND_API_KEY or api_key_header != BACKEND_API_KEY:
+        print(f"Unauthorized access attempt to /api/send-1week-event-reminders. Provided key: {api_key_header}", file=sys.stderr)
+        return jsonify({"message": "Unauthorized"}), 403
 
     try:
-        job = scheduler.get_job('daily_1week_event_reminder')
-        status = {
-            "is_running": scheduler.running,
-            "job_scheduled": job is not None,
-            "next_run_time": job.next_run_time.isoformat() if job and job.next_run_time else None
-        }
-        return jsonify(status), 200
+        today = datetime.now().date()
+        one_week_from_now = today + timedelta(days=7)
+        one_week_from_now_str = one_week_from_now.isoformat()
+
+        # Fetch events scheduled for exactly one week from now, where reminder hasn't been sent
+        events_resp = supabase.table('events').select('*, profiles(email, name, notifications)').eq('date', one_week_from_now_str).is_('one_week_reminder_sent_at', None).execute()
+        events_to_remind = events_resp.data if hasattr(events_resp, "data") else events_resp.get("data")
+
+        if not events_to_remind:
+            return jsonify({"message": "No events found for 1-week reminder."}), 200
+
+        sent_count = 0
+        failed_sends = []
+
+        for event in events_to_remind:
+            user_profile = event.get('profiles')
+            if not user_profile:
+                print(f"Skipping event {event['id']}: User profile not found.", file=sys.stderr)
+                continue
+
+            user_email = user_profile.get('email')
+            user_name = user_profile.get('name', user_email.split('@')[0])
+            notifications = user_profile.get('notifications', {})
+
+            # Check if 1-week countdown notification is enabled for the user
+            if not notifications.get('email_1week_countdown', False):
+                print(f"Skipping event {event['id']}: 1-week reminder disabled for user {user_email}.", file=sys.stderr)
+                continue
+
+            # Calculate pending task percentage
+            event_tasks = event.get('event_tasks', [])
+            total_tasks = len(event_tasks)
+            pending_tasks = sum(1 for task in event_tasks if not task.get('completed'))
+            completed_tasks = total_tasks - pending_tasks
+            
+            task_completion_percentage = 0
+            if total_tasks > 0:
+                task_completion_percentage = round((completed_tasks / total_tasks) * 100)
+
+            frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
+
+            template_data = {
+                "user_name": user_name,
+                "event_title": event['title'],
+                "event_date": datetime.strptime(event['date'], '%Y-%m-%d').strftime('%A, %B %d, %Y'),
+                "event_time": event['time'] if event['time'] else 'All Day',
+                "event_location": event['location'],
+                "event_description": event['description'],
+                "has_tasks": total_tasks > 0,
+                "pending_tasks_count": pending_tasks,
+                "task_completion_percentage": f"{task_completion_percentage}%",
+                "frontend_url": frontend_url,
+                "current_year": datetime.now().year
+            }
+
+            success, details = send_email_api(user_email, "event_1week_reminder", template_data)
+
+            if success:
+                sent_count += 1
+                # Mark reminder as sent in the database
+                supabase.table('events').update({'one_week_reminder_sent_at': datetime.now().isoformat()}).eq('id', event['id']).execute()
+                print(f"Sent 1-week reminder for event '{event['title']}' to {user_email}.", file=sys.stdout)
+            else:
+                failed_sends.append({"event_id": event['id'], "user_email": user_email, "reason": details})
+                print(f"Failed to send 1-week reminder for event '{event['title']}' to {user_email}: {details}", file=sys.stderr)
+
+        if failed_sends:
+            return jsonify({"message": f"Sent {sent_count} reminders, {len(failed_sends)} failed.", "failed_sends": failed_sends}), 202
+        else:
+            return jsonify({"message": f"Successfully sent {sent_count} 1-week event reminders."}), 200
+
     except Exception as e:
-        print(f"Error getting scheduler status: {e}", file=sys.stderr)
-        return jsonify({"message": f"Error getting scheduler status: {e}"}), 500
-
-# NEW: Endpoint to control scheduler (start/stop)
-@app.route('/api/admin/scheduler-control', methods=['POST'])
-@cross_origin()
-def control_scheduler():
-    user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
-        return jsonify({"message": "Unauthorized access"}), 403
-
-    data = request.get_json() or {}
-    action = data.get('action') # 'start' or 'stop'
-
-    if action == 'start':
-        if not scheduler.running:
-            scheduler.start()
-            print("Scheduler started via API.", file=sys.stdout)
-            return jsonify({"message": "Scheduler started."}), 200
-        else:
-            return jsonify({"message": "Scheduler is already running."}), 200
-    elif action == 'stop':
-        if scheduler.running:
-            scheduler.shutdown(wait=False) # Don't wait for running jobs
-            print("Scheduler stopped via API.", file=sys.stdout)
-            return jsonify({"message": "Scheduler stopped."}), 200
-        else:
-            return jsonify({"message": "Scheduler is already stopped."}), 200
-    else:
-        return jsonify({"message": "Invalid action. Must be 'start' or 'stop'."}), 400
-
-# This endpoint is no longer needed as the function is called internally by APScheduler
-# @app.route('/api/send-1week-event-reminders', methods=['POST'])
-# @cross_origin()
-# def send_1week_event_reminders():
-#     # Security check: Verify API Key
-#     api_key_header = request.headers.get('X-API-Key')
-#     if not BACKEND_API_KEY or api_key_header != BACKEND_API_KEY:
-#         print(f"Unauthorized access attempt to /api/send-1week-event-reminders. Provided key: {api_key_header}", file=sys.stderr)
-#         return jsonify({"message": "Unauthorized"}), 403
-#     
-#     # Call the internal scheduled function
-#     result = _send_1week_event_reminders_scheduled()
-#     return jsonify(result), 200
+        traceback.print_exc(file=sys.stderr)
+        return jsonify({"message": f"An unexpected error occurred while sending 1-week event reminders: {e}"}), 500
 
 
 if __name__ == '__main__':
-    # When running directly (e.g., `python app.py`), the scheduler is already initialized
-    # by the call to `initialize_and_configure_scheduler()` above.
-    # We just need to run the Flask app.
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, port=port)
