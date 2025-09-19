@@ -2,7 +2,7 @@
     min-height: 100vh;
     background: var(--primary-bg);
     color: var(--primary-text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    font-family: -apple-system, BlinkMacMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -604,6 +604,17 @@
 
 .stat-icon.expenses {
     background: var(--secondary-color);
+}
+
+/* NEW: Make expenses card span two columns */
+.stat-card.expenses-card {
+    grid-column: span 2;
+}
+
+@media (max-width: 480px) {
+    .stat-card.expenses-card {
+        grid-column: span 1; /* Revert to single column on very small screens */
+    }
 }
 
 .stat-content h3 {
@@ -3044,7 +3055,7 @@ input:checked+.toggle-slider:before {
   color: var(--primary-text);
 }
 
-.settings-form .radio-group input[type=\"radio\"] {
+.settings-form .radio-group input[type="radio"] {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
@@ -3059,11 +3070,11 @@ input:checked+.toggle-slider:before {
   flex-shrink: 0;
 }
 
-.settings-form .radio-group input[type=\"radio\"]:checked {
+.settings-form .radio-group input[type="radio"]:checked {
   border-color: var(--accent-color);
 }
 
-.settings-form .radio-group input[type=\"radio\"]:checked::before {
+.settings-form .radio-group input[type="radio"]:checked::before {
   content: '';
   display: block;
   width: 8px;
@@ -3076,7 +3087,7 @@ input:checked+.toggle-slider:before {
   transform: translate(-50%, -50%);
 }
 
-.settings-form .radio-group input[type=\"radio\"]:focus {
+.settings-form .radio-group input[type="radio"]:focus {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -3111,14 +3122,14 @@ input:checked+.toggle-slider:before {
   right: 1rem;
 }
 
-.settings-form .form-group .input-wrapper .form-input[type=\"password\"] + .password-toggle + input,
-.settings-form .form-group .input-wrapper .form-input[type=\"text\"] + .password-toggle + input {
+.settings-form .form-group .input-wrapper .form-input[type="password"] + .password-toggle + input,
+.settings-form .form-group .input-wrapper .form-input[type="text"] + .password-toggle + input {
   padding-right: 3rem;
 }
 
 @media (max-width: 480px) {
-  .settings-form .form-group .input-wrapper .form-input[type=\"password\"] + .password-toggle + input,
-  .settings-form .form-group .input-wrapper .form-input[type=\"text\"] + .password-toggle + input {
+  .settings-form .form-group .input-wrapper .form-input[type="password"] + .password-toggle + input,
+  .settings-form .form-group .input-wrapper .form-input[type="text"] + .password-toggle + input {
     padding-right: 2.5rem;
   }
   .settings-form .form-group .input-wrapper .password-toggle {
