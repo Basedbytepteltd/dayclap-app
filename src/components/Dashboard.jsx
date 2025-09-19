@@ -224,6 +224,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const [invitationsActiveTab, setInvitationsActiveTab] = useState('received');
 
+  // NEW: Calendar View State
+  const [calendarView, setCalendarView] = useState('month'); // 'month', 'week', 'day'
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(event.target)) {
@@ -293,7 +296,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return {
         ...event,
         date: localDate,
-        eventTasks: event.event_tasks || []
+        eventTasks: (event.event_tasks || []).map(task => ({
+          ...task,
+          // Ensure expenses is always a number or null after fetching from JSONB
+          expenses: task.expenses !== null && task.expenses !== undefined ? Number(task.expenses) : null
+        }))
       };
     });
     setEvents(fetchedEvents);
@@ -322,6 +329,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return {
         ...task,
         dueDate: localDate,
+        // Normalize general task expenses when fetching (so strings parse reliably).
+        expenses: task.expenses !== null && task.expenses !== undefined ? Number(task.expenses) : null,
       };
     });
     setTasks(fetchedTasks);
@@ -715,47 +724,91 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return;
     }
     if (!window.confirm('Are you sure you want to delete this event?')) return;
-    const { error } = await supabase.from('events').delete().eq('id', eventId);
-    if (error) {
-      alert('Failed to delete event: ' + error.message);
-    } else {
-      setEvents(prev => prev.filter(event => event.id !== eventId));
-      updateLastActivity();
+
+    // Optimistic UI update
+    const previousEvents = events;
+    setEvents(prev => prev.filter(event => event.id !== eventId));
+
+    try {
+      const { error } = await supabase.from('events').delete().eq('id', eventId);
+      if (error) {
+        console.error('Failed to delete event:', error.message);
+        alert('Failed to delete event: ' + error.message);
+        // Revert UI on error
+        setEvents(previousEvents);
+      } else {
+        updateLastActivity();
+      }
+    } catch (networkError) {
+      console.error('Network error during event deletion:', networkError);
+      alert('Network error: Could not delete event. Please check your connection.');
+      // Revert UI on network error
+      setEvents(previousEvents);
     }
   };
 
   const handleDateClick = (date) => {
-    if (date) {
-      setSelectedDate(date);
-      setSelectedDateForModal(date);
+    if (!date) return; // Handle null dates in month view
+    setSelectedDate(date);
+    setSelectedDateForModal(date);
+    // Only open modal if not in 'day' view, as 'day' view shows events directly
+    if (calendarView !== 'day') {
       setIsDateModalOpen(true);
-      updateLastActivity();
     }
+    updateLastActivity();
   };
 
-  const navigateMonth = (direction) => {
+  // Renamed and modified navigation function
+  const navigateCalendar = (direction) => {
     setCurrentDate(prev => {
       const newDate = new Date(prev);
-      newDate.setMonth(newDate.getMonth() + direction);
+      if (calendarView === 'month') {
+        newDate.setMonth(newDate.getMonth() + direction);
+      } else if (calendarView === 'week') {
+        newDate.setDate(newDate.getDate() + direction * 7);
+      } else if (calendarView === 'day') {
+        newDate.setDate(newDate.getDate() + direction);
+      }
       return newDate;
     });
     updateLastActivity();
   };
 
-  const getCalendarDays = (date) => {
+  // Modified getCalendarDays to be view-aware
+  const getCalendarDaysForView = (date, view) => {
     const year = date.getFullYear();
     const month = date.getMonth();
-    const days = [];
+    const day = date.getDate();
 
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(null);
+    if (view === 'month') {
+      const days = [];
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 for Sunday, 1 for Monday
+
+      // Fill leading empty days
+      for (let i = 0; i < firstDayOfMonth; i++) {
+        days.push(null);
+      }
+      // Fill days of the month
+      for (let i = 1; i <= daysInMonth; i++) {
+        days.push(new Date(year, month, i));
+      }
+      return days;
+    } else if (view === 'week') {
+      const days = [];
+      const startOfWeek = new Date(year, month, day);
+      startOfWeek.setDate(day - startOfWeek.getDay()); // Go to Sunday of the current week
+
+      for (let i = 0; i < 7; i++) {
+        const currentDay = new Date(startOfWeek);
+        currentDay.setDate(startOfWeek.getDate() + i);
+        days.push(currentDay);
+      }
+      return days;
+    } else if (view === 'day') {
+      return [new Date(year, month, day)];
     }
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(new Date(year, month, i));
-    }
-    return days;
+    return [];
   };
 
   const isToday = (date) => {
@@ -923,7 +976,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         const upcomingGeneralTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate) >= today);
         const upcomingEventTasks = events
           .filter(e => new Date(e.date) >= today)
-          .flatMap(e => (e.eventTasks || []).map(t => ({ ...t, dueDate: t.dueDate ? new Date(t.dueDate) : null })))
+          .flatMap(e => (e.eventTasks || []).map(t => ({ ...t, dueDate: t.dueDate ? new Date(t.dueDate) : null, expenses: t.expenses }))) // Explicitly pass expenses
           .filter(t => t.dueDate && t.dueDate >= today);
         allRelevantTasks = [...upcomingGeneralTasks, ...upcomingEventTasks];
       } else {
@@ -931,12 +984,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         const allEventTasks = events.flatMap(event =>
           (event.eventTasks || []).map(task => ({
             ...task,
-            dueDate: task.dueDate ? new Date(task.dueDate) : null
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+            expenses: task.expenses // Explicitly pass expenses
           }))
         );
         const filteredEventTasks = getTasksInDateRange(allEventTasks, startDate, endDate);
         allRelevantTasks = [...filteredGeneralTasks, ...filteredEventTasks];
       }
+
       const completedTasksCount = allRelevantTasks.filter(t => t.completed).length;
       const pendingTasks = allRelevantTasks.filter(t => !t.completed);
       const overdueTasksCount = pendingTasks.filter(t => isTaskOverdue(t)).length;
@@ -948,15 +1003,23 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       const pendingTasksPercentage = totalTasksCount > 0
         ? Math.round((pendingTasksCount / totalTasksCount) * 100)
         : 0;
-      const totalExpenses = allRelevantTasks.reduce((sum, task) => sum + (Number(task.expenses) || 0), 0);
+
+      // Sum ALL expenses (general tasks + all event tasks), independent of date filter
+      const totalExpensesAllTime =
+        tasks.reduce((sum, t) => sum + (Number(t.expenses) || 0), 0) +
+        events.reduce((sumE, e) => {
+          const list = e.eventTasks || [];
+          return sumE + list.reduce((s, t) => s + (Number(t.expenses) || 0), 0);
+        }, 0);
+
       setOverviewStats({
         totalEvents: filteredEventsForStats.length,
         completedTasks: completedTasksCount,
         pendingTasks: pendingTasksCount,
         overdueTasks: overdueTasksCount,
-        taskCompletionPercentage: taskCompletionPercentage,
-        pendingTasksPercentage: pendingTasksPercentage,
-        totalExpenses: totalExpenses,
+        taskCompletionPercentage,
+        pendingTasksPercentage,
+        totalExpenses: totalExpensesAllTime,
       });
     };
     calculateOverviewStats();
@@ -1303,7 +1366,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const { filteredFavorites, filteredNonFavorites } = getFilteredCurrencyOptions(currencySearchTerm);
 
-  const calendarDays = getCalendarDays(currentDate);
+  const calendarDays = getCalendarDaysForView(currentDate, calendarView); // Use the view-aware function
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const pendingInvitationsCount = invitations.filter(inv => inv.status === 'pending' && inv.recipient_email === user.email).length;
@@ -1671,7 +1734,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 Due: {task.dueDate.toLocaleDateString()}
                               </span>
                             )}
-                            {task.expenses && (
+                            {task.expenses !== null && task.expenses !== undefined && (
                               <span className="task-expenses">
                                 <DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}
                               </span>
@@ -1710,7 +1773,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
                       <div className="stats-grid">
                         <div className="stat-card">
-                          <div className="stat-icon"><CalendarDays size={24} /></div>
+                          <div className="stat-icon total-events"><CalendarDays size={24} /></div>
                           <div className="stat-content"><h3>{overviewStats.totalEvents}</h3><p>Total Events</p></div>
                         </div>
                         <div className="stat-card">
@@ -1798,31 +1861,142 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     <div className="calendar-content">
                       <div className="calendar-section">
                         <div className="calendar-header">
-                          <button className="nav-arrow" onClick={() => navigateMonth(-1)}>
+                          <button className="nav-arrow" onClick={() => navigateCalendar(-1)}>
                             <ChevronLeft />
                           </button>
                           <h3 className="calendar-title">
-                            {currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+                            {calendarView === 'month' && currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+                            {calendarView === 'week' && `${currentDate.toLocaleString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 6).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                            {calendarView === 'day' && currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                           </h3>
-                          <button className="nav-arrow" onClick={() => navigateMonth(1)}>
+                          <button className="nav-arrow" onClick={() => navigateCalendar(1)}>
                             <ChevronRight />
                           </button>
                         </div>
 
-                        <div className="calendar-grid month-view">
-                          {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
-                          {calendarDays.map((date, index) => (
-                            <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
-                              {date && <span className="day-number">{date.getDate()}</span>}
-                              {date && getCalendarItemsForDate(date).slice(0, 2).map(item => (
-                                <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
-                              ))}
-                              {date && getCalendarItemCountForDate(date) > 2 && (
-                                <div className="item-indicators"><span className="item-count">+{getCalendarItemCountForDate(date) - 2}</span></div>
-                              )}
-                            </div>
-                          ))}
+                        {/* NEW: Calendar View Tabs */}
+                        <div className="calendar-view-tabs">
+                          <button
+                            className={`btn btn-small ${calendarView === 'month' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setCalendarView('month')}
+                          >
+                            Monthly
+                          </button>
+                          <button
+                            className={`btn btn-small ${calendarView === 'week' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setCalendarView('week')}
+                          >
+                            Weekly
+                          </button>
+                          <button
+                            className={`btn btn-small ${calendarView === 'day' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setCalendarView('day')}
+                          >
+                            Daily
+                          </button>
                         </div>
+
+                        {calendarView === 'month' && (
+                          <div className="calendar-grid month-view">
+                            {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
+                            {calendarDays.map((date, index) => (
+                              <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
+                                {date && <span className="day-number">{date.getDate()}</span>}
+                                {date && getCalendarItemsForDate(date).slice(0, 2).map(item => (
+                                  <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
+                                ))}
+                                {date && getCalendarItemCountForDate(date) > 2 && (
+                                  <div className="item-indicators"><span className="item-count">+{getCalendarItemCountForDate(date) - 2}</span></div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {calendarView === 'week' && (
+                          <div className="calendar-week-view">
+                            <div className="week-day-headers">
+                              {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
+                            </div>
+                            <div className="week-days-grid">
+                              {calendarDays.map((date, index) => (
+                                <div key={index} className={`calendar-day week-day ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
+                                  <span className="day-number">{date.getDate()}</span>
+                                  <div className="day-events-list">
+                                    {getCalendarItemsForDate(date).map(item => (
+                                      <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {calendarView === 'day' && (
+                          <div className="calendar-day-view">
+                            {calendarDays.map((date, index) => ( // calendarDays will only contain one date for 'day' view
+                              <div key={index} className={`calendar-day-single ${isToday(date) ? 'today' : ''}`}>
+                                <h4 className="single-day-date">{date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
+                                <div className="day-events-full-list">
+                                  {getCalendarItemsForDate(date).length > 0 ? (
+                                    getCalendarItemsForDate(date).map(item => (
+                                      item.type === 'event' ? (
+                                        <div key={item.id} className="event-card detailed">
+                                          <div className="event-date-time-block">
+                                            <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                            <span className="event-time-display">{item.time || 'All Day'}</span>
+                                          </div>
+                                          <div className="event-details">
+                                            <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
+                                            {item.description && <p className="event-description">{item.description}</p>}
+                                            {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
+                                            {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
+                                          </div>
+                                          <div className="event-actions">
+                                            <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
+                                            <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
+                                          <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
+                                          <div className="task-content">
+                                            <div className="task-header">
+                                              <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
+                                              <div className="task-meta">
+                                                {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
+                                                {item.category && <span className="category-badge">{item.category}</span>}
+                                              </div>
+                                            </div>
+                                            {item.description && <p className="task-description">{item.description}</p>}
+                                            <div className="task-footer">
+                                              {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
+                                              {item.expenses !== null && item.expenses !== undefined && (
+                                                <span className="task-expenses">
+                                                  <DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}
+                                                </span>
+                                              )}
+                                              <div className="task-actions">
+                                                <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
+                                                <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )
+                                    ))
+                                  ) : (
+                                    <div className="no-events">
+                                      <CalendarDays className="no-events-icon" />
+                                      <p>No events or tasks scheduled for this day.</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1878,7 +2052,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         </div>
                         <div className="stat-card">
                           <div className="stat-icon completed"><CheckSquare size={24} /></div>
-                          <div className="stat-content"><h3>{taskTabStats.completed}</h3><p>Completed</p></div>
+                          <div className="stat-content"><h3>{taskTabStats.completed}</h3><p>Completed Tasks</p></div>
                         </div>
                         <div className="stat-card">
                           <div className="stat-icon pending"><Flag size={24} /></div>
@@ -1944,7 +2118,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                         {task.description && <p className="task-description">{task.description}</p>}
                                         <div className="task-footer">
                                           {task.dueDate && (<span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}>Due: {task.dueDate.toLocaleDateString()}</span>)}
-                                          {task.expenses && (<span className="task-expenses"><DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}</span>)}
+                                          {task.expenses !== null && task.expenses !== undefined && (
+                                            <span className="task-expenses">
+                                              <DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}
+                                            </span>
+                                          )}
                                           <div className="task-actions">
                                             <button className="btn-icon-small edit" onClick={() => { if (task.type === 'general') { handleEditGeneralTask(task.id); } else { const parentEvent = events.find(e => e.id === task.parentEvent.id); if (parentEvent) handleEditEvent(parentEvent); } }} title={task.type === 'event' ? 'Edit Parent Event' : 'Edit Task'}><Edit size={16} /></button>
                                             <button className="btn-icon-small delete" onClick={() => task.type === 'general' && handleDeleteGeneralTask(task.id)} title={task.type === 'event' ? 'Delete from event view' : 'Delete Task'} disabled={task.type === 'event'}><Trash2 size={16} /></button>
@@ -2349,8 +2527,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                   })
                                 ) : (
                                   <p className="no-data-message">No team members found for this company.</p>
-                                )}
-                              </div>
+                                )}\n                              </div>
                             ) : (
                               <div className="no-companies-message">
                                 <Building2 className="no-companies-icon" />
@@ -2488,13 +2665,17 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
                             <div className="task-meta">
                               {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
-                              {item.category && <span className="category-badge\">{item.category}</span>}
+                              {item.category && <span className="category-badge">{item.category}</span>}
                             </div>
                           </div>
                           {item.description && <p className="task-description">{item.description}</p>}
                           <div className="task-footer">
                             {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
-                            {item.expenses && (<span className="task-expenses"><DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}</span>)}
+                            {item.expenses !== null && item.expenses !== undefined && (
+                              <span className="task-expenses">
+                                <DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}
+                              </span>
+                            )}
                             <div className="task-actions">
                               <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
                               <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>

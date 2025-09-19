@@ -10,7 +10,7 @@
   font-size: 2rem;
   font-weight: 700;
   color: var(--primary-text);
-  \
+  
  margin-bottom: 0.5rem;
 }
 
@@ -171,7 +171,7 @@
 
 /* Admin Modal (reusing existing modal styles but with specific class) */
 .admin-modal {
-  \
+  
  background-color: var(--primary-bg);
   border-radius: 0.75rem;
   width: 100%;
