@@ -226,6 +226,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   // NEW: State for invitations sub-tab
   const [invitationsActiveTab, setInvitationsActiveTab] = useState('received'); // 'received' or 'sent'
 
+  // NEW: State for calendar view filter
+  const [calendarView, setCalendarView] = useState('month'); // 'month', 'week', 'day'
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(event.target)) {
@@ -244,12 +247,19 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   useEffect(() => {
     const determineVisualTheme = () => {
+      document.body.classList.remove('dark-mode'); // Always remove first
       if (settingsForm.theme === 'dark') {
+        document.body.classList.add('dark-mode');
         setCurrentVisualTheme('dark');
       } else if (settingsForm.theme === 'light') {
         setCurrentVisualTheme('light');
-      } else {
-        setCurrentVisualTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      } else { // System theme
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.body.classList.add('dark-mode');
+          setCurrentVisualTheme('dark');
+        } else {
+          setCurrentVisualTheme('light');
+        }
       }
     };
     determineVisualTheme();
@@ -260,7 +270,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       }
     };
     mediaQuery.addEventListener('change', handleSystemThemeChange);
-    return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+      document.body.classList.remove('dark-mode'); // Clean up on unmount
+    };
   }, [settingsForm.theme]);
 
   const currentCompany = user.companies?.find(company => company.id === user.currentCompanyId);
@@ -454,19 +467,19 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     }
     await _fetchInvitations();
     updateLastActivity();
-  }
+  };
 
   const handleAddCompany = () => {
     setEditingCompany(null);
     setCompanyForm({ name: '' });
     setShowCompanyModal(true);
-  }
+  };
 
   const handleEditCompany = (company) => {
     setEditingCompany(company);
     setCompanyForm({ name: company.name });
     setShowCompanyModal(true);
-  }
+  };
 
   const handleDeleteCompany = (companyId) => {
     if (!window.confirm('Are you sure you want to delete this company?')) return;
@@ -478,7 +491,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const updatedUser = { ...user, companies: updatedCompanies, currentCompanyId: newCurrentCompanyId };
     onUserUpdate(updatedUser);
     updateLastActivity();
-  }
+  };
 
   const handleCompanyFormSubmit = (e) => {
     e.preventDefault();
@@ -500,7 +513,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     onUserUpdate({ ...user, companies: updatedCompanies, currentCompanyId: newCurrentCompanyId });
     setShowCompanyModal(false);
     updateLastActivity();
-  }
+  };
 
   const handleInviteFormSubmit = async (e) => {
     e.preventDefault();
@@ -592,7 +605,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     setShowEventModal(false);
     setEventForm({ title: '', date: new Date(), time: '', description: '', location: '', eventTasks: [] });
     updateLastActivity();
-  }
+  };
 
   const handleProfileFormSubmit = async (e) => {
     e.preventDefault();
@@ -641,7 +654,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       onUserUpdate(updatedUser); // Pass the fully updated user object
       alert('Profile updated successfully!');
     }
-  }
+  };
 
   const handleChangePasswordClick = () => {
     alert('Password change functionality is not yet fully implemented.');
@@ -661,7 +674,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       onUserUpdate({ ...user, ...settingsForm });
       alert('Settings updated successfully!');
     }
-  }
+  };
 
   const handleThemeToggle = async () => {
     const newTheme = currentVisualTheme === 'light' ? 'dark' : 'light';
@@ -685,7 +698,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
     setShowEventModal(true);
     updateLastActivity();
-  }
+  };
 
   const handleAddEventFromModal = (dateToPreselect) => {
     setIsDateModalOpen(false);
@@ -702,7 +715,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
     setShowEventModal(true);
     updateLastActivity();
-  }
+  };
 
   const handleDeleteEvent = async (eventId) => {
     if (!currentCompany?.id) { // Added check
@@ -717,7 +730,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       setEvents(prev => prev.filter(event => event.id !== eventId));
       updateLastActivity();
     }
-  }
+  };
 
   const handleDateClick = (date) => {
     if (date) {
@@ -726,7 +739,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       setIsDateModalOpen(true);
       updateLastActivity();
     }
-  }
+  };
 
   const navigateMonth = (direction) => {
     setCurrentDate(prev => {
@@ -735,16 +748,54 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return newDate;
     });
     updateLastActivity();
-  }
+  };
 
-  const getDaysInMonth = (date) => {
+  const navigateWeek = (direction) => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + (direction * 7));
+      return newDate;
+    });
+    updateLastActivity();
+  };
+
+  const navigateDay = (direction) => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + direction);
+      return newDate;
+    });
+    updateLastActivity();
+  };
+
+  // NEW: Refactored function to get days based on view
+  const getCalendarDays = (date, view) => {
     const year = date.getFullYear();
     const month = date.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    const days = Array(firstDayOfMonth).fill(null);
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(new Date(year, month, i));
+    const day = date.getDate();
+    const days = [];
+
+    if (view === 'month') {
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 for Sunday, 1 for Monday, etc.
+      // Fill leading empty days
+      for (let i = 0; i < firstDayOfMonth; i++) {
+        days.push(null);
+      }
+      // Fill days of the month
+      for (let i = 1; i <= daysInMonth; i++) {
+        days.push(new Date(year, month, i));
+      }
+    } else if (view === 'week') {
+      const startOfWeek = new Date(date);
+      startOfWeek.setDate(day - date.getDay()); // Go to Sunday of the current week
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        days.push(d);
+      }
+    } else if (view === 'day') {
+      days.push(new Date(year, month, day));
     }
     return days;
   };
@@ -1294,7 +1345,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const { filteredFavorites, filteredNonFavorites } = getFilteredCurrencyOptions(currencySearchTerm);
 
-  const daysInMonth = getDaysInMonth(currentDate);
+  const calendarDays = getCalendarDays(currentDate, calendarView); // Use the new function
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const pendingInvitationsCount = invitations.filter(inv => inv.status === 'pending' && inv.recipient_email === user.email).length;
@@ -1324,7 +1375,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const total = allTasks.length;
     const completed = allTasks.filter(t => t.completed).length;
     const pending = allTasks.filter(t => !t.completed && !isTaskOverdue(t)).length;
-    const overdue = allTasks.filter(t => isTaskOverdue(t)).length;
+    const overdue = allTasks.filter(t => t.completed).length;
     const completedPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     const pendingPercentage = total > 0 ? Math.round((pending / total) * 100) : 0;
     return {
@@ -1451,7 +1502,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             </button>
                           ))
                         ) : (
-                          <p className="no-companies-message" style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No companies yet.</p>
+                          <p className="no-companies-message" style={{ padding: '1rem', textAlign: 'center', color: 'var(--secondary-text)' }}>No companies yet.</p>
                         )}
                         <div className="company-divider"></div>
                         <button className="company-option add-company" onClick={() => { handleAddCompany(); setShowCompanyDropdown(false); }}>
@@ -1481,7 +1532,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       <p className="notification-category-title">Upcoming Events Today ({upcomingEventsTodayCount})</p>
                       {upcomingEventsToday.map(event => (
                         <div key={event.id} className="notification-item">
-                          <CalendarDays size={18} color={currentVisualTheme === 'dark' ? '#60a5fa' : '#3b82f6'} />
+                          <CalendarDays size={18} color={currentVisualTheme === 'dark' ? 'var(--accent-color)' : 'var(--accent-color)'} />
                           <div className="notification-details">
                             <p className="notification-title">{event.title}</p>
                             <p className="notification-meta">Time: {event.time || 'All Day'}</p>
@@ -1526,7 +1577,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       <p className="notification-category-title" style={{ marginTop: '1rem' }}>Overdue Tasks ({overdueTasksCount})</p>
                       {tasks.filter(task => isTaskOverdue(task)).map(task => (
                         <div key={task.id} className="notification-item">
-                          <CheckSquare size={18} color="#ef4444" />
+                          <CheckSquare size={18} color="var(--error-color)" /> {/* UPDATED: Using CSS variable */}
                           <div className="notification-details">
                             <p className="notification-title">{task.title}</p>
                             <p className="notification-meta">Due: {task.dueDate?.toLocaleDateString()}</p>
@@ -1683,7 +1734,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
             </div>
           ) : (
             <>
-              {!currentCompany?.id && user.account_type === 'business' ? (
+              {!currentCompany?.id ? (
                 <div className="no-companies-message">
                   <Building2 className="no-companies-icon" />
                   <h4>No Company Selected</h4>
@@ -1789,24 +1840,58 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     <div className="calendar-content">
                       <div className="calendar-section">
                         <div className="calendar-header">
-                          <button className="nav-arrow" onClick={() => navigateMonth(-1)}><ChevronLeft /></button>
-                          <h3 className="calendar-title">{currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</h3>
-                          <button className="nav-arrow" onClick={() => navigateMonth(1)}><ChevronRight /></button>
+                          <button className="nav-arrow" onClick={() => calendarView === 'month' ? navigateMonth(-1) : (calendarView === 'week' ? navigateWeek(-1) : navigateDay(-1))}>
+                            <ChevronLeft />
+                          </button>
+                          <h3 className="calendar-title">
+                            {calendarView === 'month' && currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+                            {calendarView === 'week' && `${currentDate.toLocaleString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 6 - currentDate.getDay()).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                            {calendarView === 'day' && currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                          </h3>
+                          <button className="nav-arrow" onClick={() => calendarView === 'month' ? navigateMonth(1) : (calendarView === 'week' ? navigateWeek(1) : navigateDay(1))}>
+                            <ChevronRight />
+                          </button>
+                          <div className="calendar-view-toggle">
+                            <button className={`view-btn ${calendarView === 'month' ? 'active' : ''}`} onClick={() => setCalendarView('month')}>Month</button>
+                            <button className={`view-btn ${calendarView === 'week' ? 'active' : ''}`} onClick={() => setCalendarView('week')}>Week</button>
+                            <button className={`view-btn ${calendarView === 'day' ? 'active' : ''}`} onClick={() => setCalendarView('day')}>Day</button>
+                          </div>
                         </div>
-                        <div className="calendar-grid">
-                          {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
-                          {daysInMonth.map((date, index) => (
-                            <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
-                              {date && <span className="day-number">{date.getDate()}</span>}
-                              {date && getCalendarItemsForDate(date).slice(0, 2).map(item => (
-                                <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
-                              ))}
-                              {date && getCalendarItemCountForDate(date) > 2 && (
-                                <div className="item-indicators"><span className="item-count">+{getCalendarItemCountForDate(date) - 2}</span></div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                        
+                        {calendarView === 'month' && (
+                          <div className="calendar-grid month-view">
+                            {daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
+                            {calendarDays.map((date, index) => (
+                              <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
+                                {date && <span className="day-number">{date.getDate()}</span>}
+                                {date && getCalendarItemsForDate(date).slice(0, 2).map(item => (
+                                  <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
+                                ))}
+                                {date && getCalendarItemCountForDate(date) > 2 && (
+                                  <div className="item-indicators"><span className="item-count">+{getCalendarItemCountForDate(date) - 2}</span></div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {(calendarView === 'week' || calendarView === 'day') && ( 
+                          <div className={`calendar-grid ${calendarView}-view`}>
+                            {calendarView === 'week' && daysOfWeek.map(day => (<div key={day} className="day-header">{day}</div>))}
+                            {calendarDays.map((date, index) => (
+                              <div key={index} className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasCalendarItem(date) ? 'has-item' : ''}`} onClick={() => date && handleDateClick(date)}>
+                                {date && <span className="day-number">{date.getDate()}</span>}
+                                {date && getCalendarItemsForDate(date).length > 0 ? (
+                                  getCalendarItemsForDate(date).map(item => (
+                                    <span key={item.id} className={`item-mini-text ${item.type === 'task' ? (item.completed ? 'completed-task' : (item.isOverdue ? 'overdue-task' : 'pending-task')) : 'event-text'}`}>{item.title}</span>
+                                  ))
+                                ) : (
+                                  date && <span className="no-items-message">No items</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -2068,7 +2153,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                           <div className="no-companies-message">
                             <Building2 className="no-companies-icon" />
                             <h4>No Company Selected</h4>
-                            <p>Select or create a company from the dropdown above to manage its team members and invitations.</p>
+                            <p>Please select a company from the main dashboard dropdown to manage its team members and invitations.</p>
                             <button className="btn btn-primary" onClick={handleAddCompany}><Plus size={16} /> Create Company</button>
                           </div>
                         )}
@@ -2314,7 +2399,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                     return (
                                       <div key={member.id} className="team-member-item">
                                         <div className="team-member-info">
-                                          <div className="team-member-avatar">{member.name?.charAt(0).toUpperCase() || member.email?.charAt(0).toUpperCase()}</div>
+                                          <div className="team-member-avatar">{(member.name?.charAt(0).toUpperCase() || member.email?.charAt(0).toUpperCase())}</div>
                                           <div>
                                             <p className="team-member-name">{member.name || member.email}</p>
                                             <p className="team-member-email">{member.email}</p>
