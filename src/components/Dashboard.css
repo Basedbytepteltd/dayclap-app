@@ -1289,14 +1289,7 @@
 }
 
 @media (max-width: 768px) {
-
-    .event-date,
-    .event-date-time-block {
-        align-self: flex-start;
-        min-width: 70px;
-        padding: 0.75rem 0.625rem;
-    }
-}
+    .event-date,    .event-date-time-block {        align-self: flex-start;        min-width: 70px;        padding: 0.75rem 0.625rem;    }}
 
 .event-day {
     font-size: 1.5rem;
@@ -2027,9 +2020,7 @@
 
 
 /* No Events/Tasks States */
-.no-events,
-.no-tasks,
-.no-invitations {
+.no-events,.no-tasks,.no-invitations {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2040,25 +2031,19 @@
 }
 
 @media (max-width: 480px) {
-    .no-events,
-    .no-tasks,
-    .no-invitations {
+    .no-events,    .no-tasks,    .no-invitations {
         padding: 1.5rem 1rem;
     }
 }
 
-.no-events-icon,
-.no-tasks-icon,
-.no-invitations-icon {
+.no-events-icon,.no-tasks-icon,.no-invitations-icon {
     width: 3rem;
     height: 3rem;
     margin-bottom: 1rem;
     opacity: 0.5;
 }
 
-.no-events p,
-.no-tasks p,
-.no-invitations p {
+.no-events p,.no-tasks p,.no-invitations p {
     margin: 0 0 1rem 0;
     font-size: 0.875rem;
 }
@@ -2404,8 +2389,7 @@ input:checked+.toggle-slider:before {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    flex: 1;
-}
+    flex: 1;}
 
 .company-item-icon {
     width: 1.5rem;
@@ -3066,84 +3050,29 @@ input:checked+.toggle-slider:before {
   color: var(--primary-text);
 }
 
-.settings-form .radio-group input[type="radio"] {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-color);
-  border-radius: 50%;
-  outline: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  flex-shrink: 0;
-}
+.settings-form .radio-group input[type=\"radio\"] {  -webkit-appearance: none;  -moz-appearance: none;  appearance: none;  width: 16px;  height: 16px;  border: 2px solid var(--border-color);  border-radius: 50%;  outline: none;  cursor: pointer;  transition: all 0.2s ease;  position: relative;  flex-shrink: 0;}
 
-.settings-form .radio-group input[type="radio"]:checked {
-  border-color: var(--accent-color);
-}
+.settings-form .radio-group input[type=\"radio\"]:checked {  border-color: var(--accent-color);}
 
-.settings-form .radio-group input[type="radio"]:checked::before {
-  content: '';
-  display: block;
-  width: 8px;
-  height: 8px;
-  background-color: var(--accent-color);
-  border-radius: 50%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
+.settings-form .radio-group input[type=\"radio\"]:checked::before {  content: '';  display: block;  width: 8px;  height: 8px;  background-color: var(--accent-color);  border-radius: 50%;  position: absolute;  top: 50%;  left: 50%;  transform: translate(-50%, -50%);}
 
-.settings-form .radio-group input[type="radio"]:focus {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
+.settings-form .radio-group input[type=\"radio\"]:focus {  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);}
 
 /* Adjustments for input-wrapper in settings form */
-.settings-form .form-group .input-wrapper {
-  margin-top: 0.5rem; /* Add some space above the input field */
-}
+.settings-form .form-group .input-wrapper {  margin-top: 0.5rem; /* Add some space above the input field */}
 
-.settings-form .form-group .input-wrapper .input-icon {
-  top: 50%;
-  transform: translateY(-50%);
-}
+.settings-form .form-group .input-wrapper .input-icon {  top: 50%;  transform: translateY(-50%);}
 
-.settings-form .form-group .input-wrapper .form-input {
-  padding-left: 2.75rem;
-}
+.settings-form .form-group .input-wrapper .form-input {  padding-left: 2.75rem;}
 
-.settings-form .form-group .input-wrapper .form-textarea {
-  padding-left: 2.75rem;
-}
+.settings-form .form-group .input-wrapper .form-textarea {  padding-left: 2.75rem;}
 
-.settings-form .form-group .input-wrapper .input-icon + textarea {
-  top: 0.75rem;
-  transform: none;
-}
+.settings-form .form-group .input-wrapper .input-icon + textarea {  top: 0.75rem;  transform: none;}
 
-.settings-form .form-group .input-wrapper .input-icon + select {
-  padding-left: 2.75rem;
-}
+.settings-form .form-group .input-wrapper .input-icon + select {  padding-left: 2.75rem;}
 
-.settings-form .form-group .input-wrapper .password-toggle {
-  right: 1rem;
-}
+.settings-form .form-group .input-wrapper .password-toggle {  right: 1rem;}
 
-.settings-form .form-group .input-wrapper .form-input[type="password"] + .password-toggle + input,
-.settings-form .form-group .input-wrapper .form-input[type="text"] + .password-toggle + input {
-  padding-right: 3rem;
-}
+.settings-form .form-group .input-wrapper .form-input[type=\"password\"] + .password-toggle + input,.settings-form .form-group .input-wrapper .form-input[type=\"text\"] + .password-toggle + input {  padding-right: 3rem;}
 
-@media (max-width: 480px) {
-  .settings-form .form-group .input-wrapper .form-input[type="password"] + .password-toggle + input,
-  .settings-form .form-group .input-wrapper .form-input[type="text"] + .password-toggle + input {
-    padding-right: 2.5rem;
-  }
-  .settings-form .form-group .input-wrapper .password-toggle {
-    right: 0.75rem;
-  }
-}
+@media (max-width: 480px) {  .settings-form .form-group .input-wrapper .form-input[type=\"password\"] + .password-toggle + input,  .settings-form .form-group .input-wrapper .form-input[type=\"text\"] + .password-toggle + input {    padding-right: 2.5rem;  }  .settings-form .form-group .input-wrapper .password-toggle {    right: 0.75rem;  }}
