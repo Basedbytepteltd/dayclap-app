@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import atexit
-from pywebpush import webpush, WebPushException # CORRECTED: Import webpush function
+from pywebpush import webpush, WebPushException
 
 # Load environment variables from .env file
 load_dotenv()
@@ -144,7 +144,7 @@ def send_email_api(recipient_email, template_name, template_data=None):
             {
                 "address": recipient_email
             }
-        ],
+        ],\
         "subject": email_subject, # Use subject from rendered template
         "html": html_body
     }
@@ -180,11 +180,11 @@ def send_push_notification(subscription_info, message_payload):
         return False, "VAPID keys not configured."
 
     try:
-        webpush( # CORRECTED: Call webpush function directly
+        webpush(
             subscription_info=subscription_info,
             data=message_payload,
             vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_public_key=VAPID_PUBLIC_KEY,
+            # REMOVED: vapid_public_key=VAPID_PUBLIC_KEY, # This argument is not expected by pywebpush
             vapid_claims=VAPID_CLAIMS,
             timeout=10
         )
@@ -373,14 +373,9 @@ def subscribe_push():
     if not auth_header or not auth_header.startswith('Bearer '):
         return jsonify({"message": "Authorization token required"}), 401
     
-    # In a real app, you'd verify the JWT and extract user_id.
+    # In a real app, you'd verify the JWT and extract user_id.\
     # For simplicity here, we'll assume the user ID is passed or derived securely.
-    # For now, we'll rely on the frontend passing the user ID or having it in the session.
-    # A more robust solution would involve decoding the JWT.
-    
-    # For this example, let's assume the user ID is available from the session or a custom header
-    # For now, we'll just update the profile of the user making the request.
-    # The frontend is already passing the access_token, so we can use it to get the user ID.
+    # For now, we'll rely on the frontend passing the access_token, so we can use it to get the user ID.
     try:
         session_resp = supabase.auth.get_user(auth_header.split(' ')[1])
         user_id = session_resp.user.id
@@ -408,7 +403,7 @@ def unsubscribe_push():
         return jsonify({"message": "Endpoint is required"}), 400
 
     auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
+    if not auth_header or not auth_header.startswith('Bearer '):\
         return jsonify({"message": "Authorization token required"}), 401
     
     try:
