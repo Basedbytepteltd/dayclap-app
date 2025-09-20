@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Calendar, LogOut, User, Settings, Plus, ChevronLeft, ChevronRight, BarChart3, CalendarDays, Mail, Check, X, Clock, CheckSquare, Square, Flag, Star, Building2, Edit, Trash2, ChevronDown, Save, Eye, EyeOff, Bell, Moon, Sun, Shield, Key, Globe, Palette, Users, UserPlus, Crown, UserCheck, Search, LayoutDashboard, MapPin, Lock, DollarSign } from 'lucide-react'
+import { Calendar, LogOut, User, Settings, Plus, ChevronLeft, ChevronRight, BarChart3, CalendarDays, Mail, Check, X, Clock, CheckSquare, Square, Flag, Star, Building2, Edit, Trash2, ChevronDown, Save, Eye, EyeOff, Bell, Moon, Sun, Shield, Key, Globe, Palette, Users, UserPlus, Crown, UserCheck, Search, LayoutDashboard, MapPin, Lock, DollarSign, BellRing, BellOff } from 'lucide-react'
 import { supabase } from '../supabaseClient';
 import './Dashboard.css'
 import EventModal from './EventModal';
@@ -166,7 +166,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       email_weekly: false,
       email_monthly: false,
       email_3day_countdown: false,
-      push: true,
+      email_1week_countdown: true, // NEW: Default to true
+      push: true, // NEW: Default to true
       reminders: true,
       invitations: true
     },
@@ -226,6 +227,198 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   // NEW: Calendar View State
   const [calendarView, setCalendarView] = useState('month'); // 'month', 'week', 'day'
+
+  // NEW: Push Notification States
+  const [pushNotificationStatus, setPushNotificationStatus] = useState('default'); // 'default', 'granted', 'denied', 'unsupported'
+  const [pushSubscription, setPushSubscription] = useState(null);
+  const [vapidPublicKey, setVapidPublicKey] = useState(null);
+  const [pushNotificationMessage, setPushNotificationMessage] = useState('');
+  const [pushNotificationMessageType, setPushNotificationMessageType] = useState(''); // 'success' or 'error'
+
+  // Fetch VAPID Public Key from backend
+  useEffect(() => {
+    const fetchVapidKey = async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        const response = await fetch(`${backendUrl}/api/vapid-public-key`);
+        const data = await response.json();
+        if (response.ok) {
+          setVapidPublicKey(data.publicKey);
+        } else {
+          console.error('Failed to fetch VAPID public key:', data.message);
+        }
+      } catch (error) {
+        console.error('Error fetching VAPID public key:', error);
+      }
+    };
+    fetchVapidKey();
+  }, []);
+
+  // Check and update push notification status on component mount and user change
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushNotificationStatus('unsupported');
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      setPushNotificationStatus('granted');
+    } else if (Notification.permission === 'denied') {
+      setPushNotificationStatus('denied');
+    } else {
+      setPushNotificationStatus('default');
+    }
+
+    // Check for existing subscription
+    navigator.serviceWorker.ready.then(registration => {
+      registration.pushManager.getSubscription().then(subscription => {
+        setPushSubscription(subscription);
+      });
+    });
+  }, [user]);
+
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const subscribeToPushNotifications = async () => {
+    setPushNotificationMessage('');
+    setPushNotificationMessageType('');
+
+    if (pushNotificationStatus === 'denied') {
+      setPushNotificationMessage('Notification permission denied. Please enable it in your browser settings.');
+      setPushNotificationMessageType('error');
+      return;
+    }
+
+    if (pushNotificationStatus === 'unsupported') {
+      setPushNotificationMessage('Push notifications are not supported by your browser.');
+      setPushNotificationMessageType('error');
+      return;
+    }
+
+    if (!vapidPublicKey) {
+      setPushNotificationMessage('VAPID public key not available. Cannot subscribe.');
+      setPushNotificationMessageType('error');
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        setPushNotificationStatus('granted');
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        });
+
+        // Send subscription to your backend
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        const response = await fetch(`${backendUrl}/api/subscribe-push`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${await supabase.auth.getSession().then(s => s.data.session?.access_token)}`,
+          },
+          body: JSON.stringify(subscription),
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          setPushSubscription(subscription);
+          setPushNotificationMessage('Successfully subscribed to push notifications!');
+          setPushNotificationMessageType('success');
+          // Update user profile in Supabase with the subscription
+          await supabase.from('profiles').update({ push_subscription: subscription }).eq('id', user.id);
+          onUserUpdate({ ...user, push_subscription: subscription });
+        } else {
+          setPushNotificationMessage(data.message || 'Failed to save push subscription to backend.');
+          setPushNotificationMessageType('error');
+          // If backend fails, unsubscribe from browser to keep state consistent
+          subscription.unsubscribe();
+          setPushSubscription(null);
+        }
+      } else {
+        setPushNotificationStatus('denied');
+        setPushNotificationMessage('Notification permission denied.');
+        setPushNotificationMessageType('error');
+      }
+    } catch (error) {
+      console.error('Error subscribing to push notifications:', error);
+      setPushNotificationMessage(`Error subscribing: ${error.message}`);
+      setPushNotificationMessageType('error');
+    }
+  };
+
+  const unsubscribeFromPushNotifications = async () => {
+    setPushNotificationMessage('');
+    setPushNotificationMessageType('');
+
+    if (!pushSubscription) {
+      setPushNotificationMessage('Not subscribed to push notifications.');
+      setPushNotificationMessageType('error');
+      return;
+    }
+
+    try {
+      await pushSubscription.unsubscribe();
+      setPushSubscription(null);
+      setPushNotificationStatus('default');
+
+      // Notify backend to remove subscription
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/unsubscribe-push`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await supabase.auth.getSession().then(s => s.data.session?.access_token)}`,
+        },
+        body: JSON.stringify({ endpoint: pushSubscription.endpoint }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setPushNotificationMessage('Successfully unsubscribed from push notifications.');
+        setPushNotificationMessageType('success');
+        // Update user profile in Supabase
+        await supabase.from('profiles').update({ push_subscription: null }).eq('id', user.id);
+        onUserUpdate({ ...user, push_subscription: null });
+      } else {
+        setPushNotificationMessage(data.message || 'Failed to remove push subscription from backend.');
+        setPushNotificationMessageType('error');
+      }
+    } catch (error) {
+      console.error('Error unsubscribing from push notifications:', error);
+      setPushNotificationMessage(`Error unsubscribing: ${error.message}`);
+      setPushNotificationMessageType('error');
+    }
+  };
+
+  const handlePushNotificationToggle = async (e) => {
+    const isChecked = e.target.checked;
+    setSettingsForm(prev => ({
+      ...prev,
+      notifications: { ...prev.notifications, push: isChecked }
+    }));
+
+    if (isChecked) {
+      await subscribeToPushNotifications();
+    } else {
+      await unsubscribeFromPushNotifications();
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1556,8 +1749,12 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                           <CalendarDays size={18} color={currentVisualTheme === 'dark' ? 'var(--accent-color)' : 'var(--accent-color)'} />
                           <div className="notification-details">
                             <p className="notification-title">{event.title}</p>
-                            <p className="notification-meta">Time: {event.time || 'All Day'}</p>
-                            {event.location && <p className="notification-meta">Location: {event.location}</p>}
+                            <p className="notification-meta">
+                              {event.time && <><Clock size={14} /> {event.time}</>}
+                              {event.time && event.location && ' • '}
+                              {event.location && <><MapPin size={14} /> {event.location}</>}
+                              {!event.time && !event.location && 'All Day'}
+                            </p>
                           </div>
                           <div className="notification-actions">
                             <button className="btn-icon-small btn-outline" onClick={(e) => { e.stopPropagation(); handleEditEvent(event); setShowNotificationsDropdown(false); }} title="View Event">
@@ -1940,52 +2137,54 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 <h4 className="single-day-date">{date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h4>
                                 <div className="day-events-full-list">
                                   {getCalendarItemsForDate(date).length > 0 ? (
-                                    getCalendarItemsForDate(date).map(item => (
-                                      item.type === 'event' ? (
-                                        <div key={item.id} className="event-card detailed">
-                                          <div className="event-date-time-block">
-                                            <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                                            <span className="event-time-display">{item.time || 'All Day'}</span>
-                                          </div>
-                                          <div className="event-details">
-                                            <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
-                                            {item.description && <p className="event-description">{item.description}</p>}
-                                            {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
-                                            {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
-                                          </div>
-                                          <div className="event-actions">
-                                            <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
-                                            <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
-                                          <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
-                                          <div className="task-content">
-                                            <div className="task-header">
-                                              <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
-                                              <div className="task-meta">
-                                                {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
-                                                {item.category && <span className="category-badge">{item.category}</span>}
-                                              </div>
+                                    <>
+                                      {getCalendarItemsForDate(date).map(item => (
+                                        item.type === 'event' ? (
+                                          <div key={item.id} className="event-card detailed">
+                                            <div className="event-date-time-block">
+                                              <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                              <span className="event-time-display">{item.time || 'All Day'}</span>
                                             </div>
-                                            {item.description && <p className="task-description">{item.description}</p>}
-                                            <div className="task-footer">
-                                              {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
-                                              {item.expenses !== null && item.expenses !== undefined && (
-                                                <span className="task-expenses">
-                                                  <DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}
-                                                </span>
-                                              )}
-                                              <div className="task-actions">
-                                                <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
-                                                <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
-                                              </div>
+                                            <div className="event-details">
+                                              <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
+                                              {item.description && <p className="event-description">{item.description}</p>}
+                                              {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
+                                              {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
+                                            </div>
+                                            <div className="event-actions">
+                                              <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
+                                              <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
                                             </div>
                                           </div>
-                                        </div>
-                                      )
-                                    ))
+                                        ) : (
+                                          <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
+                                            <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
+                                            <div className="task-content">
+                                              <div className="task-header">
+                                                <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
+                                                <div className="task-meta">
+                                                  {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
+                                                  {item.category && <span className="category-badge">{item.category}</span>}
+                                                </div>
+                                              </div>
+                                              {item.description && <p className="task-description">{item.description}</p>}
+                                              <div className="task-footer">
+                                                {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
+                                                {item.expenses !== null && item.expenses !== undefined && (
+                                                  <span className="task-expenses">
+                                                    <DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}
+                                                  </span>
+                                                )}
+                                                <div className="task-actions">
+                                                  <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
+                                                  <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )
+                                      ))}
+                                    </>
                                   ) : (
                                     <div className="no-events">
                                       <CalendarDays className="no-events-icon" />
@@ -2416,6 +2615,40 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                   <div className="setting-info"><h4>3-Day Countdown Alerts</h4><p>Receive an email alert for events and tasks due in 3 days.</p></div>
                                   <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_3day_countdown} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_3day_countdown: e.target.checked } }))} /><span className="toggle-slider"></span></label>
                                 </div>
+                                {/* NEW: 1-Week Countdown Alert */}
+                                <div className="setting-item">
+                                  <div className="setting-info"><h4>1-Week Countdown Alerts</h4><p>Receive an email alert for events and tasks due in 1 week.</p></div>
+                                  <label className="toggle-switch"><input type="checkbox" checked={settingsForm.notifications.email_1week_countdown} onChange={(e) => setSettingsForm(prev => ({ ...prev, notifications: { ...prev.notifications, email_1week_countdown: e.target.checked } }))} /><span className="toggle-slider"></span></label>
+                                </div>
+                              </div>
+
+                              {/* NEW: Push Notification Settings */}
+                              <div className="form-group">
+                                <label className="form-label">Push Notification Settings</label>
+                                <div className="setting-item">
+                                  <div className="setting-info">
+                                    <h4>Enable Push Notifications</h4>
+                                    <p>Receive real-time notifications directly to your browser or device.</p>
+                                    {pushNotificationStatus === 'unsupported' && (
+                                      <p className="error-message">Your browser does not support push notifications.</p>
+                                    )}
+                                    {pushNotificationStatus === 'denied' && (
+                                      <p className="error-message">Notification permission denied. Please enable it in your browser settings.</p>
+                                    )}
+                                    {pushNotificationMessage && (
+                                      <p className={`info-message ${pushNotificationMessageType}`}>{pushNotificationMessage}</p>
+                                    )}
+                                  </div>
+                                  <label className="toggle-switch">
+                                    <input
+                                      type="checkbox"
+                                      checked={settingsForm.notifications.push && pushNotificationStatus === 'granted'}
+                                      onChange={handlePushNotificationToggle}
+                                      disabled={pushNotificationStatus === 'unsupported' || pushNotificationStatus === 'denied'}
+                                    />
+                                    <span className="toggle-slider"></span>
+                                  </label>
+                                </div>
                               </div>
 
                               <div style={{ textAlign: 'right' }}><button type="submit" className="btn btn-primary">Save Preferences</button></div>
@@ -2527,7 +2760,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                   })
                                 ) : (
                                   <p className="no-data-message">No team members found for this company.</p>
-                                )}\n                              </div>
+                                )}
+                              </div>
                             ) : (
                               <div className="no-companies-message">
                                 <Building2 className="no-companies-icon" />
@@ -2559,7 +2793,18 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               <div className="modal-body">
                 <div className="form-group">
                   <label className="form-label">Company Name</label>
-                  <div className="input-wrapper"><Building2 className="input-icon" /><input type="text" name="name" value={companyForm.name} onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))} className="form-input" placeholder="e.g., DayClap Inc." required /></div>
+                  <div className="input-wrapper">
+                    <Building2 className="input-icon" />
+                    <input
+                      type="text"
+                      name="name"
+                      value={companyForm.name}
+                      onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="form-input"
+                      placeholder="e.g., DayClap Inc."
+                      required
+                    />
+                  </div>
                 </div>
                 {editingCompany && (
                   (() => {
@@ -2596,13 +2841,30 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                 )}
                 <div className="form-group">
                   <label className="form-label">Recipient Email</label>
-                  <div className="input-wrapper"><Mail className="input-icon" /><input type="email" name="email" value={inviteForm.email} onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))} className="form-input" placeholder="member@example.com" required /></div>
+                  <div className="input-wrapper">
+                    <Mail className="input-icon" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={inviteForm.email}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="form-input"
+                      placeholder="member@example.com"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Company</label>
                   <div className="input-wrapper">
                     <Building2 className="input-icon" />
-                    <select name="companyId" value={inviteForm.companyId || ''} onChange={(e) => setInviteForm(prev => ({ ...prev, companyId: e.target.value }))} className="form-select" required>
+                    <select
+                      name="companyId"
+                      value={inviteForm.companyId || ''}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, companyId: e.target.value }))}
+                      className="form-select"
+                      required
+                    >
                       <option value="" disabled>Select a company</option>
                       {user.companies.map(company => (<option key={company.id} value={company.id}>{company.name}</option>))}
                     </select>
@@ -2612,7 +2874,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   <label className="form-label">Role</label>
                   <div className="input-wrapper">
                     <Crown className="input-icon" />
-                    <select name="role" value={inviteForm.role} onChange={(e) => setInviteForm(prev => ({ ...prev, role: e.target.value }))} className="form-select" required>
+                    <select
+                      name="role"
+                      value={inviteForm.role}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, role: e.target.value }))}
+                      className="form-select"
+                      required
+                    >
                       <option value="user">User</option>
                       <option value="admin">Admin</option>
                     </select>
@@ -2639,52 +2907,54 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
             <div className="modal-body">
               <div className="events-list">
                 {getCalendarItemsForDate(selectedDateForModal).length > 0 ? (
-                  getCalendarItemsForDate(selectedDateForModal).map(item => (
-                    item.type === 'event' ? (
-                      <div key={item.id} className="event-card detailed">
-                        <div className="event-date-time-block">
-                          <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                          <span className="event-time-display">{item.time || 'All Day'}</span>
-                        </div>
-                        <div className="event-details">
-                          <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
-                          {item.description && <p className="event-description">{item.description}</p>}
-                          {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
-                          {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
-                        </div>
-                        <div className="event-actions">
-                          <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
-                          <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
-                        <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
-                        <div className="task-content">
-                          <div className="task-header">
-                            <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
-                            <div className="task-meta">
-                              {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
-                              {item.category && <span className="category-badge">{item.category}</span>}
-                            </div>
+                  <>
+                    {getCalendarItemsForDate(selectedDateForModal).map(item => (
+                      item.type === 'event' ? (
+                        <div key={item.id} className="event-card detailed">
+                          <div className="event-date-time-block">
+                            <span className="event-date-display">{item.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                            <span className="event-time-display">{item.time || 'All Day'}</span>
                           </div>
-                          {item.description && <p className="task-description">{item.description}</p>}
-                          <div className="task-footer">
-                            {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
-                            {item.expenses !== null && item.expenses !== undefined && (
-                              <span className="task-expenses">
-                                <DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}
-                              </span>
-                            )}
-                            <div className="task-actions">
-                              <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
-                              <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
-                            </div>
+                          <div className="event-details">
+                            <h4 className="event-title clickable-title" onClick={() => handleEditEvent(item)}>{item.title}</h4>
+                            {item.description && <p className="event-description">{item.description}</p>}
+                            {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
+                            {item.eventTasks && item.eventTasks.length > 0 && (<p className="event-task-summary"><CheckSquare size={14} /> {item.eventTasks.filter(t => !t.completed).length} pending tasks</p>)}
+                          </div>
+                          <div className="event-actions">
+                            <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
+                            <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
                           </div>
                         </div>
-                      </div>
-                    )
-                  ))
+                      ) : (
+                        <div key={item.id} className={`task-card ${item.completed ? 'completed' : ''} ${item.isOverdue ? 'overdue' : ''}`}>
+                          <div className="task-checkbox"><button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>{item.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
+                          <div className="task-content">
+                            <div className="task-header">
+                              <h4 className="task-title clickable-title" onClick={() => handleEditGeneralTask(item.id)}>{item.title}</h4>
+                              <div className="task-meta">
+                                {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
+                                {item.category && <span className="category-badge">{item.category}</span>}
+                              </div>
+                            </div>
+                            {item.description && <p className="task-description">{item.description}</p>}
+                            <div className="task-footer">
+                              {item.dueDate && (<span className={`due-date ${item.isOverdue ? 'overdue' : ''}`}>Due: {item.dueDate.toLocaleDateString()}</span>)}
+                              {item.expenses !== null && item.expenses !== undefined && (
+                                <span className="task-expenses">
+                                  <DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}
+                                </span>
+                              )}
+                              <div className="task-actions">
+                                <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
+                                <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </>
                 ) : (
                   <div className="no-events">
                     <CalendarDays className="no-events-icon" />
@@ -2699,7 +2969,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           </div>
         </div>
       )}
-
       <EventModal
         showModal={showEventModal}
         onClose={() => setShowEventModal(false)}

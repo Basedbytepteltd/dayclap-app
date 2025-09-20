@@ -1,7 +1,9 @@
 Flask==2.3.3
 Flask-CORS==4.0.0
-# PyJWT==2.8.0  <-- This line was removed to allow automatic dependency resolution
 requests==2.32.3
 supabase
 gunicorn==22.0.0
 python-dotenv==1.0.1
+APScheduler==3.10.4
+pywebpush==1.9.2 # CRITICAL: This MUST be 1.9.2 or newer for OpenSSL 3.x compatibility
+cryptography==42.0.5 # CRITICAL: This MUST be 42.0.5 or newer
