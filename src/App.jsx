@@ -40,11 +40,12 @@ function App() {
             theme: 'light',
             language: 'en',
             timezone: 'UTC',
-            notifications: {
+            notifications: { // Default notifications object
               email_daily: true,
               email_weekly: false,
               email_monthly: false,
               email_3day_countdown: false,
+              email_1week_countdown: true,
               push: true,
               reminders: true,
               invitations: true,
@@ -146,6 +147,18 @@ function App() {
   }
 
   const handleUserUpdate = async (updatedUser) => {
+    // Ensure notifications is always an object, even if it somehow became null/undefined
+    const safeNotifications = updatedUser.notifications || {
+      email_daily: true,
+      email_weekly: false,
+      email_monthly: false,
+      email_3day_countdown: false,
+      email_1week_countdown: true,
+      push: true,
+      reminders: true,
+      invitations: true
+    };
+
     const {
       id,
       name,
@@ -153,14 +166,13 @@ function App() {
       theme,
       language,
       timezone,
-      notifications,
       privacy,
       company_name,
       companies,
       currentCompanyId,
       currency,
       account_type,
-    } = updatedUser
+    } = updatedUser;
 
     const { error } = await supabase
       .from('profiles')
@@ -170,7 +182,7 @@ function App() {
         theme,
         language,
         timezone,
-        notifications,
+        notifications: safeNotifications, // Use the safeNotifications object
         privacy,
         company_name,
         companies,
@@ -179,20 +191,21 @@ function App() {
         currency,
         account_type,
       })
-      .eq('id', id)
+      .eq('id', id);
 
     if (error) {
-      console.error('App: Error updating user profile in Supabase:', error.message)
+      console.error('App: Error updating user profile in Supabase:', error.message);
     } else {
+      // Re-fetch profile to ensure consistency after update
       const { data: freshProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', id)
-        .single()
+        .single();
 
       if (fetchError) {
-        console.error('App: Error re-fetching profile after update:', fetchError)
-        setUser(updatedUser)
+        console.error('App: Error re-fetching profile after update:', fetchError);
+        setUser(updatedUser); // Fallback to updatedUser if re-fetch fails
       } else {
         const combinedFreshUserData = {
           ...updatedUser,
@@ -201,11 +214,11 @@ function App() {
           currentCompanyId: freshProfile.current_company_id,
           currency: freshProfile.currency,
           account_type: freshProfile.account_type,
-        }
-        setUser(combinedFreshUserData)
+        };
+        setUser(combinedFreshUserData);
       }
     }
-  }
+  };
 
   if (loading) {
     return (

@@ -1,0 +1,126 @@
+.push-prompt-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4); /* Slightly lighter backdrop */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000; /* Ensure it's above other modals */
+  padding: 1rem;
+}
+
+.push-prompt-content {
+  background-color: var(--primary-bg);
+  border-radius: 0.75rem;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 450px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  animation: fadeInScale 0.3s ease-out;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.push-prompt-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  background-color: var(--secondary-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.push-prompt-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  flex-grow: 1;
+}
+
+.prompt-icon {
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.prompt-close-btn {
+  background: none;
+  border: none;
+  color: var(--secondary-text);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.prompt-close-btn:hover {
+  background-color: var(--border-color);
+  color: var(--primary-text);
+}
+
+.push-prompt-body {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.push-prompt-body p {
+  font-size: 0.9375rem;
+  color: var(--secondary-text);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.push-prompt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.push-prompt-actions .btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .push-prompt-content {
+    margin: 0.5rem;
+    border-radius: 0.5rem;
+  }
+
+  .push-prompt-header {
+    padding: 1rem;
+  }
+
+  .push-prompt-header h3 {
+    font-size: 1rem;
+  }
+
+  .push-prompt-body {
+    padding: 1rem;
+  }
+
+  .push-prompt-body p {
+    font-size: 0.875rem;
+  }
+
+  .push-prompt-actions .btn {
+    padding: 0.625rem 1rem;
+    font-size: 0.9375rem;
+  }
+}

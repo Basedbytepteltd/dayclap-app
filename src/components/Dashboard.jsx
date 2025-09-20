@@ -3,6 +3,7 @@ import { Calendar, LogOut, User, Settings, Plus, ChevronLeft, ChevronRight, BarC
 import { supabase } from '../supabaseClient';
 import './Dashboard.css'
 import EventModal from './EventModal';
+import PushNotificationPrompt from './PushNotificationPrompt'; // NEW: Import PushNotificationPrompt
 
 const formatDateToYYYYMMDD = (dateInput) => {
   if (!dateInput) return '';
@@ -234,6 +235,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const [vapidPublicKey, setVapidPublicKey] = useState(null);
   const [pushNotificationMessage, setPushNotificationMessage] = useState('');
   const [pushNotificationMessageType, setPushNotificationMessageType] = useState(''); // 'success' or 'error'
+  const [showPushPrompt, setShowPushPrompt] = useState(false); // NEW: State for showing the prompt
 
   // Fetch VAPID Public Key from backend
   useEffect(() => {
@@ -276,6 +278,17 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       });
     });
   }, [user]);
+
+  // NEW: Effect to show push notification prompt
+  useEffect(() => {
+    // Only show prompt if user is logged in, has push notifications enabled in settings (default or user choice),
+    // but no active subscription, and browser supports it, and permission is not denied.
+    if (user && user.notifications?.push && !pushSubscription && pushNotificationStatus !== 'unsupported' && pushNotificationStatus !== 'denied') {
+      setShowPushPrompt(true);
+    } else {
+      setShowPushPrompt(false);
+    }
+  }, [user, pushSubscription, pushNotificationStatus]);
 
   const urlBase64ToUint8Array = (base64String) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -410,13 +423,35 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const isChecked = e.target.checked;
     setSettingsForm(prev => ({
       ...prev,
-      notifications: { ...prev.notifications, push: isChecked }
+      // CRITICAL FIX: Ensure prev.notifications is an object before spreading
+      notifications: { ...(prev.notifications || {}), push: isChecked }
     }));
 
     if (isChecked) {
       await subscribeToPushNotifications();
     } else {
       await unsubscribeFromPushNotifications();
+    }
+  };
+
+  // NEW: Handlers for the PushNotificationPrompt
+  const handleEnablePushFromPrompt = async () => {
+    setShowPushPrompt(false); // Close the prompt
+    await subscribeToPushNotifications();
+  };
+
+  const handleSkipPushFromPrompt = async () => {
+    setShowPushPrompt(false); // Close the prompt
+    // Update user settings to disable push notifications, so the prompt doesn't reappear
+    const updatedNotifications = { ...user.notifications, push: false };
+    const { error } = await supabase
+      .from('profiles')
+      .update({ notifications: updatedNotifications, last_activity_at: new Date().toISOString() })
+      .eq('id', user.id);
+    if (error) {
+      console.error('Failed to update user notifications after skipping push prompt:', error.message);
+    } else {
+      onUserUpdate({ ...user, notifications: updatedNotifications });
     }
   };
 
@@ -448,8 +483,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
           document.body.classList.add('dark-mode');
           setCurrentVisualTheme('dark');
-        } else {
-          setCurrentVisualTheme('light');
         }
       }
     };
@@ -1750,7 +1783,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                           <div className="notification-details">
                             <p className="notification-title">{event.title}</p>
                             <p className="notification-meta">
-                              {event.time && <><Clock size={14} /> {event.time}</>}
+                              {event.time && <><Clock size={14} /> {event.time} • </>}
                               {event.time && event.location && ' • '}
                               {event.location && <><MapPin size={14} /> {event.location}</>}
                               {!event.time && !event.location && 'All Day'}
@@ -2642,7 +2675,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                   <label className="toggle-switch">
                                     <input
                                       type="checkbox"
-                                      checked={settingsForm.notifications.push && pushNotificationStatus === 'granted'}
+                                      checked={settingsForm.notifications?.push || false}
                                       onChange={handlePushNotificationToggle}
                                       disabled={pushNotificationStatus === 'unsupported' || pushNotificationStatus === 'denied'}
                                     />
@@ -2985,6 +3018,15 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         teamMembers={teamMembers}
         user={user}
       />
+
+      {/* NEW: Push Notification Prompt */}
+      {showPushPrompt && (
+        <PushNotificationPrompt
+          onEnable={handleEnablePushFromPrompt}
+          onSkip={handleSkipPushFromPrompt}
+          onClose={() => setShowPushPrompt(false)} // Allows closing without action
+        />
+      )}
     </div>
   )
 }
