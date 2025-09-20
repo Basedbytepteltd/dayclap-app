@@ -100,7 +100,7 @@ def render_email_template(template_name, data):
                     rendered_html = rendered_html[:start_index] + rendered_html[end_index:]
         elif key.startswith('event_'): # Handle optional event fields
             if value is None or value == '':
-                # Remove the entire line if the optional field is empty
+                # CRITICAL FIX: Use '\n' for splitting and joining, not '\\n'
                 rendered_html = '\n'.join([line for line in rendered_html.split('\n') if f"{{{{ {key} }}}}" not in line])
             else:
                 rendered_html = rendered_html.replace(f"{{{{ {key} }}}}", str(value))
@@ -447,11 +447,12 @@ def send_test_push():
 
     try:
         # Fetch the user's profile to get their push subscription
-        profile_resp = supabase.table('profiles').select('push_subscription').eq('email', recipient_email).single().execute()
+        # CRITICAL FIX: Use maybe_single() to handle cases where no profile or subscription is found gracefully
+        profile_resp = supabase.table('profiles').select('push_subscription').eq('email', recipient_email).maybe_single().execute()
         profile = profile_resp.data if hasattr(profile_resp, "data") else profile_resp.get("data")
 
         if not profile or not profile.get('push_subscription'):
-            return jsonify({"message": f"User {recipient_email} has no active push subscription."}), 404
+            return jsonify({"message": f"User {recipient_email} has no active push subscription. Please ensure the user exists and has enabled push notifications in their settings."}), 404
 
         push_subscription_info = profile['push_subscription']
         push_payload = {
