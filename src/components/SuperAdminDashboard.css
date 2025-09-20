@@ -111,8 +111,7 @@
 
 .admin-main {
   max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
+  margin: 0 auto;  padding: 2rem;
 }
 
 .stats-grid {
@@ -281,8 +280,7 @@
 
 .search-bar input:focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  background-color: var(--primary-bg);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);  background-color: var(--primary-bg);
 }
 
 .users-table {

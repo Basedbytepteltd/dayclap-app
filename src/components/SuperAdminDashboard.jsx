@@ -23,7 +23,10 @@ import {
   X,
   PlayCircle,
   PauseCircle,
-  Info
+  Info,
+  BellRing, // NEW: For push notification title icon
+  BellOff,  // NEW: For push notification body icon
+  Link      // NEW: For push notification URL icon
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
@@ -55,6 +58,15 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [testEmailRecipient, setTestEmailRecipient] = useState('');
   const [testEmailMessage, setTestEmailMessage] = useState('');
   const [testEmailLoading, setTestEmailLoading] = useState(false);
+
+  // NEW: State for Test Push Notifications
+  const [testPushRecipient, setTestPushRecipient] = useState('');
+  const [testPushTitle, setTestPushTitle] = useState('DayClap Test Notification');
+  const [testPushBody, setTestPushBody] = useState('This is a test push notification from the Super Admin dashboard.');
+  const [testPushUrl, setTestPushUrl] = useState(window.location.origin); // Default to current origin
+  const [testPushMessage, setTestPushMessage] = useState('');
+  const [testPushMessageType, setTestPushMessageType] = useState(''); // 'success' or 'error'
+  const [testPushLoading, setTestPushLoading] = useState(false);
 
   // NEW: State for Email Templates
   const [emailTemplates, setEmailTemplates] = useState([]);
@@ -224,6 +236,53 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       setTestEmailMessage('An unexpected error occurred while sending the test email.');
     } finally {
       setTestEmailLoading(false);
+    }
+  };
+
+  // NEW: handleSendTestPushNotification function
+  const handleSendTestPushNotification = async (e) => {
+    e.preventDefault();
+    setTestPushLoading(true);
+    setTestPushMessage('');
+    setTestPushMessageType('');
+
+    if (!testPushRecipient.trim()) {
+        setTestPushMessage('Error: Recipient email is required.');
+        setTestPushMessageType('error');
+        setTestPushLoading(false);
+        return;
+    }
+
+    try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        const response = await fetch(`${backendUrl}/api/admin/send-test-push`, {
+            method: 'POST',
+            headers: {
+                'X-User-Email': user.email,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                recipient_email: testPushRecipient,
+                title: testPushTitle,
+                body: testPushBody,
+                url: testPushUrl
+            })
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            setTestPushMessage(`Success: ${data.message}`);
+            setTestPushMessageType('success');
+        } else {
+            setTestPushMessage(`Error: ${data.message || 'Failed to send test push notification'}`);
+            setTestPushMessageType('error');
+        }
+    } catch (error) {
+        console.error('Error sending test push notification:', error);
+        setTestPushMessage('An unexpected error occurred while sending the test push notification.');
+        setTestPushMessageType('error');
+    } finally {
+        setTestPushLoading(false);
     }
   };
 
@@ -983,6 +1042,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
           {activeTab === 'test-sending' && (
             <div className="email-settings-section">
+              {/* Existing Test Email Sending Form */}
               <div className="section-header">
                 <h2>Test Email Sending</h2>
               </div>
@@ -1011,6 +1071,86 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                 <div style={{ textAlign: 'right' }}>
                   <button type="submit" className="btn btn-primary" disabled={testEmailLoading}>
                     {testEmailLoading ? 'Sending...' : 'Send Test Email'}
+                  </button>
+                </div>
+              </form>
+
+              {/* NEW: Test Push Notification Sending Form */}
+              <div className="section-header" style={{ marginTop: '3rem' }}>
+                <h2>Test Push Notification Sending</h2>
+              </div>
+              <form className="settings-form" onSubmit={handleSendTestPushNotification}>
+                <div className="form-group">
+                  <label className="form-label">Recipient Email</label>
+                  <div className="input-wrapper">
+                    <Mail className="input-icon" />
+                    <input
+                      type="email"
+                      name="test_push_recipient_email"
+                      value={testPushRecipient}
+                      onChange={(e) => setTestPushRecipient(e.target.value)}
+                      className="form-input"
+                      placeholder="Enter recipient email for test push"
+                      required
+                      disabled={testPushLoading}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Notification Title</label>
+                  <div className="input-wrapper">
+                    <BellRing className="input-icon" />
+                    <input
+                      type="text"
+                      name="test_push_title"
+                      value={testPushTitle}
+                      onChange={(e) => setTestPushTitle(e.target.value)}
+                      className="form-input"
+                      placeholder="e.g., Important Update"
+                      required
+                      disabled={testPushLoading}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Notification Body</label>
+                  <div className="input-wrapper">
+                    <BellOff className="input-icon" />
+                    <textarea
+                      name="test_push_body"
+                      value={testPushBody}
+                      onChange={(e) => setTestPushBody(e.target.value)}
+                      className="form-textarea"
+                      rows="3"
+                      placeholder="e.g., Your event is starting soon!"
+                      required
+                      disabled={testPushLoading}
+                    ></textarea>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Target URL (on click) <span className="optional-text">(Optional)</span></label>
+                  <div className="input-wrapper">
+                    <Link className="input-icon" />
+                    <input
+                      type="url"
+                      name="test_push_url"
+                      value={testPushUrl}
+                      onChange={(e) => setTestPushUrl(e.target.value)}
+                      className="form-input"
+                      placeholder="e.g., https://dayclap.com/dashboard"
+                      disabled={testPushLoading}
+                    />
+                  </div>
+                </div>
+                {testPushMessage && (
+                  <div className={`info-message ${testPushMessageType}`} style={{ marginTop: '1rem' }}>
+                    {testPushMessage}
+                  </div>
+                )}
+                <div style={{ textAlign: 'right', marginTop: '1.5rem' }}>
+                  <button type="submit" className="btn btn-primary" disabled={testPushLoading}>
+                    {testPushLoading ? 'Sending...' : <><Send size={16} /> Send Test Push</>}
                   </button>
                 </div>
               </form>
