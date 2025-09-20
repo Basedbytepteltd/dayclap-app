@@ -6,7 +6,7 @@ from flask_cors import CORS, cross_origin
 from supabase import create_client, Client
 import requests
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -65,31 +65,10 @@ def render_email_template(template_name, data):
     html_body = template_data_from_db['html_content']
     subject = template_data_from_db['subject']
 
-    # Simple placeholder replacement for now. For more complex logic (like #if),
-    # a proper templating engine (Jinja2) would be needed.
-    # For this task, we'll assume simple string replacements.
+    # Replace placeholders with actual data
     rendered_html = html_body
     for key, value in data.items():
-        # Handle conditional blocks for 'has_tasks'
-        if key == 'has_tasks':
-            if value:
-                rendered_html = rendered_html.replace("{{#if has_tasks}}", "").replace("{{/if}}", "")
-            else:
-                # Remove the entire conditional block if has_tasks is false
-                start_tag = "{{#if has_tasks}}"
-                end_tag = "{{/if}}"
-                if start_tag in rendered_html and end_tag in rendered_html:
-                    start_index = rendered_html.find(start_tag)
-                    end_index = rendered_html.find(end_tag) + len(end_tag)
-                    rendered_html = rendered_html[:start_index] + rendered_html[end_index:]
-        elif key.startswith('event_'): # Handle optional event fields
-            if value is None or value == '':
-                # Remove the entire line if the optional field is empty
-                rendered_html = '\n'.join([line for line in rendered_html.split('\n') if f"{{{{ {key} }}}}" not in line])
-            else:
-                rendered_html = rendered_html.replace(f"{{{{ {key} }}}}", str(value))
-        else:
-            rendered_html = rendered_html.replace(f"{{{{ {key} }}}}", str(value))
+        rendered_html = rendered_html.replace(f"{{{{ {key} }}}}", str(value))
     
     # Ensure current_year is always available
     if "{{ current_year }}" in rendered_html:
@@ -214,10 +193,9 @@ def send_test_email():
         return jsonify({"message": "Recipient email is required"}), 400
 
     try:
-        frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
         template_data = {
             "user_name": "DayClap User",
-            "frontend_url": frontend_url,
+            "frontend_url": os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173'),
             "current_year": datetime.now().year
         }
         
@@ -386,93 +364,6 @@ def email_template_detail_management(template_id):
             return jsonify({"message": "Email template deleted successfully"}), 204
         except Exception as e:
             return jsonify({"message": f"Error deleting email template: {e}"}), 500
-
-# NEW: Endpoint for sending 1-week event reminders
-@app.route('/api/send-1week-event-reminders', methods=['POST'])
-@cross_origin()
-def send_1week_event_reminders():
-    # Security check: Verify API Key
-    api_key_header = request.headers.get('X-API-Key')
-    if not BACKEND_API_KEY or api_key_header != BACKEND_API_KEY:
-        print(f"Unauthorized access attempt to /api/send-1week-event-reminders. Provided key: {api_key_header}", file=sys.stderr)
-        return jsonify({"message": "Unauthorized"}), 403
-
-    try:
-        today = datetime.now().date()
-        one_week_from_now = today + timedelta(days=7)
-        one_week_from_now_str = one_week_from_now.isoformat()
-
-        # Fetch events scheduled for exactly one week from now, where reminder hasn't been sent
-        events_resp = supabase.table('events').select('*, profiles(email, name, notifications)').eq('date', one_week_from_now_str).is_('one_week_reminder_sent_at', None).execute()
-        events_to_remind = events_resp.data if hasattr(events_resp, "data") else events_resp.get("data")
-
-        if not events_to_remind:
-            return jsonify({"message": "No events found for 1-week reminder."}), 200
-
-        sent_count = 0
-        failed_sends = []
-
-        for event in events_to_remind:
-            user_profile = event.get('profiles')
-            if not user_profile:
-                print(f"Skipping event {event['id']}: User profile not found.", file=sys.stderr)
-                continue
-
-            user_email = user_profile.get('email')
-            user_name = user_profile.get('name', user_email.split('@')[0])
-            notifications = user_profile.get('notifications', {})
-
-            # Check if 1-week countdown notification is enabled for the user
-            if not notifications.get('email_1week_countdown', False):
-                print(f"Skipping event {event['id']}: 1-week reminder disabled for user {user_email}.", file=sys.stderr)
-                continue
-
-            # Calculate pending task percentage
-            event_tasks = event.get('event_tasks', [])
-            total_tasks = len(event_tasks)
-            pending_tasks = sum(1 for task in event_tasks if not task.get('completed'))
-            completed_tasks = total_tasks - pending_tasks
-            
-            task_completion_percentage = 0
-            if total_tasks > 0:
-                task_completion_percentage = round((completed_tasks / total_tasks) * 100)
-
-            frontend_url = os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173')
-
-            template_data = {
-                "user_name": user_name,
-                "event_title": event['title'],
-                "event_date": datetime.strptime(event['date'], '%Y-%m-%d').strftime('%A, %B %d, %Y'),
-                "event_time": event['time'] if event['time'] else 'All Day',
-                "event_location": event['location'],
-                "event_description": event['description'],
-                "has_tasks": total_tasks > 0,
-                "pending_tasks_count": pending_tasks,
-                "task_completion_percentage": f"{task_completion_percentage}%",
-                "frontend_url": frontend_url,
-                "current_year": datetime.now().year
-            }
-
-            success, details = send_email_api(user_email, "event_1week_reminder", template_data)
-
-            if success:
-                sent_count += 1
-                # Mark reminder as sent in the database
-                supabase.table('events').update({'one_week_reminder_sent_at': datetime.now().isoformat()}).eq('id', event['id']).execute()
-                print(f"Sent 1-week reminder for event '{event['title']}' to {user_email}.", file=sys.stdout)
-            else:
-                failed_sends.append({"event_id": event['id'], "user_email": user_email, "reason": details})
-                print(f"Failed to send 1-week reminder for event '{event['title']}' to {user_email}: {details}", file=sys.stderr)
-
-        if failed_sends:
-            return jsonify({"message": f"Sent {sent_count} reminders, {len(failed_sends)} failed.", "failed_sends": failed_sends}), 202
-        else:
-            return jsonify({"message": f"Successfully sent {sent_count} 1-week event reminders."}), 200
-
-    except Exception as e:
-        traceback.print_exc(file=sys.stderr)
-        return jsonify({"message": f"An unexpected error occurred while sending 1-week event reminders: {e}"}), 500
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

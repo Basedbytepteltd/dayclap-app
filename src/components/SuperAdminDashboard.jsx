@@ -20,10 +20,7 @@ import {
   Plus,
   Save,
   Edit,
-  X,
-  PlayCircle,
-  PauseCircle,
-  Info
+  X
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
@@ -45,9 +42,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [emailSettingsForm, setEmailSettingsForm] = useState({
     id: null,
     maileroo_sending_key: '',
-    mail_default_sender: 'no-reply@team.dayclap.com',
-    scheduler_enabled: true, // NEW: Default to true
-    reminder_time: '02:00' // NEW: Default to 02:00
+    mail_default_sender: 'no-reply@team.dayclap.com'
   });
   const [emailSettingsMessage, setEmailSettingsMessage] = useState('');
   const [emailSettingsLoading, setEmailSettingsLoading] = useState(false);
@@ -69,14 +64,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [templateMessageType, setTemplateMessageType] = useState(''); // 'success' or 'error'
   const [templateLoading, setTemplateLoading] = useState(false);
 
-  // NEW: Scheduler Status State
-  const [schedulerStatus, setSchedulerStatus] = useState({
-    is_running: false,
-    job_scheduled: false,
-    next_run_time: null
-  });
-  const [schedulerStatusLoading, setSchedulerStatusLoading] = useState(false);
-
 
   useEffect(() => {
     loadUsersData();
@@ -85,37 +72,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     if (activeTab === 'email-settings') {
       fetchEmailSettings();
-      fetchSchedulerStatus(); // Fetch scheduler status when on email settings tab
     } else if (activeTab === 'email-templates') {
       fetchEmailTemplates();
     }
   }, [activeTab]);
-
-  // NEW: Fetch Scheduler Status
-  const fetchSchedulerStatus = async () => {
-    setSchedulerStatusLoading(true);
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-      const response = await fetch(`${backendUrl}/api/admin/scheduler-status`, {
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSchedulerStatus(data);
-      } else {
-        console.error('Failed to fetch scheduler status:', data.message);
-        setSchedulerStatus({ is_running: false, job_scheduled: false, next_run_time: null });
-      }
-    } catch (error) {
-      console.error('Error fetching scheduler status:', error);
-      setSchedulerStatus({ is_running: false, job_scheduled: false, next_run_time: null });
-    } finally {
-      setSchedulerStatusLoading(false);
-    }
-  };
 
   const fetchEmailSettings = async () => {
     setEmailSettingsLoading(true);
@@ -134,9 +94,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
         setEmailSettingsForm({
           id: data.id,
           maileroo_sending_key: data.maileroo_sending_key || '',
-          mail_default_sender: data.mail_default_sender || '',
-          scheduler_enabled: data.scheduler_enabled, // NEW
-          reminder_time: data.reminder_time || '02:00' // NEW
+          mail_default_sender: data.mail_default_sender || ''
         });
       } else {
         setEmailSettingsMessage(`Error: ${data.message || 'Failed to fetch email settings'}`);
@@ -174,12 +132,9 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           setEmailSettingsForm({
             id: data.settings.id,
             maileroo_sending_key: data.settings.maileroo_sending_key || '',
-            mail_default_sender: data.settings.mail_default_sender || '',
-            scheduler_enabled: data.settings.scheduler_enabled, // NEW
-            reminder_time: data.settings.reminder_time || '02:00' // NEW
+            mail_default_sender: data.settings.mail_default_sender || ''
           });
         }
-        fetchSchedulerStatus(); // Refresh scheduler status after settings update
       } else {
         setEmailSettingsMessage(`Error: ${data.message || 'Failed to update email settings'}`);
       }
@@ -227,7 +182,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Email Template Management Functions
+  // NEW: Email Template Management Functions
   const fetchEmailTemplates = async () => {
     setTemplateLoading(true);
     setTemplateMessage('');
@@ -459,36 +414,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  const handleSchedulerControl = async (action) => {
-    setSchedulerStatusLoading(true);
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-      const response = await fetch(`${backendUrl}/api/admin/scheduler-control`, {
-        method: 'POST',
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ action })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setEmailSettingsMessage(`Scheduler ${action}ed successfully!`);
-        setEmailSettingsMessageType('success');
-        fetchSchedulerStatus(); // Refresh status after control action
-      } else {
-        setEmailSettingsMessage(`Error controlling scheduler: ${data.message || 'Unknown error'}`);
-        setEmailSettingsMessageType('error');
-      }
-    } catch (error) {
-      console.error('Error controlling scheduler:', error);
-      setEmailSettingsMessage('An unexpected error occurred while controlling the scheduler.');
-      setEmailSettingsMessageType('error');
-    } finally {
-      setSchedulerStatusLoading(false);
-    }
   };
 
   const UserModal = () => {
@@ -836,92 +761,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     />
                   </div>
                 </div>
-
-                {/* NEW: Scheduler Settings */}
-                <div className="form-group">
-                  <label className="form-label">Daily Reminder Scheduler</label>
-                  <div className="setting-item">
-                    <div className="setting-info">
-                      <h4>Enable 1-Week Event Reminders</h4>
-                      <p>Automatically send email reminders one week before events.</p>
-                    </div>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={emailSettingsForm.scheduler_enabled}
-                        onChange={(e) => setEmailSettingsForm(prev => ({ ...prev, scheduler_enabled: e.target.checked }))}
-                        disabled={emailSettingsLoading}
-                      />
-                      <span className="toggle-slider"></span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Reminder Time (HH:MM)</label>
-                  <div className="input-wrapper">
-                    <Clock className="input-icon" />
-                    <input
-                      type="time"
-                      name="reminder_time"
-                      value={emailSettingsForm.reminder_time}
-                      onChange={(e) => setEmailSettingsForm(prev => ({ ...prev, reminder_time: e.target.value }))}
-                      className="form-input"
-                      required
-                      disabled={emailSettingsLoading}
-                    />
-                  </div>
-                </div>
-
-                {/* NEW: Scheduler Status Display */}
-                <div className="form-group">
-                  <label className="form-label">Scheduler Status</label>
-                  <div className="scheduler-status-card">
-                    {schedulerStatusLoading ? (
-                      <p><Info size={16} /> Loading status...</p>
-                    ) : (
-                      <>
-                        <p>
-                          Status: 
-                          <span className={schedulerStatus.is_running ? 'status-active' : 'status-inactive'}>
-                            {schedulerStatus.is_running ? 'Running' : 'Stopped'}
-                          </span>
-                        </p>
-                        <p>
-                          Job Scheduled: 
-                          <span className={schedulerStatus.job_scheduled ? 'status-active' : 'status-inactive'}>
-                            {schedulerStatus.job_scheduled ? 'Yes' : 'No'}
-                          </span>
-                        </p>
-                        {schedulerStatus.job_scheduled && schedulerStatus.next_run_time && (
-                          <p>Next Run: {new Date(schedulerStatus.next_run_time).toLocaleString()}</p>
-                        )}
-                        {!schedulerStatus.job_scheduled && emailSettingsForm.scheduler_enabled && (
-                          <p className="warning-message"><Info size={16} /> Job not scheduled. Ensure backend is running and settings are saved.</p>
-                        )}
-                      </>
-                    )}
-                    <div className="scheduler-actions">
-                      <button 
-                        type="button" 
-                        className="btn btn-success btn-small" 
-                        onClick={() => handleSchedulerControl('start')}
-                        disabled={schedulerStatus.is_running || schedulerStatusLoading}
-                      >
-                        <PlayCircle size={16} /> Start Scheduler
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-danger btn-small" 
-                        onClick={() => handleSchedulerControl('stop')}
-                        disabled={!schedulerStatus.is_running || schedulerStatusLoading}
-                      >
-                        <PauseCircle size={16} /> Stop Scheduler
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
                 {emailSettingsMessage && (
                   <div className={`info-message ${emailSettingsMessage.includes('Error') ? 'error' : 'success'}`}>
                     {emailSettingsMessage}
