@@ -787,5 +787,5 @@ if __name__ == '__main__':
     # When running directly (e.g., `python app.py`), the scheduler is already initialized
     # by the call to `initialize_and_configure_scheduler()` above.
     # We just need to run the Flask app.
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001)) # Changed port to 5001
     app.run(debug=True, port=port)
