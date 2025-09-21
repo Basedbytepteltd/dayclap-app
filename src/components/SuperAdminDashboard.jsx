@@ -24,9 +24,10 @@ import {
   PlayCircle,
   PauseCircle,
   Info,
-  BellRing, // NEW: For push notification title icon
-  BellOff,  // NEW: For push notification body icon
-  Link      // NEW: For push notification URL icon
+  BellRing, 
+  BellOff,  
+  Link,
+  ListTodo      
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
@@ -36,6 +37,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  // REVERTED: Removed state for editable user data
+  // const [editingUserForm, setEditingUserForm] = useState(null); 
   const [activeTab, setActiveTab] = useState('users');
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -49,8 +52,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     id: null,
     maileroo_sending_key: '',
     mail_default_sender: 'no-reply@team.dayclap.com',
-    scheduler_enabled: true, // NEW: Default to true
-    reminder_time: '02:00' // NEW: Default to 02:00
+    scheduler_enabled: true, 
+    reminder_time: '02:00' 
   });
   const [emailSettingsMessage, setEmailSettingsMessage] = useState('');
   const [emailSettingsLoading, setEmailSettingsLoading] = useState(false);
@@ -59,29 +62,26 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [testEmailMessage, setTestEmailMessage] = useState('');
   const [testEmailLoading, setTestEmailLoading] = useState(false);
 
-  // NEW: State for Test Push Notifications
   const [testPushRecipient, setTestPushRecipient] = useState('');
   const [testPushTitle, setTestPushTitle] = useState('DayClap Test Notification');
   const [testPushBody, setTestPushBody] = useState('This is a test push notification from the Super Admin dashboard.');
-  const [testPushUrl, setTestPushUrl] = useState(window.location.origin); // Default to current origin
+  const [testPushUrl, setTestPushUrl] = useState(window.location.origin); 
   const [testPushMessage, setTestPushMessage] = useState('');
-  const [testPushMessageType, setTestPushMessageType] = useState(''); // 'success' or 'error'
+  const [testPushMessageType, setTestPushMessageType] = useState(''); 
   const [testPushLoading, setTestPushLoading] = useState(false);
 
-  // NEW: State for Email Templates
   const [emailTemplates, setEmailTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState(null); // null for new, object for edit
+  const [editingTemplate, setEditingTemplate] = useState(null); 
   const [templateForm, setTemplateForm] = useState({
     name: '',
     subject: '',
     html_content: ''
   });
   const [templateMessage, setTemplateMessage] = useState('');
-  const [templateMessageType, setTemplateMessageType] = useState(''); // 'success' or 'error'
+  const [templateMessageType, setTemplateMessageType] = useState(''); 
   const [templateLoading, setTemplateLoading] = useState(false);
 
-  // NEW: Scheduler Status State
   const [schedulerStatus, setSchedulerStatus] = useState({
     is_running: false,
     job_scheduled: false,
@@ -97,13 +97,12 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     if (activeTab === 'email-settings') {
       fetchEmailSettings();
-      fetchSchedulerStatus(); // Fetch scheduler status when on email settings tab
+      fetchSchedulerStatus(); 
     } else if (activeTab === 'email-templates') {
       fetchEmailTemplates();
     }
   }, [activeTab]);
 
-  // NEW: Fetch Scheduler Status
   const fetchSchedulerStatus = async () => {
     setSchedulerStatusLoading(true);
     try {
@@ -147,8 +146,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           id: data.id,
           maileroo_sending_key: data.maileroo_sending_key || '',
           mail_default_sender: data.mail_default_sender || '',
-          scheduler_enabled: data.scheduler_enabled, // NEW
-          reminder_time: data.reminder_time || '02:00' // NEW
+          scheduler_enabled: data.scheduler_enabled, 
+          reminder_time: data.reminder_time || '02:00' 
         });
       } else {
         setEmailSettingsMessage(`Error: ${data.message || 'Failed to fetch email settings'}`);
@@ -187,11 +186,11 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             id: data.settings.id,
             maileroo_sending_key: data.settings.maileroo_sending_key || '',
             mail_default_sender: data.settings.mail_default_sender || '',
-            scheduler_enabled: data.settings.scheduler_enabled, // NEW
-            reminder_time: data.settings.reminder_time || '02:00' // NEW
+            scheduler_enabled: data.settings.scheduler_enabled, 
+            reminder_time: data.settings.reminder_time || '02:00' 
           });
         }
-        fetchSchedulerStatus(); // Refresh scheduler status after settings update
+        fetchSchedulerStatus(); 
       } else {
         setEmailSettingsMessage(`Error: ${data.message || 'Failed to update email settings'}`);
       }
@@ -239,7 +238,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  // NEW: handleSendTestPushNotification function
   const handleSendTestPushNotification = async (e) => {
     e.preventDefault();
     setTestPushLoading(true);
@@ -286,7 +284,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Email Template Management Functions
   const fetchEmailTemplates = async () => {
     setTemplateLoading(true);
     setTemplateMessage('');
@@ -376,7 +373,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       if (response.ok) {
         setTemplateMessage(data.message || 'Template saved successfully!');
         setTemplateMessageType('success');
-        fetchEmailTemplates(); // Refresh the list
+        fetchEmailTemplates(); 
         setShowTemplateModal(false);
       } else {
         setTemplateMessage(`Error: ${data.message || 'Failed to save template'}`);
@@ -412,7 +409,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       if (response.ok || response.status === 204) {
         setTemplateMessage('Template deleted successfully!');
         setTemplateMessageType('success');
-        fetchEmailTemplates(); // Refresh the list
+        fetchEmailTemplates(); 
       } else {
         const data = await response.json();
         setTemplateMessage(`Error: ${data.message || 'Failed to delete template'}`);
@@ -430,14 +427,13 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const loadUsersData = async () => {
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, name, email, created_at, last_activity_at, companies');
+      .select('id, name, email, created_at, last_activity_at, companies, account_type'); // Include account_type
 
     if (profilesError) {
       console.error("SuperAdminDashboard: Error fetching profiles:", profilesError.message);
       return;
     }
 
-    // Auth-level metrics (last_sign_in_at) require service role; not available in the browser.
     const authUsers = { users: [] };
 
     const { data: allEvents, error: eventsError } = await supabase.from('events').select('id, user_id');
@@ -502,6 +498,14 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
   const handleViewUser = (userData) => {
     setSelectedUser(userData);
+    // REVERTED: Removed initialization of editing form
+    // setEditingUserForm({ 
+    //   id: userData.id,
+    //   name: userData.name,
+    //   email: userData.email,
+    //   account_type: userData.account_type,
+    //   companies: userData.companies, 
+    // });
     setShowUserModal(true);
   };
 
@@ -536,7 +540,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       if (response.ok) {
         setEmailSettingsMessage(`Scheduler ${action}ed successfully!`);
         setEmailSettingsMessageType('success');
-        fetchSchedulerStatus(); // Refresh status after control action
+        fetchSchedulerStatus(); 
       } else {
         setEmailSettingsMessage(`Error controlling scheduler: ${data.message || 'Unknown error'}`);
         setEmailSettingsMessageType('error');
@@ -550,32 +554,89 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     }
   };
 
+  // REVERTED: Removed handleUserFormChange function
+  // const handleUserFormChange = (e) => {
+  //   const { name, value } = e.target;
+  //   setEditingUserForm(prev => ({ ...prev, [name]: value }));
+  // };
+
+  // REVERTED: Removed handleUserModalSave function
+  // const handleUserModalSave = async () => {
+  //   if (!editingUserForm) return;
+
+  //   const payload = {
+  //     name: editingUserForm.name,
+  //     account_type: editingUserForm.account_type,
+  //   };
+
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from('profiles')
+  //       .update(payload)
+  //       .eq('id', editingUserForm.id)
+  //       .select()
+  //       .single();
+
+  //     if (error) {
+  //       console.error('Error updating user profile:', error.message);
+  //       alert('Failed to update user profile: ' + error.message);
+  //     } else {
+  //       console.log('User profile updated:', data);
+  //       alert('User profile updated successfully!');
+  //       setShowUserModal(false);
+  //       loadUsersData(); // Reload users to reflect changes
+  //     }
+  //   } catch (err) {
+  //     console.error('Unexpected error during user profile update:', err);
+  //     alert('An unexpected error occurred.');
+  //   }
+  // };
+
   const UserModal = () => {
-    if (!selectedUser) return null;
+    if (!selectedUser) return null; // REVERTED: Removed check for editingUserForm
 
     return (
       <div className="modal-backdrop" onClick={() => setShowUserModal(false)}>
         <div className="modal-content user-modal" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h2>User Details</h2>
-            <button onClick={() => setShowUserModal(false)}>&times;</button>
+            <button onClick={() => setShowUserModal(false)} className="modal-close"><X size={20} /></button>
           </div>
           
-          <div className="user-details">
+          <div className="user-details-form">
             <div className="user-info-section">
               <h3>Personal Information</h3>
               <div className="info-grid">
-                <div className="info-item">
-                  <label>Name:</label>
-                  <span>{selectedUser.name}</span>
+                <div className="form-group">
+                  <label className="form-label">Name:</label>
+                  <div className="input-wrapper">
+                    <User size={16} className="input-icon" />
+                    {/* REVERTED: Changed input to span */}
+                    <span className="form-input-display">{selectedUser.name}</span>
+                  </div>
                 </div>
-                <div className="info-item">
-                  <label>Email:</label>
-                  <span>{selectedUser.email}</span>
+                <div className="form-group">
+                  <label className="form-label">Email:</label>
+                  <div className="input-wrapper">
+                    <Mail size={16} className="input-icon" />
+                    {/* REVERTED: Changed input to span */}
+                    <span className="form-input-display">{selectedUser.email}</span>
+                  </div>
                 </div>
-                <div className="info-item">
-                  <label>Joined:</label>
-                  <span>{formatDate(selectedUser.created_at)}</span>
+                <div className="form-group">
+                  <label className="form-label">Account Type:</label>
+                  <div className="input-wrapper">
+                    <Users size={16} className="input-icon" />
+                    {/* REVERTED: Changed select to span */}
+                    <span className="form-input-display">{selectedUser.account_type}</span>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Joined:</label>
+                  <div className="input-wrapper">
+                    <Calendar size={16} className="input-icon" />
+                    <span className="form-input-display">{formatDate(selectedUser.created_at)}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -583,25 +644,40 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             <div className="user-info-section">
               <h3>Activity & Usage</h3>
               <div className="info-grid">
-                <div className="info-item">
-                  <label>Last Sign In:</label>
-                  <span>{formatDate(selectedUser.last_sign_in_at)}</span>
+                <div className="form-group">
+                  <label className="form-label">Last Sign In:</label>
+                  <div className="input-wrapper">
+                    <Clock size={16} className="input-icon" />
+                    <span className="form-input-display">{formatDate(selectedUser.last_sign_in_at)}</span>
+                  </div>
                 </div>
-                <div className="info-item">
-                  <label>Last Activity:</label>
-                  <span>{formatDate(selectedUser.last_activity_at)}</span>
+                <div className="form-group">
+                  <label className="form-label">Last Activity:</label>
+                  <div className="input-wrapper">
+                    <Activity size={16} className="input-icon" />
+                    <span className="form-input-display">{formatDate(selectedUser.last_activity_at)}</span>
+                  </div>
                 </div>
-                <div className="info-item">
-                  <label>Total Events:</label>
-                  <span>{selectedUser.event_count}</span>
+                <div className="form-group">
+                  <label className="form-label">Total Events:</label>
+                  <div className="input-wrapper">
+                    <CalendarDays size={16} className="input-icon" />
+                    <span className="form-input-display">{selectedUser.event_count}</span>
+                  </div>
                 </div>
-                <div className="info-item">
-                  <label>Total Tasks:</label>
-                  <span>{selectedUser.task_total_count}</span>
+                <div className="form-group">
+                  <label className="form-label">Total Tasks:</label>
+                  <div className="input-wrapper">
+                    <CheckSquare size={16} className="input-icon" />
+                    <span className="form-input-display">{selectedUser.task_total_count}</span>
+                  </div>
                 </div>
-                <div className="info-item">
-                  <label>Pending Tasks:</label>
-                  <span>{selectedUser.task_pending_count}</span>
+                <div className="form-group">
+                  <label className="form-label">Pending Tasks:</label>
+                  <div className="input-wrapper">
+                    <ListTodo size={16} className="input-icon" />
+                    <span className="form-input-display">{selectedUser.task_pending_count}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -624,6 +700,11 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                 )}
               </div>
             </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={() => setShowUserModal(false)}>Close</button>
+            {/* REVERTED: Removed Save Changes button */}
+            {/* <button type="button" className="btn btn-primary" onClick={handleUserModalSave}>Save Changes</button> */}
           </div>
         </div>
       </div>
@@ -659,7 +740,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     className="form-input"
                     placeholder="e.g., welcome_email"
                     required
-                    disabled={editingTemplate !== null} // Name cannot be changed for existing templates
+                    disabled={editingTemplate !== null} 
                   />
                 </div>
               </div>
@@ -802,6 +883,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     <tr>
                       <th>User</th>
                       <th>Email</th>
+                      <th>Account Type</th>
                       <th>Companies</th>
                       <th>Events</th>
                       <th>Tasks (P/T)</th>
@@ -821,6 +903,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                           </div>
                         </td>
                         <td>{userData.email}</td>
+                        <td><span className={`account-type-badge ${userData.account_type}`}>{userData.account_type}</span></td>
                         <td>
                           <div className="companies-cell">
                             {userData.companies && userData.companies.length > 0 ? (
@@ -896,7 +979,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                {/* NEW: Scheduler Settings */}
                 <div className="form-group">
                   <label className="form-label">Daily Reminder Scheduler</label>
                   <div className="setting-item">
@@ -932,7 +1014,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                {/* NEW: Scheduler Status Display */}
                 <div className="form-group">
                   <label className="form-label">Scheduler Status</label>
                   <div className="scheduler-status-card">
@@ -1042,7 +1123,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
           {activeTab === 'test-sending' && (
             <div className="email-settings-section">
-              {/* Existing Test Email Sending Form */}
               <div className="section-header">
                 <h2>Test Email Sending</h2>
               </div>
@@ -1075,7 +1155,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                 </div>
               </form>
 
-              {/* NEW: Test Push Notification Sending Form */}
               <div className="section-header" style={{ marginTop: '3rem' }}>
                 <h2>Test Push Notification Sending</h2>
               </div>

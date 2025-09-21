@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Calendar, LogOut, User, Settings, Plus, ChevronLeft, ChevronRight, BarChart3, CalendarDays, Mail, Check, X, Clock, CheckSquare, Square, Flag, Star, Building2, Edit, Trash2, ChevronDown, Save, Eye, EyeOff, Bell, Moon, Sun, Shield, Key, Globe, Palette, Users, UserPlus, Crown, UserCheck, Search, LayoutDashboard, MapPin, Lock, DollarSign, BellRing, BellOff, ListTodo } from 'lucide-react'
+import { Calendar, LogOut, User, Settings, Plus, ChevronLeft, ChevronRight, CalendarDays, Mail, Check, X, Clock, CheckSquare, Square, Flag, Building2, Edit, Trash2, ChevronDown, Save, Eye, EyeOff, Bell, Moon, Sun, Shield, Globe, Palette, Users, UserPlus, Crown, UserCheck, Search, LayoutDashboard, MapPin, Lock, DollarSign, ListTodo } from 'lucide-react'
 import { supabase } from '../supabaseClient';
 import './Dashboard.css'
 import EventModal from './EventModal';
-import PushNotificationPrompt from './PushNotificationPrompt'; // NEW: Import PushNotificationPrompt
+import PushNotificationPrompt from './PushNotificationPrompt';
 
 const formatDateToYYYYMMDD = (dateInput) => {
   if (!dateInput) return '';
@@ -107,13 +107,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const updateLastActivity = async () => {
     if (user?.id) {
-      const { error } = await supabase
+      await supabase
         .from('profiles')
         .update({ last_activity_at: new Date().toISOString() })
         .eq('id', user.id);
-      if (error) {
-        // console.error("Dashboard: Error updating last_activity_at:", error.message);
-      }
     }
   };
 
@@ -123,12 +120,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       supabase
         .from('profiles')
         .update({ name, theme, language, timezone, notifications, privacy, currency, last_activity_at: new Date().toISOString() })
-        .eq('id', user.id)
-        .then(({ error }) => {
-          if (error) {
-            // console.error("Dashboard: Error updating user profile in Supabase:", error.message);
-          }
-        });
+        .eq('id', user.id);
     }
   }, [user]);
 
@@ -167,8 +159,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       email_weekly: false,
       email_monthly: false,
       email_3day_countdown: false,
-      email_1week_countdown: true, // NEW: Default to true
-      push: true, // NEW: Default to true
+      email_1week_countdown: true,
+      push: true,
       reminders: true,
       invitations: true
     },
@@ -210,6 +202,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [currencySearchTerm, setCurrencySearchTerm] = useState('');
   const currencyDropdownRef = useRef(null);
+  const notificationBellRef = useRef(null);
 
   const [overviewStats, setOverviewStats] = useState({
     totalEvents: 0,
@@ -226,38 +219,28 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const [invitationsActiveTab, setInvitationsActiveTab] = useState('received');
 
-  // NEW: Calendar View State
-  const [calendarView, setCalendarView] = useState('month'); // 'month', 'week', 'day'
+  const [calendarView, setCalendarView] = useState('month');
 
-  // NEW: Push Notification States
-  const [pushNotificationStatus, setPushNotificationStatus] = useState('default'); // 'default', 'granted', 'denied', 'unsupported'
+  const [pushNotificationStatus, setPushNotificationStatus] = useState('default');
   const [pushSubscription, setPushSubscription] = useState(null);
   const [vapidPublicKey, setVapidPublicKey] = useState(null);
   const [pushNotificationMessage, setPushNotificationMessage] = useState('');
-  const [pushNotificationMessageType, setPushNotificationMessageType] = useState(''); // 'success' or 'error'
-  const [showPushPrompt, setShowPushPrompt] = useState(false); // NEW: State for showing the prompt
+  const [pushNotificationMessageType, setPushNotificationMessageType] = useState('');
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
 
-  // Fetch VAPID Public Key from backend
   useEffect(() => {
     const fetchVapidKey = async () => {
-      console.log('Dashboard: Fetching VAPID public key...');
       try {
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
         const response = await fetch(`${backendUrl}/api/vapid-public-key`);
-        console.log('Dashboard: VAPID public key fetch response status:', response.status);
         const data = await response.json();
-        console.log('Dashboard: VAPID public key fetch response data:', data);
-
         if (response.ok) {
           setVapidPublicKey(data.publicKey);
-          console.log('Dashboard: VAPID public key set successfully.');
         } else {
-          console.error('Dashboard: Failed to fetch VAPID public key:', data.message);
           setPushNotificationMessage(data.message || 'Failed to fetch VAPID public key from backend.');
           setPushNotificationMessageType('error');
         }
       } catch (error) {
-        console.error('Dashboard: Error fetching VAPID public key:', error);
         setPushNotificationMessage(`Network error fetching VAPID public key: ${error.message}`);
         setPushNotificationMessageType('error');
       }
@@ -265,7 +248,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     fetchVapidKey();
   }, []);
 
-  // Check and update push notification status on component mount and user change
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setPushNotificationStatus('unsupported');
@@ -280,7 +262,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       setPushNotificationStatus('default');
     }
 
-    // Check for existing subscription
     navigator.serviceWorker.ready.then(registration => {
       registration.pushManager.getSubscription().then(subscription => {
         setPushSubscription(subscription);
@@ -288,10 +269,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     });
   }, [user]);
 
-  // NEW: Effect to show push notification prompt
   useEffect(() => {
-    // Only show prompt if user is logged in, has push notifications enabled in settings (default or user choice),
-    // but no active subscription, and browser supports it, and and permission is not denied.
     if (user && user.notifications?.push && !pushSubscription && pushNotificationStatus !== 'unsupported' && pushNotificationStatus !== 'denied') {
       setShowPushPrompt(true);
     } else {
@@ -301,16 +279,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const urlBase64ToUint8Array = (base64String) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
     const rawData = window.atob(base64);
     const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
     return outputArray;
   };
 
@@ -323,17 +295,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       setPushNotificationMessageType('error');
       return;
     }
-
     if (pushNotificationStatus === 'unsupported') {
       setPushNotificationMessage('Push notifications are not supported by your browser.');
       setPushNotificationMessageType('error');
       return;
     }
-
     if (!vapidPublicKey) {
       setPushNotificationMessage('VAPID public key not available. Cannot subscribe.');
       setPushNotificationMessageType('error');
-      console.error('Dashboard: VAPID public key is null or undefined. Cannot subscribe.');
       return;
     }
 
@@ -347,7 +316,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
         });
 
-        // Send subscription to your backend
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
         const response = await fetch(`${backendUrl}/api/subscribe-push`, {
           method: 'POST',
@@ -363,13 +331,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           setPushSubscription(subscription);
           setPushNotificationMessage('Successfully subscribed to push notifications!');
           setPushNotificationMessageType('success');
-          // Update user profile in Supabase with the subscription
           await supabase.from('profiles').update({ push_subscription: subscription }).eq('id', user.id);
           onUserUpdate({ ...user, push_subscription: subscription });
         } else {
           setPushNotificationMessage(data.message || 'Failed to save push subscription to backend.');
           setPushNotificationMessageType('error');
-          // If backend fails, unsubscribe from browser to keep state consistent
           subscription.unsubscribe();
           setPushSubscription(null);
         }
@@ -379,7 +345,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         setPushNotificationMessageType('error');
       }
     } catch (error) {
-      console.error('Error subscribing to push notifications:', error);
       setPushNotificationMessage(`Error subscribing: ${error.message}`);
       setPushNotificationMessageType('error');
     }
@@ -392,18 +357,12 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     if (!pushSubscription) {
       setPushNotificationMessage('Not subscribed to push notifications.');
       setPushNotificationMessageType('error');
-      console.warn('Dashboard: Attempted to unsubscribe but no active pushSubscription found.');
       return;
     }
 
-    console.log('Dashboard: Attempting to unsubscribe from push notifications. Current subscription:', pushSubscription);
-
     try {
       const browserUnsubscribeResult = await pushSubscription.unsubscribe();
-      console.log('Dashboard: Browser pushSubscription.unsubscribe() result:', browserUnsubscribeResult);
-
       if (!browserUnsubscribeResult) {
-        console.warn('Dashboard: Browser unsubscribe returned false. Subscription might already be invalid.');
         setPushNotificationMessage('Browser reported subscription already invalid. Attempting to clear from server.');
         setPushNotificationMessageType('warning');
       }
@@ -411,49 +370,40 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       setPushSubscription(null);
       setPushNotificationStatus('default');
 
-      // Notify backend to remove subscription
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
       const session = await supabase.auth.getSession();
       const accessToken = session.data.session?.access_token;
-
       if (!accessToken) {
-        console.error('Dashboard: No access token found for backend unsubscribe request.');
         setPushNotificationMessage('Authentication error: Could not unsubscribe from backend.');
         setPushNotificationMessageType('error');
         return;
       }
 
-      console.log('Dashboard: Sending unsubscribe request to backend...');
       const response = await fetch(`${backendUrl}/api/unsubscribe-push`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ endpoint: pushSubscription.endpoint }), // Still send the original endpoint
+        body: JSON.stringify({ endpoint: pushSubscription.endpoint }),
       });
 
       const data = await response.json();
-      console.log('Dashboard: Backend unsubscribe response:', response.status, data);
-
       if (response.ok) {
         setPushNotificationMessage('Successfully unsubscribed from push notifications!');
         setPushNotificationMessageType('success');
-        // Update user profile in Supabase directly from frontend as well, for immediate UI consistency
-        // This is a redundant call if backend also does it, but adds robustness for UI
+
         const { error: supabaseUpdateError } = await supabase.from('profiles').update({ push_subscription: null }).eq('id', user.id);
         if (supabaseUpdateError) {
-          console.error('Dashboard: Error updating Supabase profile directly after backend unsubscribe:', supabaseUpdateError.message);
           setPushNotificationMessage(prev => prev + ' (Warning: Failed to update Supabase directly from frontend.)');
-          setPushNotificationMessageType('error'); // Change to error if Supabase update fails
+          setPushNotificationMessageType('error');
         }
-        onUserUpdate({ ...user, push_subscription: null, notifications: { ...(user.notifications || {}), push: false } }); // Ensure notifications.push is also updated
+        onUserUpdate({ ...user, push_subscription: null, notifications: { ...(user.notifications || {}), push: false } });
       } else {
         setPushNotificationMessage(data.message || 'Failed to remove push subscription from backend.');
         setPushNotificationMessageType('error');
       }
     } catch (error) {
-      console.error('Dashboard: Critical error during push notification unsubscribe:', error);
       setPushNotificationMessage(`Error unsubscribing: ${error.message}`);
       setPushNotificationMessageType('error');
     }
@@ -461,10 +411,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const handlePushNotificationToggle = async (e) => {
     const isChecked = e.target.checked;
-    console.log('Dashboard: Push notification toggle changed to:', isChecked);
     setSettingsForm(prev => ({
       ...prev,
-      // CRITICAL FIX: Ensure prev.notifications is an object before spreading
       notifications: { ...(prev.notifications || {}), push: isChecked }
     }));
 
@@ -475,33 +423,32 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     }
   };
 
-  // NEW: Handlers for the PushNotificationPrompt
   const handleEnablePushFromPrompt = async () => {
-    setShowPushPrompt(false); // Close the prompt
+    setShowPushPrompt(false);
     await subscribeToPushNotifications();
   };
 
   const handleSkipPushFromPrompt = async () => {
-    setShowPushPrompt(false); // Close the prompt
-    // Update user settings to disable push notifications, so the prompt doesn't reappear
-    // CRITICAL FIX: Ensure user.notifications is an object before spreading
+    setShowPushPrompt(false);
     const updatedNotifications = { ...(user.notifications || {}), push: false };
     const { error } = await supabase
       .from('profiles')
       .update({ notifications: updatedNotifications, last_activity_at: new Date().toISOString() })
       .eq('id', user.id);
-    if (error) {
-      console.error('Failed to update user notifications after skipping push prompt:', error.message);
-    } else {
+    if (!error) {
       onUserUpdate({ ...user, notifications: updatedNotifications });
     }
   };
 
+  // REFACTORED: Combined useEffect for handling clicks outside dropdowns
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(event.target)) {
         setShowCurrencyDropdown(false);
         setCurrencySearchTerm('');
+      }
+      if (notificationBellRef.current && !notificationBellRef.current.contains(event.target)) {
+        setShowNotificationsDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -543,24 +490,23 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   }, [settingsForm.theme]);
 
   const currentCompany = user.companies?.find(company => company.id === user.currentCompanyId);
+  const currentUserRoleInCurrentCompany = user.companies?.find(c => c.id === currentCompany?.id)?.role;
+  const canManageCompany = currentUserRoleInCurrentCompany === 'owner' || currentUserRoleInCurrentCompany === 'admin';
 
-  // NEW: Debugging useEffect to check account_type
+
   useEffect(() => {
-    if (user) {
-      console.log('Dashboard Component Render - User Account Type:', user.account_type);
-      console.log('Dashboard Component Render - Current Company Name:', currentCompany?.name);
-    }
-  }, [user, currentCompany]);
+    fetchTeamMembersForCompany(currentCompany?.id);
+  }, [currentCompany?.id, user.companies]);
 
   const _fetchEvents = async () => {
-    if (!user || !currentCompany?.id) { // Removed !user.id check as we're filtering by company_id
+    if (!user || !currentCompany?.id) {
       setEvents([]);
       return;
     }
     const { data, error } = await supabase
       .from('events')
       .select('*, notification_dismissed_at')
-      .eq('company_id', currentCompany.id); // Filter by company_id
+      .eq('company_id', currentCompany.id);
     if (error) {
       setEvents([]);
       return;
@@ -573,7 +519,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         date: localDate,
         eventTasks: (event.event_tasks || []).map(task => ({
           ...task,
-          // Ensure expenses is always a number or null after fetching from JSONB
           expenses: task.expenses !== null && task.expenses !== undefined ? Number(task.expenses) : null
         }))
       };
@@ -582,14 +527,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   };
 
   const _fetchTasks = async () => {
-    if (!user || !currentCompany?.id) { // Removed !user.id check as we're filtering by company_id
+    if (!user || !currentCompany?.id) {
       setTasks([]);
       return;
     }
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
-      .eq('company_id', currentCompany.id); // Filter by company_id
+      .eq('company_id', currentCompany.id);
     if (error) {
       setTasks([]);
       return;
@@ -603,7 +548,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return {
         ...task,
         dueDate: localDate,
-        // Normalize general task expenses when fetching (so strings parse reliably).
         expenses: task.expenses !== null && task.expenses !== undefined ? Number(task.expenses) : null,
       };
     });
@@ -650,22 +594,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     });
     setTeamMembers(membersWithRoles);
   };
-
-  useEffect(() => {
-    fetchTeamMembersForCompany(currentCompany?.id);
-  }, [currentCompany?.id, user.companies]);
-
-  const notificationBellRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notificationBellRef.current && !notificationBellRef.current.contains(event.target)) {
-        setShowNotificationsDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const toggleTaskCompletion = async (taskId, isEventTask, parentEventId) => {
     if (!currentCompany?.id) {
@@ -787,6 +715,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     onUserUpdate({ ...user, companies: updatedCompanies, currentCompanyId: newCurrentCompanyId });
     setShowCompanyModal(false);
     updateLastActivity();
+  };
+
+  // NEW: handleInviteFormChange function
+  const handleInviteFormChange = (e) => {
+    const { name, value } = e.target;
+    setInviteForm(prev => ({ ...prev, [name]: value }));
+    setInviteMessage(''); // Clear messages on input change
+    setInviteMessageType('');
   };
 
   const handleInviteFormSubmit = async (e) => {
@@ -1534,16 +1470,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const upcomingEventsTodayCount = upcomingEventsToday.length;
   const totalNotifications = pendingInvitationsCount + overdueTasksCount + upcomingEventsTodayCount;
 
-  const taskTabStats = useMemo(() => {
-    const total = allTasks.length;
-    const completed = allTasks.filter(t => t.completed).length;
-    const pending = allTasks.filter(t => !t.completed && !isTaskOverdue(t)).length;
-    const overdue = allTasks.filter(t => isTaskOverdue(t)).length;
-    const completedPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    const pendingPercentage = total > 0 ? Math.round((pending / total) * 100) : 0;
-    return { total, completed, pending, overdue, completedPercentage, pendingPercentage };
-  }, [allTasks]);
-
   const receivedInvitations = useMemo(() =>
     invitations.filter(inv => inv.recipient_email === user.email),
     [invitations, user.id]
@@ -1552,16 +1478,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     invitations.filter(inv => inv.sender_id === user.id),
     [invitations, user.id]
   );
-
-  const invitationStats = useMemo(() => {
-    const source = invitationsActiveTab === 'received' ? receivedInvitations : sentInvitations;
-    return {
-      total: source.length,
-      pending: source.filter(inv => inv.status === 'pending').length,
-      accepted: source.filter(inv => inv.status === 'accepted').length,
-      declined: source.filter(inv => inv.status === 'declined').length,
-    };
-  }, [invitationsActiveTab, receivedInvitations, sentInvitations]);
 
   const handleMarkAllAsRead = async () => {
     const now = new Date().toISOString();
@@ -1795,12 +1711,16 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               {overdueTasksCount > 0 && <span className="notification-badge overdue">{overdueTasksCount}</span>}
             </button>
             {user.account_type === 'business' && (
-              <button className={`nav-tab ${activeTab === 'invitations' ? 'active' : ''}`} onClick={() => { setActiveTab('invitations'); setSearchTerm('') }}>
-                <Mail className="tab-icon" />
-                Invitations
-                {pendingInvitationsCount > 0 && <span className="notification-badge">{pendingInvitationsCount}</span>}
+              <button className={`nav-tab ${activeTab === 'company-team' ? 'active' : ''}`} onClick={() => { setActiveTab('company-team'); setSearchTerm('') }}>
+                <Users className="tab-icon" />
+                Company & Team
               </button>
             )}
+            <button className={`nav-tab ${activeTab === 'invitations' ? 'active' : ''}`} onClick={() => { setActiveTab('invitations'); setSearchTerm('') }}>
+              <Mail className="tab-icon" />
+              Invitations
+              {pendingInvitationsCount > 0 && <span className="notification-badge">{pendingInvitationsCount}</span>}
+            </button>
             <button className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setSearchTerm('') }}>
               <Settings className="tab-icon" />
               Settings
@@ -1871,8 +1791,15 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             {task.dueDate && <span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}>Due: {task.dueDate.toLocaleDateString()}</span>}
                             {task.expenses > 0 && <span className="task-expenses"><DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}</span>}
                             <div className="task-actions">
-                              <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(task.id)} title="Edit Task"><Edit size={16} /></button>
-                              <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(task.id)} title="Delete Task"><Trash2 size={16} /></button>
+                              {task.type === 'general' && (
+                                <>
+                                  <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(task.id)} title="Edit Task"><Edit size={16} /></button>
+                                  <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(task.id)} title="Delete Task"><Trash2 size={16} /></button>
+                                </>
+                              )}
+                              {task.type === 'event' && (
+                                <button className="btn-icon-small edit" onClick={() => handleEditEvent(events.find(e => e.id === task.parentEvent.id))} title="View Event"><Eye size={16} /></button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1955,7 +1882,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 <p className="event-task-summary">
                                   <CheckSquare size={14} /> {event.eventTasks.filter(t => !t.completed).length} pending tasks
                                 </p>
-                              )}
+                              )}\
                             </div>
                             <div className="event-actions">
                               <button className="btn-icon-small edit" onClick={() => handleEditEvent(event)} title="Edit Event"><Edit size={16} /></button>
@@ -2003,7 +1930,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         </select>
                         <button className="btn btn-primary btn-small" onClick={() => {
                           setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
-                          setShowEventModal(true); // Re-use event modal for general task creation
+                          setShowEventModal(true);
                         }}>
                           <Plus size={16} /> Add Task
                         </button>
@@ -2336,16 +2263,91 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="no-tasks">
-                      <ListTodo className="no-tasks-icon" />
-                      <p>No tasks found matching your filters.</p>
-                      <button className="btn btn-primary" onClick={() => {
-                        setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
-                        setShowEventModal(true);
-                      }}><Plus size={16} /> Add Your First Task</button>
+                    ) : (
+                      <div className="no-tasks">
+                        <ListTodo className="no-tasks-icon" />
+                        <p>No tasks found matching your filters.</p>
+                        <button className="btn btn-primary" onClick={() => {
+                          setCurrentEventTaskForm({ id: null, title: '', description: '', assignedTo: user.email, completed: false, dueDate: '', expenses: '' });
+                          setShowEventModal(true);
+                        }}><Plus size={16} /> Add Your First Task</button>
+                      </div>
+                    )}
+                </div>
+              )}
+
+              {activeTab === 'company-team' && user.account_type === 'business' && (
+                <div className="constrained-content">
+                  <div className="settings-section">
+                    <div className="settings-section-header">
+                      <div>
+                        <h3 className="settings-section-title">Company Management</h3>
+                        <p className="settings-section-subtitle">Manage your company details and team members.</p>
+                      </div>
+                      <button className="btn btn-primary btn-small" onClick={() => setShowInviteModal(true)}>
+                        <UserPlus size={16} /> Invite Member
+                      </button>
                     </div>
-                  )}
+
+                    {currentCompany ? (
+                      <>
+                        <div className="form-group">
+                          <label className="form-label">Current Company</label>
+                          <div className="input-wrapper">
+                            <Building2 className="input-icon" />
+                            <input
+                              type="text"
+                              value={currentCompany.name}
+                              className="form-input"
+                              disabled
+                            />
+                          </div>
+                        </div>
+
+                        <div className="company-actions-group">
+                          {canManageCompany && (
+                            <button className="btn btn-outline btn-small" onClick={() => handleEditCompany(currentCompany)}>
+                              <Edit size={16} /> Edit Company Name
+                            </button>
+                          )}
+                          {currentUserRoleInCurrentCompany === 'owner' && (
+                            <button className="btn btn-danger btn-small" onClick={() => handleDeleteCompany(currentCompany.id)}>
+                              <Trash2 size={16} /> Delete Company
+                            </button>
+                          )}
+                        </div>
+
+                        <h4 className="settings-section-title" style={{ marginTop: '2rem', marginBottom: '1rem' }}>Team Members</h4>
+                        {teamMembers.length > 0 ? (
+                          <div className="team-members-list">
+                            {teamMembers.map(member => (
+                              <div key={member.id} className="team-member-item">
+                                <div className="team-member-info">
+                                  <div className="team-member-avatar">{(member.name || member.email || '?').charAt(0).toUpperCase()}</div>
+                                  <div>
+                                    <p className="team-member-email">{member.name || member.email}</p>
+                                    <span className="team-member-role">Role: {member.role}</span>
+                                  </div>
+                                </div>
+                                {/* Add actions like change role or remove member here, if applicable */}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="no-members">
+                            <Users size={40} className="no-members-icon" />
+                            <p>No members in this company yet.</p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="no-companies">
+                        <Building2 className="no-companies-icon" />
+                        <p>You are not currently associated with any business company.</p>
+                        <button className="btn btn-primary" onClick={handleAddCompany}><Plus size={16} /> Create New Company</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -2474,14 +2476,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     >
                       <Bell size={16} /> Notifications
                     </button>
-                    {user.account_type === 'business' && (
-                      <button
-                        className={`settings-nav-tab ${settingsActiveTab === 'team' ? 'active' : ''}`}
-                        onClick={() => setSettingsActiveTab('team')}
-                      >
-                        <Users size={16} /> Team
-                      </button>
-                    )}
                   </nav>
 
                   <div className="settings-tab-content">
@@ -2665,7 +2659,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 className="form-select"
                               >
                                 <option value="en">English</option>
-                                {/* Add more languages as needed */}
                               </select>
                             </div>
                           </div>
@@ -2684,7 +2677,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 <option value="America/Los_Angeles">America/Los_Angeles</option>
                                 <option value="Europe/London">Europe/London</option>
                                 <option value="Asia/Tokyo">Asia/Tokyo</option>
-                                {/* Add more timezones as needed */}
                               </select>
                             </div>
                           </div>
@@ -2707,7 +2699,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                     placeholder="Search currency..."
                                     value={currencySearchTerm}
                                     onChange={(e) => setCurrencySearchTerm(e.target.value)}
-                                    onClick={e => e.stopPropagation()} // Prevent closing dropdown when searching
+                                    onClick={(e) => e.stopPropagation()}
                                   />
                                   {filteredFavorites.length > 0 && (
                                     <>
@@ -2849,8 +2841,28 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                           </div>
                           <div className="setting-item">
                             <div className="setting-info">
+                              <h4>Push Notifications</h4>
+                              <p>Receive real-time alerts directly to your device.</p>
+                            </div>
+                            <label className="toggle-switch">
+                              <input
+                                type="checkbox"
+                                checked={settingsForm.notifications.push}
+                                onChange={handlePushNotificationToggle}
+                                disabled={pushNotificationStatus === 'unsupported' || pushNotificationStatus === 'denied'}
+                              />
+                              <span className="toggle-slider"></span>
+                            </label>
+                          </div>
+                          {pushNotificationMessage && (
+                            <div className={`info-message ${pushNotificationMessageType}`} style={{ marginTop: '1rem' }}>
+                              {pushNotificationMessage}
+                            </div>
+                          )}
+                          <div className="setting-item">
+                            <div className="setting-info">
                               <h4>Task Reminders</h4>
-                              <p>Receive email reminders for overdue or upcoming tasks.</p>
+                              <p>Get reminders for upcoming tasks.</p>
                             </div>
                             <label className="toggle-switch">
                               <input
@@ -2867,7 +2879,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                           <div className="setting-item">
                             <div className="setting-info">
                               <h4>Invitation Alerts</h4>
-                              <p>Get notified when you receive a new team invitation.</p>
+                              <p>Be notified when you receive a team invitation.</p>
                             </div>
                             <label className="toggle-switch">
                               <input
@@ -2882,81 +2894,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             </label>
                           </div>
                         </form>
-
-                        <div className="settings-section-header" style={{ marginTop: '2rem' }}>
-                          <div>
-                            <h3 className="settings-section-title">Push Notifications</h3>
-                            <p className="settings-section-subtitle">Receive real-time alerts directly to your device.</p>
-                          </div>
-                          {pushNotificationMessage && (
-                            <div className={`info-message ${pushNotificationMessageType}`} style={{ width: '100%', maxWidth: '300px', textAlign: 'center' }}>
-                              {pushNotificationMessage}
-                            </div>
-                          )}
-                        </div>
-                        <div className="setting-item">
-                          <div className="setting-info">
-                            <h4>Enable Push Notifications</h4>
-                            <p>Get instant notifications for important updates.</p>
-                            {pushNotificationStatus === 'unsupported' && (
-                              <p style={{ color: 'var(--error-color)', fontSize: '0.8em' }}>Your browser does not support push notifications.</p>
-                            )}
-                            {pushNotificationStatus === 'denied' && (
-                              <p style={{ color: 'var(--error-color)', fontSize: '0.8em' }}>Permission denied. Please enable in browser settings.</p>
-                            )}
-                          </div>
-                          <label className="toggle-switch">
-                            <input
-                              type="checkbox"
-                              checked={settingsForm.notifications.push}
-                              onChange={handlePushNotificationToggle}
-                              disabled={pushNotificationStatus === 'unsupported' || pushNotificationStatus === 'denied'}
-                            />
-                            <span className="toggle-slider"></span>
-                          </label>
-                        </div>
-                      </div>
-                    )}
-
-                    {settingsActiveTab === 'team' && user.account_type === 'business' && (
-                      <div className="settings-section">
-                        <div className="settings-section-header">
-                          <div>
-                            <h3 className="settings-section-title">Team Members ({currentCompany?.name})</h3>
-                            <p className="settings-section-subtitle">Manage members of your current company.</p>
-                          </div>
-                          <button className="btn btn-primary btn-small" onClick={() => setShowInviteModal(true)}>
-                            <UserPlus size={16} /> Invite Member
-                          </button>
-                        </div>
-                        {teamMembers.length > 0 ? (
-                          <div className="team-members-list">
-                            {teamMembers.map(member => (
-                              <div key={member.id} className="team-member-item">
-                                <div className="team-member-info">
-                                  <div className="team-member-avatar">{(member.name || member.email || '?').charAt(0).toUpperCase()}</div>
-                                  <div>
-                                    <p className="team-member-email">{member.name || member.email}</p>
-                                    <p className="team-member-role">Role: {member.role}</p>
-                                  </div>
-                                </div>
-                                <div className="team-member-actions">
-                                  {member.id !== user.id && currentCompany?.role === 'owner' && (
-                                    <button className="btn-icon-small delete" title="Remove Member">
-                                      <Trash2 size={16} />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="no-companies">
-                            <Users className="no-companies-icon" />
-                            <p>No team members in this company yet.</p>
-                            <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}><UserPlus size={16} /> Invite Your First Member</button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -2967,12 +2904,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </main>
       </div>
 
-      {/* Company Modal */}
       {showCompanyModal && (
         <div className="modal-backdrop" onClick={() => setShowCompanyModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{editingCompany ? 'Edit Company' : 'Add New Company'}</h3>
+              <h3>{editingCompany ? 'Edit Company' : 'Create New Company'}</h3>
               <button className="modal-close" onClick={() => setShowCompanyModal(false)}><X /></button>
             </div>
             <form onSubmit={handleCompanyFormSubmit}>
@@ -2987,7 +2923,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       value={companyForm.name}
                       onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))}
                       className="form-input"
-                      placeholder="e.g., DayClap Inc."
+                      placeholder="e.g., My Awesome Company"
                       required
                     />
                   </div>
@@ -3002,7 +2938,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </div>
       )}
 
-      {/* Invite Member Modal */}
       {showInviteModal && (
         <div className="modal-backdrop" onClick={() => setShowInviteModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -3018,14 +2953,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   </div>
                 )}
                 <div className="form-group">
-                  <label className="form-label">Member Email</label>
+                  <label className="form-label">Recipient Email</label>
                   <div className="input-wrapper">
                     <Mail className="input-icon" />
                     <input
                       type="email"
                       name="email"
                       value={inviteForm.email}
-                      onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={handleInviteFormChange}
                       className="form-input"
                       placeholder="member@example.com"
                       required
@@ -3038,13 +2973,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     <Building2 className="input-icon" />
                     <select
                       name="companyId"
-                      value={inviteForm.companyId}
-                      onChange={(e) => setInviteForm(prev => ({ ...prev, companyId: e.target.value }))}
+                      value={inviteForm.companyId || ''}
+                      onChange={handleInviteFormChange}
                       className="form-select"
                       required
                     >
                       <option value="">Select a company</option>
-                      {user.companies.filter(c => c.role === 'owner' || c.role === 'admin').map(company => (
+                      {user.companies.map(company => (
                         <option key={company.id} value={company.id}>{company.name}</option>
                       ))}
                     </select>
@@ -3057,12 +2992,12 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     <select
                       name="role"
                       value={inviteForm.role}
-                      onChange={(e) => setInviteForm(prev => ({ ...prev, role: e.target.value }))}
+                      onChange={handleInviteFormChange}
                       className="form-select"
                       required
                     >
                       <option value="user">User</option>
-                      <option value="admin">Admin</option>
+                      {currentUserRoleInCurrentCompany === 'owner' && <option value="admin">Admin</option>}
                     </select>
                   </div>
                 </div>
@@ -3076,7 +3011,68 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </div>
       )}
 
-      {/* Event/Task Modal (reused for both) */}
+      {isDateModalOpen && selectedDateForModal && (
+        <div className="modal-backdrop" onClick={() => setIsDateModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{selectedDateForModal.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</h3>
+              <button className="modal-close" onClick={() => setIsDateModalOpen(false)}><X /></button>
+            </div>
+            <div className="modal-body">
+              <div className="day-events-full-list">
+                {getCalendarItemsForDate(selectedDateForModal).length > 0 ? (
+                  getCalendarItemsForDate(selectedDateForModal).map(item => (
+                    <div key={item.id} className={`event-card ${item.type === 'event' ? 'upcoming' : (item.completed ? 'completed' : (item.isOverdue ? 'overdue' : 'pending'))}`}>
+                      <div className="event-date-time-block">
+                        <span className="event-date-display">{item.date?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        <span className="event-time-display">{item.time || 'All Day'}</span>
+                      </div>
+                      <div className="event-details">
+                        <h4 className="event-title clickable-title" onClick={() => item.type === 'event' ? handleEditEvent(item) : handleEditGeneralTask(item.id)}>{item.title}</h4>
+                        {item.description && <p className="event-description">{item.description}</p>}
+                        {item.location && <p className="event-location"><MapPin size={14} /> {item.location}</p>}
+                        {item.type === 'task' && (
+                          <div className="task-footer" style={{ marginTop: '0.5rem' }}>
+                            {item.priority && <span className={`priority-badge ${item.priority}`}>{item.priority}</span>}
+                            {item.category && <span className="category-badge">{item.category}</span>}
+                            {item.expenses > 0 && <span className="task-expenses"><DollarSign size={14} /> {formatCurrency(item.expenses, user.currency)}</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="event-actions">
+                        {item.type === 'event' && (
+                          <>
+                            <button className="btn-icon-small edit" onClick={() => handleEditEvent(item)} title="Edit Event"><Edit size={16} /></button>
+                            <button className="btn-icon-small delete" onClick={() => handleDeleteEvent(item.id)} title="Delete Event"><Trash2 size={16} /></button>
+                          </>
+                        )}
+                        {item.type === 'task' && (
+                          <>
+                            <button className="checkbox-btn" onClick={() => toggleTaskCompletion(item.id, false)}>
+                              {item.completed ? <CheckSquare size={20} /> : <Square size={20} />}
+                            </button>
+                            <button className="btn-icon-small edit" onClick={() => handleEditGeneralTask(item.id)} title="Edit Task"><Edit size={16} /></button>
+                            <button className="btn-icon-small delete" onClick={() => handleDeleteGeneralTask(item.id)} title="Delete Task"><Trash2 size={16} /></button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="no-events">
+                    <CalendarDays className="no-events-icon" />
+                    <p>No events or tasks scheduled for this day.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => handleAddEventFromModal(selectedDateForModal)}><Plus size={16} /> Add Event</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showEventModal && (
         <EventModal
           showModal={showEventModal}
@@ -3096,57 +3092,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         />
       )}
 
-      {/* Date Modal for Calendar Day Click */}
-      {isDateModalOpen && selectedDateForModal && (
-        <div className="modal-backdrop" onClick={() => setIsDateModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <div className="modal-header">
-              <h3>{selectedDateForModal.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
-              <button className="modal-close" onClick={() => setIsDateModalOpen(false)}><X /></button>
-            </div>
-            <div className="modal-body">
-              <p style={{ marginBottom: '1rem', color: 'var(--secondary-text)' }}>
-                {getCalendarItemsForDate(selectedDateForModal).length > 0
-                  ? `You have ${getCalendarItemsForDate(selectedDateForModal).length} items scheduled:`
-                  : 'No events or tasks scheduled for this day.'}
-              </p>
-              {getCalendarItemsForDate(selectedDateForModal).length > 0 && (
-                <div className="day-events-full-list" style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '1rem' }}>
-                  {getCalendarItemsForDate(selectedDateForModal).map(item => (
-                    <div key={item.id} className={`event-card ${item.type === 'event' ? 'upcoming' : (item.completed ? 'completed' : (item.isOverdue ? 'overdue' : 'pending'))}`} style={{ padding: '0.75rem', gap: '0.75rem' }}>
-                      <div className="event-date-time-block" style={{ minWidth: '60px', padding: '0.5rem' }}>
-                        <span className="event-date-display" style={{ fontSize: '0.7rem' }}>{item.time || 'All Day'}</span>
-                      </div>
-                      <div className="event-details">
-                        <h4 className="event-title" style={{ fontSize: '0.9rem', margin: 0 }}>{item.title}</h4>
-                        {item.type === 'task' && item.dueDate && <p style={{ fontSize: '0.75rem', color: 'var(--secondary-text)', margin: 0 }}>Due: {item.dueDate.toLocaleDateString()}</p>}
-                      </div>
-                      <div className="event-actions">
-                        {item.type === 'event' && (
-                          <button className="btn-icon-small edit" onClick={() => { handleEditEvent(item); setIsDateModalOpen(false); }} title="Edit Event"><Edit size={16} /></button>
-                        )}
-                        {item.type === 'task' && (
-                          <button className="btn-icon-small edit" onClick={() => { handleEditGeneralTask(item.id); setIsDateModalOpen(false); }} title="Edit Task"><Edit size={16} /></button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button className="btn btn-primary btn-full" onClick={() => handleAddEventFromModal(selectedDateForModal)}>
-                <Plus size={16} /> Add New Event
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NEW: Push Notification Prompt */}
       {showPushPrompt && (
         <PushNotificationPrompt
           onEnable={handleEnablePushFromPrompt}
           onSkip={handleSkipPushFromPrompt}
-          onClose={() => setShowPushPrompt(false)} // Allow closing without action
+          onClose={() => setShowPushPrompt(false)}
         />
       )}
     </div>

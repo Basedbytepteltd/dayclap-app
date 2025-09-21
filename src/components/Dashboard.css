@@ -2102,7 +2102,7 @@
   font-weight: 500;
   padding: 0.25rem 0.5rem; /* Add some padding */
   background-color: var(--secondary-bg); /* Add a subtle background */
-  border-radius: var(--radius-sm); /* Rounded corners */
+  border-radius: var(--radius-sm);
   display: inline-block; /* Make it fit content */
 }
 
@@ -2451,7 +2451,8 @@ input:checked+.toggle-slider:before {
 .no-events,
 .no-tasks,
 .no-invitations,
-.no-companies-message {
+.no-companies,
+.no-members {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2468,7 +2469,8 @@ input:checked+.toggle-slider:before {
 .no-events-icon,
 .no-tasks-icon,
 .no-invitations-icon,
-.no-companies-icon {
+.no-companies-icon,
+.no-members-icon {
   width: 3rem;
   height: 3rem;
   margin-bottom: 1rem;
@@ -2503,5 +2505,24 @@ input:checked+.toggle-slider:before {
 @media (min-width: 481px) {
   .show-mobile {
     display: none !important;
+  }
+}
+
+/* Company Actions Group */
+.company-actions-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+@media (max-width: 640px) {
+  .company-actions-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .company-actions-group .btn {
+    width: 100%;
   }
 }

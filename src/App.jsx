@@ -176,7 +176,7 @@ function App() {
     const {
       id,
       name,
-      email,
+      email, // Corrected from femail
       theme,
       language,
       timezone,
