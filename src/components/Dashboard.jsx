@@ -1536,7 +1536,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const receivedInvitations = useMemo(() =>
     invitations.filter(inv => inv.recipient_email === user.email),
-    [invitations, user.email]
+    [invitations, user.id]
   );
   const sentInvitations = useMemo(() =>
     invitations.filter(inv => inv.sender_id === user.id),
