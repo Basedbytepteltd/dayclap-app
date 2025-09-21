@@ -240,17 +240,26 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   // Fetch VAPID Public Key from backend
   useEffect(() => {
     const fetchVapidKey = async () => {
+      console.log('Dashboard: Fetching VAPID public key...');
       try {
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
         const response = await fetch(`${backendUrl}/api/vapid-public-key`);
+        console.log('Dashboard: VAPID public key fetch response status:', response.status);
         const data = await response.json();
+        console.log('Dashboard: VAPID public key fetch response data:', data);
+
         if (response.ok) {
           setVapidPublicKey(data.publicKey);
+          console.log('Dashboard: VAPID public key set successfully.');
         } else {
-          console.error('Failed to fetch VAPID public key:', data.message);
+          console.error('Dashboard: Failed to fetch VAPID public key:', data.message);
+          setPushNotificationMessage(data.message || 'Failed to fetch VAPID public key from backend.');
+          setPushNotificationMessageType('error');
         }
       } catch (error) {
-        console.error('Error fetching VAPID public key:', error);
+        console.error('Dashboard: Error fetching VAPID public key:', error);
+        setPushNotificationMessage(`Network error fetching VAPID public key: ${error.message}`);
+        setPushNotificationMessageType('error');
       }
     };
     fetchVapidKey();
@@ -324,6 +333,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     if (!vapidPublicKey) {
       setPushNotificationMessage('VAPID public key not available. Cannot subscribe.');
       setPushNotificationMessageType('error');
+      console.error('Dashboard: VAPID public key is null or undefined. Cannot subscribe.');
       return;
     }
 
