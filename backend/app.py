@@ -136,6 +136,7 @@ def send_email_api(recipient_email, template_name, template_data=None):
     # Render the email template
     email_subject, html_body = render_email_template(template_name, template_data or {})
 
+    # CORRECTED: maileroo_payload as a proper Python dictionary
     maileroo_payload = {
         "from": {
             "address": sender_email,
@@ -146,7 +147,7 @@ def send_email_api(recipient_email, template_name, template_data=None):
                 "address": recipient_email
             }
         ],
-        "subject": email_subject, # Use subject from rendered template
+        "subject": email_subject,
         "html": html_body
     }
     
@@ -566,6 +567,10 @@ def send_invitation():
     required_fields = ['sender_id', 'sender_email', 'recipient_email', 'company_id', 'company_name', 'role']
     if not all(field in data for field in required_fields):
         return jsonify({"message": "Missing required fields"}), 400
+
+    # NEW: Prevent user from inviting themselves
+    if data['sender_email'].lower() == data['recipient_email'].lower():
+        return jsonify({"message": "You cannot invite yourself to a company."}), 400
 
     try:
         invitation_payload = {k: data[k] for k in required_fields}
