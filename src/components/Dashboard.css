@@ -162,7 +162,8 @@
 
 .user-details {
   display: flex;
-  flex-direction: column;  gap: 0.25rem;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 @media (max-width: 480px) {
@@ -189,7 +190,8 @@
   gap: 0.5rem;
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);  color: var(--secondary-text);
+  border-radius: var(--radius-sm);
+  color: var(--secondary-text);
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -525,22 +527,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-@media (max-width: 768px) {
-  .stat-card {
-    padding: 1rem;
-    gap: 0.75rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .stat-card {
-    flex-direction: column;
-    padding: 0.75rem;
-    gap: 0.5rem;
-    text-align: center;
-  }
-}
-
 .stat-card:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
@@ -775,7 +761,8 @@
   justify-content: center;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
-  padding: 0 1rem; /* Add padding to align with constrained content */
+  padding: 0 1rem;
+  /* Add padding to align with constrained content */
 }
 
 .calendar-view-tabs .btn {
@@ -788,8 +775,10 @@
     flex-wrap: wrap;
     justify-content: space-around;
   }
+
   .calendar-view-tabs .btn {
-    flex-basis: 30%; /* Adjust for smaller screens */
+    flex-basis: 30%;
+    /* Adjust for smaller screens */
     max-width: none;
   }
 }
@@ -1023,7 +1012,8 @@
 
 /* NEW: Weekly View Styles */
 .calendar-week-view {
-  background: var(--border-color); /* Same as calendar-grid background */
+  background: var(--border-color);
+  /* Same as calendar-grid background */
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
@@ -1037,7 +1027,8 @@
 }
 
 .week-day-headers .day-header {
-  border-bottom: none; /* Remove bottom border as it's part of the week view */
+  border-bottom: none;
+  /* Remove bottom border as it's part of the week view */
 }
 
 .week-days-grid {
@@ -1048,7 +1039,8 @@
 }
 
 .calendar-day.week-day {
-  min-height: 12rem; /* Make week days taller to show more events */
+  min-height: 12rem;
+  /* Make week days taller to show more events */
   padding: 0.75rem;
   align-items: flex-start;
 }
@@ -1073,7 +1065,8 @@
 }
 
 .calendar-day.week-day .day-number {
-  align-self: flex-end; /* Push day number to bottom right */
+  align-self: flex-end;
+  /* Push day number to bottom right */
   position: absolute;
   bottom: 0.5rem;
   right: 0.5rem;
@@ -1099,14 +1092,17 @@
   flex-direction: column;
   gap: 0.25rem;
   margin-top: 0.5rem;
-  max-height: calc(100% - 2.5rem); /* Adjust based on day number position */
+  max-height: calc(100% - 2.5rem);
+  /* Adjust based on day number position */
   overflow-y: auto;
-  padding-right: 5px; /* For scrollbar */
+  padding-right: 5px;
+  /* For scrollbar */
 }
 
 /* NEW: Daily View Styles */
 .calendar-day-view {
-  padding: 0 1rem; /* Align with constrained content */
+  padding: 0 1rem;
+  /* Align with constrained content */
 }
 
 .calendar-day-single {
@@ -1178,7 +1174,8 @@
   }
 }
 
-.event-date,.event-date-time-block {
+.event-date,
+.event-date-time-block {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1194,7 +1191,8 @@
 
 @media (max-width: 768px) {
 
-  .event-date,  .event-date-time-block {
+  .event-date,
+  .event-date-time-block {
     align-self: flex-start;
     min-width: 70px;
     padding: 0.75rem 0.625rem;
@@ -1390,7 +1388,8 @@
 
 .task-checkbox {
   display: flex;
-  align-items: flex-start;  padding-top: 0.125rem;
+  align-items: flex-start;
+  padding-top: 0.125rem;
 }
 
 .checkbox-btn {
@@ -2024,7 +2023,8 @@
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s;}
+  transition: all 0.2s;
+}
 
 .settings-nav-tab:hover {
   color: var(--primary-text);
@@ -2092,6 +2092,18 @@
   font-size: 0.875rem;
   color: var(--secondary-text);
   margin: 0;
+}
+
+/* NEW: Company Display in Profile Settings */
+.company-display {
+  font-size: 0.9rem; /* Slightly larger font */
+  color: var(--text-muted); /* Keep muted color */
+  margin-top: 0.5rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem; /* Add some padding */
+  background-color: var(--secondary-bg); /* Add a subtle background */
+  border-radius: var(--radius-sm); /* Rounded corners */
+  display: inline-block; /* Make it fit content */
 }
 
 /* Toggle switch */
@@ -2364,7 +2376,8 @@ input:checked+.toggle-slider:before {
 .team-invite-company-name {
   font-size: 0.8125rem;
   color: var(--secondary-text);
-  margin: 0.25rem 0 0;}
+  margin: 0.25rem 0 0;
+}
 
 .team-invite-date {
   font-size: 0.75rem;
@@ -2435,7 +2448,10 @@ input:checked+.toggle-slider:before {
 }
 
 /* Empty/No-data states */
-.no-events,.no-tasks,.no-invitations,n.no-companies-message {
+.no-events,
+.no-tasks,
+.no-invitations,
+.no-companies-message {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2449,7 +2465,10 @@ input:checked+.toggle-slider:before {
   box-shadow: var(--shadow-sm);
 }
 
-.no-events-icon,.no-tasks-icon,.no-invitations-icon,.no-companies-icon {
+.no-events-icon,
+.no-tasks-icon,
+.no-invitations-icon,
+.no-companies-icon {
   width: 3rem;
   height: 3rem;
   margin-bottom: 1rem;
