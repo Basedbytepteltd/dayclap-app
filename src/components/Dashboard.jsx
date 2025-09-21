@@ -382,38 +382,68 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     if (!pushSubscription) {
       setPushNotificationMessage('Not subscribed to push notifications.');
       setPushNotificationMessageType('error');
+      console.warn('Dashboard: Attempted to unsubscribe but no active pushSubscription found.');
       return;
     }
 
+    console.log('Dashboard: Attempting to unsubscribe from push notifications. Current subscription:', pushSubscription);
+
     try {
-      await pushSubscription.unsubscribe();
+      const browserUnsubscribeResult = await pushSubscription.unsubscribe();
+      console.log('Dashboard: Browser pushSubscription.unsubscribe() result:', browserUnsubscribeResult);
+
+      if (!browserUnsubscribeResult) {
+        console.warn('Dashboard: Browser unsubscribe returned false. Subscription might already be invalid.');
+        setPushNotificationMessage('Browser reported subscription already invalid. Attempting to clear from server.');
+        setPushNotificationMessageType('warning');
+      }
+
       setPushSubscription(null);
       setPushNotificationStatus('default');
 
       // Notify backend to remove subscription
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+
+      if (!accessToken) {
+        console.error('Dashboard: No access token found for backend unsubscribe request.');
+        setPushNotificationMessage('Authentication error: Could not unsubscribe from backend.');
+        setPushNotificationMessageType('error');
+        return;
+      }
+
+      console.log('Dashboard: Sending unsubscribe request to backend...');
       const response = await fetch(`${backendUrl}/api/unsubscribe-push`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await supabase.auth.getSession().then(s => s.data.session?.access_token)}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ endpoint: pushSubscription.endpoint }),
+        body: JSON.stringify({ endpoint: pushSubscription.endpoint }), // Still send the original endpoint
       });
 
       const data = await response.json();
+      console.log('Dashboard: Backend unsubscribe response:', response.status, data);
+
       if (response.ok) {
-        setPushNotificationMessage('Successfully unsubscribed from push notifications.');
+        setPushNotificationMessage('Successfully unsubscribed from push notifications!');
         setPushNotificationMessageType('success');
-        // Update user profile in Supabase
-        await supabase.from('profiles').update({ push_subscription: null }).eq('id', user.id);
-        onUserUpdate({ ...user, push_subscription: null });
+        // Update user profile in Supabase directly from frontend as well, for immediate UI consistency
+        // This is a redundant call if backend also does it, but adds robustness for UI
+        const { error: supabaseUpdateError } = await supabase.from('profiles').update({ push_subscription: null }).eq('id', user.id);
+        if (supabaseUpdateError) {
+          console.error('Dashboard: Error updating Supabase profile directly after backend unsubscribe:', supabaseUpdateError.message);
+          setPushNotificationMessage(prev => prev + ' (Warning: Failed to update Supabase directly from frontend.)');
+          setPushNotificationMessageType('error'); // Change to error if Supabase update fails
+        }
+        onUserUpdate({ ...user, push_subscription: null, notifications: { ...(user.notifications || {}), push: false } }); // Ensure notifications.push is also updated
       } else {
         setPushNotificationMessage(data.message || 'Failed to remove push subscription from backend.');
         setPushNotificationMessageType('error');
       }
     } catch (error) {
-      console.error('Error unsubscribing from push notifications:', error);
+      console.error('Dashboard: Critical error during push notification unsubscribe:', error);
       setPushNotificationMessage(`Error unsubscribing: ${error.message}`);
       setPushNotificationMessageType('error');
     }
@@ -421,6 +451,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const handlePushNotificationToggle = async (e) => {
     const isChecked = e.target.checked;
+    console.log('Dashboard: Push notification toggle changed to:', isChecked);
     setSettingsForm(prev => ({
       ...prev,
       // CRITICAL FIX: Ensure prev.notifications is an object before spreading
@@ -2268,12 +2299,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                                 </button>
                               </div>
                               <div className="task-content">
-                                <div className="task-header">
-                                  <h4 className="task-title clickable-title" onClick={() => task.type === 'event' ? handleEditEvent(events.find(e => e.id === task.parentEvent.id)) : handleEditGeneralTask(task.id)}>{task.title}</h4>
-                                  <div className="task-meta">
-                                    {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
-                                    {task.category && <span className="category-badge">{task.category}</span>}
-                                  </div>
+                                <h4 className="task-title clickable-title" onClick={() => task.type === 'event' ? handleEditEvent(events.find(e => e.id === task.parentEvent.id)) : handleEditGeneralTask(task.id)}>{task.title}</h4>
+                                <div className="task-meta">
+                                  {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
+                                  {task.category && <span className="category-badge">{task.category}</span>}
                                 </div>
                                 {task.description && <p className="task-description">{task.description}</p>}
                                 <div className="task-footer">

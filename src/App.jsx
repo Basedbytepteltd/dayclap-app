@@ -147,6 +147,8 @@ function App() {
   }
 
   const handleUserUpdate = async (updatedUser) => {
+    console.log('App: handleUserUpdate called with:', updatedUser);
+
     // Ensure notifications is always an object, even if it somehow became null/undefined
     const safeNotifications = updatedUser.notifications || {
       email_daily: true,
@@ -159,6 +161,18 @@ function App() {
       invitations: true
     };
 
+    // Explicitly ensure push_subscription is handled
+    // Use updatedUser's push_subscription if present, otherwise current user's, otherwise null
+    const finalPushSubscription = updatedUser.push_subscription === undefined
+      ? (user?.push_subscription || null)
+      : updatedUser.push_subscription;
+
+    // Use updatedUser's notifications.push if present, otherwise current user's, otherwise default to true
+    const finalNotifications = {
+      ...safeNotifications, // Start with safeNotifications (which includes updatedUser.notifications or defaults)
+      push: updatedUser.notifications?.push ?? (user?.notifications?.push ?? true)
+    };
+
     const {
       id,
       name,
@@ -167,7 +181,6 @@ function App() {
       language,
       timezone,
       privacy,
-      company_name,
       companies,
       currentCompanyId,
       currency,
@@ -182,20 +195,21 @@ function App() {
         theme,
         language,
         timezone,
-        notifications: safeNotifications, // Use the safeNotifications object
+        notifications: finalNotifications, // Use the finalNotifications object
         privacy,
-        company_name,
         companies,
         current_company_id: currentCompanyId,
         last_activity_at: new Date().toISOString(),
         currency,
         account_type,
+        push_subscription: finalPushSubscription // Explicitly update push_subscription
       })
       .eq('id', id);
 
     if (error) {
       console.error('App: Error updating user profile in Supabase:', error.message);
     } else {
+      console.log('App: User profile updated in Supabase. Re-fetching for consistency...');
       // Re-fetch profile to ensure consistency after update
       const { data: freshProfile, error: fetchError } = await supabase
         .from('profiles')
@@ -205,7 +219,12 @@ function App() {
 
       if (fetchError) {
         console.error('App: Error re-fetching profile after update:', fetchError);
-        setUser(updatedUser); // Fallback to updatedUser if re-fetch fails
+        // Fallback to updatedUser, ensuring push_subscription and notifications.push are correct
+        setUser({
+          ...updatedUser,
+          push_subscription: finalPushSubscription,
+          notifications: finalNotifications
+        });
       } else {
         const combinedFreshUserData = {
           ...updatedUser,
@@ -214,7 +233,10 @@ function App() {
           currentCompanyId: freshProfile.current_company_id,
           currency: freshProfile.currency,
           account_type: freshProfile.account_type,
+          push_subscription: freshProfile.push_subscription, // Use fresh profile's push_subscription
+          notifications: freshProfile.notifications // Use fresh profile's notifications
         };
+        console.log('App: Fresh user data after update:', combinedFreshUserData);
         setUser(combinedFreshUserData);
       }
     }
