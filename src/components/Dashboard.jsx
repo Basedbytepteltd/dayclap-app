@@ -112,6 +112,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'user', companyId: '' });
   const [inviteMessage, setInviteMessage] = useState('');
+  const [inviteSending, setInviteSending] = useState(false); // NEW: prevent double submit
+  const [inviteCooldown, setInviteCooldown] = useState({ seconds: 0 }); // NEW: cooldown countdown
 
   // Invitations state
   const [invitations, setInvitations] = useState([]);
@@ -204,10 +206,32 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     return user.companies.find(c => c.id === currentCompanyId) || null;
   }, [user, currentCompanyId]);
 
+  // NEW: derive current role and permission to invite
+  const currentRole = useMemo(() => {
+    try {
+      const companies = Array.isArray(user?.companies) ? user.companies : [];
+      const entry = companies.find(c => c.id === currentCompanyId);
+      return (entry?.role || '').toLowerCase();
+    } catch {
+      return '';
+    }
+  }, [user?.companies, currentCompanyId]);
+
+  const canInvite = !!currentCompanyId && (currentRole === 'owner' || currentRole === 'admin');
+
   useEffect(() => {
     // Sync invite modal company selection
     setInviteForm(prev => ({ ...prev, companyId: currentCompanyId || '' }));
   }, [currentCompanyId]);
+
+  // Invite cooldown countdown
+  useEffect(() => {
+    if (!inviteCooldown?.seconds || inviteCooldown.seconds <= 0) return;
+    const t = setInterval(() => {
+      setInviteCooldown(prev => ({ seconds: Math.max(0, (prev.seconds || 0) - 1) }));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [inviteCooldown.seconds]);
 
   // Apply initial theme from user setting
   useEffect(() => {
@@ -1054,6 +1078,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const handleInviteFormSubmit = async (e) => {
     e.preventDefault();
     setInviteMessage('');
+
+    // Permission check
+    if (!canInvite) {
+      setInviteMessage('You do not have permission to invite members for this company.');
+      return;
+    }
+
     const recipient = (inviteForm.email || '').trim().toLowerCase();
     const companyId = inviteForm.companyId || currentCompanyId;
     if (!recipient || !companyId) {
@@ -1065,10 +1096,16 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         setInviteMessage('Error: VITE_BACKEND_URL is not configured.');
         return;
       }
+      setInviteSending(true);
+
+      const token = await getAccessToken();
+      if (!token) {
+        setInviteMessage('Your session has expired. Please sign in again.');
+        setInviteSending(false);
+        return;
+      }
       const company = (user.companies || []).find(c => c.id === companyId);
       const payload = {
-        sender_id: user.id,
-        sender_email: user.email,
         recipient_email: recipient,
         company_id: companyId,
         company_name: company?.name || 'Company',
@@ -1076,10 +1113,28 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       };
       const res = await fetch(`${backendUrl}/api/send-invitation`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(payload),
       });
-      if (res.ok || res.status === 202) {
+
+      if (res.status === 429) {
+        // Cooldown active
+        let retry = parseInt(res.headers.get('Retry-After') || '0', 10);
+        const data = await res.json().catch(() => ({}));
+        if (!retry) retry = Number(data?.retry_after_seconds) || 0;
+        if (retry > 0) {
+          setInviteCooldown({ seconds: retry });
+        }
+        setInviteMessage(data?.message || (retry > 0 ? `Please wait ${retry}s before sending another invite.` : 'Please wait before trying again.'));
+      } else if (res.ok || res.status === 202) {
+        const data = await res.json().catch(() => ({}));
+        const cool = Number(data?.cooldown_seconds) || 0;
+        if (cool > 0) {
+          setInviteCooldown({ seconds: cool });
+        }
         setInviteMessage('Invitation sent successfully.');
         setInviteForm({ email: '', role: 'user', companyId });
         // Refresh sent list
@@ -1090,6 +1145,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       }
     } catch (err) {
       setInviteMessage(`Unexpected error: ${err?.message || 'unknown'}`);
+    } finally {
+      setInviteSending(false);
     }
   };
 
@@ -1762,7 +1819,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         <div className="section-header">
                           <h4 className="settings-section-title">Team Members</h4>
                           <div className="header-actions">
-                            {currentCompany && (
+                            {currentCompany && canInvite && (
                               <button className="btn btn-primary btn-small" onClick={() => setShowInviteModal(true)}>
                                 <Plus size={16} /> Invite Member
                               </button>
@@ -1789,7 +1846,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             <div className="no-members">
                               <Users className="no-members-icon" />
                               <p>No members in this company yet.</p>
-                              <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}><Plus size={16} /> Invite First Member</button>
+                              {canInvite ? (
+                                <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}><Plus size={16} /> Invite First Member</button>
+                              ) : (
+                                <p className="no-items-for-day-message">You don’t have permission to invite members. Contact an owner or admin.</p>
+                              )}
                             </div>
                           )
                         ) : (
@@ -1810,9 +1871,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   <div className="section-header">
                     <h3 className="section-title">Team Invitations</h3>
                     <div className="header-actions">
-                      <button className="btn btn-primary btn-small" onClick={() => setShowInviteModal(true)}>
-                        <Plus size={16} /> Invite Member
-                      </button>
+                      {canInvite && (
+                        <button className="btn btn-primary btn-small" onClick={() => setShowInviteModal(true)}>
+                          <Plus size={16} /> Invite Member
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1892,9 +1955,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       <div className="no-invitations">
                         <Mail className="no-invitations-icon" />
                         <p>No invitations sent yet.</p>
-                        <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}>
-                          <Plus size={16} /> Invite Your First Member
-                        </button>
+                        {canInvite && (
+                          <button className="btn btn-primary" onClick={() => setShowInviteModal(true)}>
+                            <Plus size={16} /> Invite Your First Member
+                          </button>
+                        )}
                       </div>
                     )
                   )}
@@ -2397,6 +2462,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     {inviteMessage}
                   </div>
                 )}
+                {inviteCooldown.seconds > 0 && (
+                  <div className="info-message" style={{ marginBottom: '1rem' }}>
+                    You can send another invite in {inviteCooldown.seconds}s.
+                  </div>
+                )}
                 <div className="form-group">
                   <label className="form-label">Recipient Email</label>
                   <div className="input-wrapper">
@@ -2448,7 +2518,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setShowInviteModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary"><Plus size={16} /> Send Invitation</button>
+                <button type="submit" className="btn btn-primary" disabled={inviteSending || inviteCooldown.seconds > 0}>
+                  {inviteSending
+                    ? 'Sending...'
+                    : (inviteCooldown.seconds > 0
+                      ? `Wait ${inviteCooldown.seconds}s`
+                      : (<><Plus size={16} /> Send Invitation</>))}
+                </button>
               </div>
             </form>
           </div>
