@@ -14,21 +14,37 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pywebpush import webpush, WebPushException
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # App + Supabase setup
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 app = Flask(__name__)
-CORS(app)
 
-load_dotenv() # Load .env variables
+load_dotenv()  # Load .env variables
+
+# Explicit CORS configuration to allow admin dashboard calls from production domains
+ALLOWED_ORIGINS = [
+  o.strip() for o in (
+    os.environ.get("CORS_ALLOW_ORIGINS")
+    or "https://dayclap.com,https://www.dayclap.com,https://dayclap-app.vercel.app,https://dayclap30.vercel.app,http://localhost:5173"
+  ).split(",")
+  if o.strip()
+]
+
+CORS(
+  app,
+  resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
+  supports_credentials=False,
+  methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allow_headers=["Content-Type", "Authorization", "X-User-Email", "X-API-Key"],
+)
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("VITE_SUPABASE_SERVICE_ROLE_KEY")
 INVITE_COOLDOWN_SECONDS = int(os.environ.get("INVITE_COOLDOWN_SECONDS", "300") or 300)
-BACKEND_API_KEY = os.environ.get("BACKEND_API_KEY") # For internal API calls (e.g., Supabase triggers)
+BACKEND_API_KEY = os.environ.get("BACKEND_API_KEY")  # For internal API calls (e.g., Supabase triggers)
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
-VITE_FRONTEND_URL = os.environ.get("VITE_FRONTEND_URL", "http://localhost:5173") # For links in emails
+VITE_FRONTEND_URL = os.environ.get("VITE_FRONTEND_URL", "http://localhost:5173")  # For links in emails
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
   print("ERROR: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment.", file=sys.stderr)
@@ -43,9 +59,9 @@ except Exception as e:
 # VAPID claims for push notifications (subject should be a contact URI)
 VAPID_CLAIMS = {"sub": f"mailto:{os.environ.get('VAPID_EMAIL', 'admin@example.com')}"}
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Helpers
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 def parse_bearer_token(req) -> Optional[str]:
   """
   Extracts the Bearer token from Authorization header.
@@ -80,8 +96,8 @@ def get_user_from_token(token: str) -> Tuple[Optional[str], Optional[str], Optio
 def require_auth(fn):
   @wraps(fn)
   def wrapper(*args, **kwargs):
-    if request.method == 'OPTIONS': # Skip auth for preflight requests
-        return fn(*args, **kwargs) # Let Flask-CORS handle it
+    if request.method == "OPTIONS":  # Preflight: return early with 204, CORS will add headers
+      return ("", 204)
     token = parse_bearer_token(request)
     if not token:
       return jsonify({"message": "Missing or invalid Authorization header"}), 401
@@ -93,26 +109,26 @@ def require_auth(fn):
   return wrapper
 
 def require_api_key(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        if request.method == 'OPTIONS': # Skip API key check for preflight requests
-            return fn(*args, **kwargs) # Let Flask-CORS handle it
-        api_key = request.headers.get("X-API-Key")
-        if not api_key or api_key != BACKEND_API_KEY:
-            return jsonify({"message": "Unauthorized: Invalid API Key"}), 401
-        return fn(*args, **kwargs)
-    return wrapper
+  @wraps(fn)
+  def wrapper(*args, **kwargs):
+    if request.method == "OPTIONS":  # Preflight: return early with 204, CORS will add headers
+      return ("", 204)
+    api_key = request.headers.get("X-API-Key")
+    if not api_key or api_key != BACKEND_API_KEY:
+      return jsonify({"message": "Unauthorized: Invalid API Key"}), 401
+    return fn(*args, **kwargs)
+  return wrapper
 
 def require_admin_email(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        if request.method == 'OPTIONS': # Skip admin email check for preflight requests
-            return fn(*args, **kwargs) # Let Flask-CORS handle it
-        admin_email = request.headers.get("X-User-Email")
-        if not admin_email or admin_email != "admin@example.com":
-            return jsonify({"message": "Forbidden: Admin access required"}), 403
-        return fn(*args, **kwargs)
-    return wrapper
+  @wraps(fn)
+  def wrapper(*args, **kwargs):
+    if request.method == "OPTIONS":  # Preflight: return early with 204, CORS will add headers
+      return ("", 204)
+    admin_email = request.headers.get("X-User-Email")
+    if not admin_email or admin_email != "admin@example.com":
+      return jsonify({"message": "Forbidden: Admin access required"}), 403
+    return fn(*args, **kwargs)
+  return wrapper
 
 
 def user_role_for_company(user_profile: dict, company_id: str) -> Optional[str]:
@@ -177,14 +193,14 @@ def _render_template(html_content: str, context: dict) -> str:
 
     # Basic conditional replacement for {{#if var}}...{{/if}}
     for key, value in context.items():
-        if not value: # If the variable is falsy, remove the block
+        if not value:  # If the variable is falsy, remove the block
             rendered_content = re.sub(
                 r'\{\{#if\s+' + re.escape(key) + r'\}\}(.*?)\{\{/if\}\}',
                 '',
                 rendered_content,
                 flags=re.DOTALL
             )
-        else: # If the variable is truthy, remove the {{#if}} and {{/if}} tags
+        else:  # If the variable is truthy, remove the {{#if}} and {{/if}} tags
             rendered_content = re.sub(
                 r'\{\{#if\s+' + re.escape(key) + r'\}\}(.*?)\{\{/if\}\}',
                 r'\1',
@@ -240,9 +256,9 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
                 "subject": subject,
                 "html_body": html_content,
             },
-            timeout=10 # 10 second timeout
+            timeout=10  # 10 second timeout
         )
-        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
         print(f"Maileroo: Email sent to {recipient_email} successfully. Status: {response.status_code}", file=sys.stderr)
         return True
     except requests.exceptions.RequestException as e:
@@ -288,9 +304,9 @@ def _send_push_notification(subscription_info: dict, title: str, body: str, url:
         print(f"An unexpected error occurred while sending push notification: {e}", file=sys.stderr)
         return False
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.get("/api/health")
 def health():
   return jsonify({"ok": True, "service": "dayclap-backend"}), 200
@@ -449,7 +465,7 @@ def send_invitation():
   try:
     supabase.table("invitations").insert(payload).execute()
 
-    # NEW: Send invitation email
+    # Send invitation email
     template = _get_email_template("invitation_to_company")
     if template:
         context = {
@@ -522,7 +538,7 @@ def notify_task_assigned():
     return jsonify({"message": "Failed to send task assigned notification"}), 500
 
 @app.post("/api/send-welcome-email")
-@require_api_key # Protected by API key from Supabase trigger
+@require_api_key  # Protected by API key from Supabase trigger
 def send_welcome_email():
     body = request.get_json(force=True, silent=True) or {}
     email = (body.get("email") or "").strip().lower()
@@ -548,9 +564,9 @@ def send_welcome_email():
     else:
         return jsonify({"message": "Failed to send welcome email"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Scheduler Setup
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 scheduler = BackgroundScheduler()
 scheduler_job_id = "daily_event_reminders"
 
@@ -674,10 +690,10 @@ def scheduler_control():
     if action == "start":
         if not scheduler.running:
             scheduler.start()
-            _schedule_daily_reminders_job() # Schedule immediately on start
+            _schedule_daily_reminders_job()  # Schedule immediately on start
             return jsonify({"message": "Scheduler started and job scheduled."}), 200
         else:
-            _schedule_daily_reminders_job() # Re-schedule if already running (e.g., settings changed)
+            _schedule_daily_reminders_job()  # Re-schedule if already running (e.g., settings changed)
             return jsonify({"message": "Scheduler already running, job re-scheduled."}), 200
     elif action == "stop":
         if scheduler.running:
@@ -706,9 +722,9 @@ if not scheduler.running:
     scheduler.start()
 _schedule_daily_reminders_job()
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Admin Email Settings Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.get("/api/admin/email-settings")
 @require_admin_email
 def get_email_settings_admin():
@@ -738,20 +754,20 @@ def update_email_settings_admin():
         "scheduler_enabled": scheduler_enabled,
         "reminder_time": reminder_time,
     }
-    if maileroo_sending_key and maileroo_sending_key != "********": # Only update if not masked
+    if maileroo_sending_key and maileroo_sending_key != "********":  # Only update if not masked
         updates["maileroo_sending_key"] = maileroo_sending_key
 
     try:
         resp = supabase.table("email_settings").update(updates).eq("id", settings_id).select().single().execute()
-        _schedule_daily_reminders_job() # Re-schedule if settings changed
+        _schedule_daily_reminders_job()  # Re-schedule if settings changed
         return jsonify({"message": "Email settings updated", "settings": resp.data}), 200
     except Exception as e:
         print(f"Error updating email settings: {e}", file=sys.stderr)
         return jsonify({"message": "Failed to update email settings"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Admin Email Templates Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.get("/api/admin/email-templates")
 @require_admin_email
 def get_email_templates_admin():
@@ -821,9 +837,9 @@ def delete_email_template_admin(template_id):
         print(f"Error deleting email template: {e}", file=sys.stderr)
         return jsonify({"message": "Failed to delete template"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Admin Test Sending Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.post("/api/admin/send-test-email")
 @require_admin_email
 def send_test_email_admin():
@@ -832,7 +848,7 @@ def send_test_email_admin():
     if not recipient_email:
         return jsonify({"message": "Recipient email is required"}), 400
 
-    test_template = _get_email_template("welcome_email") # Use welcome email as a generic test
+    test_template = _get_email_template("welcome_email")  # Use welcome email as a generic test
     if not test_template:
         return jsonify({"message": "Test email template not found (welcome_email)"}), 500
 
@@ -875,9 +891,9 @@ def send_test_push_admin():
         print(f"Error sending test push: {e}", file=sys.stderr)
         return jsonify({"message": f"An error occurred: {e}"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Entrypoint
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 if __name__ == "__main__":
   port = int(os.environ.get("PORT", "5001"))
   app.run(host="0.0.0.0", port=port, debug=True)
