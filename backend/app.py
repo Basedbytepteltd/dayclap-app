@@ -14,9 +14,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pywebpush import webpush, WebPushException
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # App + Supabase setup
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 app = Flask(__name__)
 
 load_dotenv()  # Load .env variables
@@ -59,32 +59,28 @@ except Exception as e:
 # VAPID claims for push notifications (subject should be a contact URI)
 VAPID_CLAIMS = {"sub": f"mailto:{os.environ.get('VAPID_EMAIL', 'admin@example.com')}"}
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Global CORS headers for all responses (including errors)
 # This is a fallback/enhancement to ensure CORS headers are always present.
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.after_request
 def add_cors_headers(response):
-    # Only apply to /api/ routes
-    if request.path.startswith('/api/'):
-        origin = request.headers.get('Origin')
-        if origin and origin in ALLOWED_ORIGINS:
-            response.headers['Access-Control-Allow-Origin'] = origin
-        else:
-            # If origin is not in ALLOWED_ORIGINS, do not set ACAO, or set to a default if needed
-            # Flask-CORS extension should handle this more robustly.
-            pass
+  # Only apply to /api/ routes
+  if request.path.startswith('/api/'):
+    origin = request.headers.get('Origin')
+    if origin and origin in ALLOWED_ORIGINS:
+      response.headers['Access-Control-Allow-Origin'] = origin
 
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-User-Email, X-API-Key'
-        response.headers['Access-Control-Allow-Credentials'] = 'false' # Set to 'true' if you need cookies/auth headers
-        response.headers['Access-Control-Max-Age'] = '86400' # Cache preflight for 24 hours
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-User-Email, X-API-Key'
+    response.headers['Access-Control-Allow-Credentials'] = 'false'  # Set to 'true' if you need cookies/auth headers
+    response.headers['Access-Control-Max-Age'] = '86400'  # Cache preflight for 24 hours
 
-    return response
+  return response
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Helpers
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 def parse_bearer_token(req) -> Optional[str]:
   """
   Extracts the Bearer token from Authorization header.
@@ -209,133 +205,133 @@ def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
     return None
 
 def _render_template(html_content: str, context: dict) -> str:
-    rendered_content = html_content
-    # Simple variable replacement for {{ key }}
-    for key, value in context.items():
-        rendered_content = rendered_content.replace(f"{{{{ {key} }}}}", str(value or ''))
+  rendered_content = html_content
+  # Simple variable replacement for {{ key }}
+  for key, value in context.items():
+    rendered_content = rendered_content.replace(f"{{{{ {key} }}}}", str(value or ''))
 
-    # Basic conditional replacement for {{#if var}}...{{/if}}
-    for key, value in context.items():
-        # Regex to find {{#if key}}...{{/if}} blocks
-        # We need to escape the key for regex, and also the curly braces
-        if_block_regex = re.compile(
-            r'\\{\\{\\s*#if\\s+' + re.escape(key) + r'\\s*\\}\\}(.*?)\\{\\{\\s*/if\\s*\\}\\}',
-            re.DOTALL
-        )
-        if not value: # If the variable is falsy, remove the block
-            rendered_content = if_block_regex.sub('', rendered_content)
-        else: # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
-            rendered_content = if_block_regex.sub(r'\\1', rendered_content)
-    return rendered_content
+  # Basic conditional replacement for {{#if var}}...{{/if}}
+  for key, value in context.items():
+    # Regex to find {{#if key}}...{{/if}} blocks
+    # We need to escape the key for regex, and also the curly braces
+    if_block_regex = re.compile(
+      r'\\{\\{\\s*#if\\s+' + re.escape(key) + r'\\s*\\}\\}(.*?)\\{\\{\\s*/if\\s*\\}\\}',
+      re.DOTALL
+    )
+    if not value:  # If the variable is falsy, remove the block
+      rendered_content = if_block_regex.sub('', rendered_content)
+    else:  # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
+      rendered_content = if_block_regex.sub(r'\\1', rendered_content)
+  return rendered_content
 
 def _get_email_settings() -> Optional[dict]:
-    if not supabase:
-        print("ERROR: Supabase client not configured for _get_email_settings.", file=sys.stderr)
-        return None
-    try:
-        resp = supabase.table("email_settings").select("*").limit(1).single().execute()
-        return resp.data
-    except Exception as e:
-        print(f"ERROR: Failed to fetch email settings from DB: {e}", file=sys.stderr)
-        return None
+  if not supabase:
+    print("ERROR: Supabase client not configured for _get_email_settings.", file=sys.stderr)
+    return None
+  try:
+    resp = supabase.table("email_settings").select("*").limit(1).single().execute()
+    return resp.data
+  except Exception as e:
+    print(f"ERROR: Failed to fetch email settings from DB: {e}", file=sys.stderr)
+    return None
 
 def _get_email_template(template_name: str) -> Optional[dict]:
-    if not supabase:
-        print(f"ERROR: Supabase client not configured for _get_email_template('{template_name}').", file=sys.stderr)
-        return None
-    try:
-        resp = supabase.table("email_templates").select("*").eq("name", template_name).single().execute()
-        return resp.data
-    except Exception as e:
-        print(f"ERROR: Failed to fetch email template '{template_name}' from DB: {e}", file=sys.stderr)
-        return None
+  if not supabase:
+    print(f"ERROR: Supabase client not configured for _get_email_template('{template_name}').", file=sys.stderr)
+    return None
+  try:
+    resp = supabase.table("email_templates").select("*").eq("name", template_name).single().execute()
+    return resp.data
+  except Exception as e:
+    print(f"ERROR: Failed to fetch email template '{template_name}' from DB: {e}", file=sys.stderr)
+    return None
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
-    settings = _get_email_settings()
-    if not settings:
-        print("ERROR: Maileroo: Email settings not found in DB or Supabase client not configured.", file=sys.stderr)
-        return False
+  settings = _get_email_settings()
+  if not settings:
+    print("ERROR: Maileroo: Email settings not found in DB or Supabase client not configured.", file=sys.stderr)
+    return False
 
-    maileroo_api_key = settings.get("maileroo_sending_key")
-    maileroo_api_endpoint = settings.get("maileroo_api_endpoint")
-    default_sender = settings.get("mail_default_sender")
+  maileroo_api_key = settings.get("maileroo_sending_key")
+  maileroo_api_endpoint = settings.get("maileroo_api_endpoint")
+  default_sender = settings.get("mail_default_sender")
 
-    if not maileroo_api_key:
-        print("ERROR: Maileroo: Missing API key in settings.", file=sys.stderr)
-        return False
-    if not maileroo_api_endpoint:
-        print("ERROR: Maileroo: Missing API endpoint in settings.", file=sys.stderr)
-        return False
-    if not default_sender:
-        print("ERROR: Maileroo: Missing default sender in settings.", file=sys.stderr)
-        return False
+  if not maileroo_api_key:
+    print("ERROR: Maileroo: Missing API key in settings.", file=sys.stderr)
+    return False
+  if not maileroo_api_endpoint:
+    print("ERROR: Maileroo: Missing API endpoint in settings.", file=sys.stderr)
+    return False
+  if not default_sender:
+    print("ERROR: Maileroo: Missing default sender in settings.", file=sys.stderr)
+    return False
 
-    final_sender = sender_email if sender_email else default_sender
+  final_sender = sender_email if sender_email else default_sender
 
-    try:
-        response = requests.post(
-            maileroo_api_endpoint,
-            headers={
-                "Content-Type": "application/json",
-                "X-Maileroo-API-Key": maileroo_api_key,
-            },
-            json={
-                "to": [{"email": recipient_email}],
-                "from": {"email": final_sender},
-                "subject": subject,
-                "html_body": html_content,
-            },
-            timeout=10 # 10 second timeout
-        )
-        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-        print(f"Maileroo: Email sent to {recipient_email} successfully. Status: {response.status_code}", file=sys.stderr)
-        return True
-    except requests.exceptions.RequestException as e:
-        print(f"ERROR: Maileroo: Failed to send email to {recipient_email}: {e}", file=sys.stderr)
-        if hasattr(e, 'response') and e.response is not None:
-            print(f"Maileroo Error Response: {e.response.text}", file=sys.stderr)
-        return False
-    except Exception as e:
-        print(f"ERROR: Maileroo: An unexpected error occurred while sending email: {e}", file=sys.stderr)
-        return False
+  try:
+    response = requests.post(
+      maileroo_api_endpoint,
+      headers={
+        "Content-Type": "application/json",
+        "X-Maileroo-API-Key": maileroo_api_key,
+      },
+      json={
+        "to": [{"email": recipient_email}],
+        "from": {"email": final_sender},
+        "subject": subject,
+        "html_body": html_content,
+      },
+      timeout=10  # 10 second timeout
+    )
+    response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+    print(f"Maileroo: Email sent to {recipient_email} successfully. Status: {response.status_code}", file=sys.stderr)
+    return True
+  except requests.exceptions.RequestException as e:
+    print(f"ERROR: Maileroo: Failed to send email to {recipient_email}: {e}", file=sys.stderr)
+    if hasattr(e, 'response') and e.response is not None:
+      print(f"Maileroo Error Response: {e.response.text}", file=sys.stderr)
+    return False
+  except Exception as e:
+    print(f"ERROR: Maileroo: An unexpected error occurred while sending email: {e}", file=sys.stderr)
+    return False
 
 def _send_push_notification(subscription_info: dict, title: str, body: str, url: str = VITE_FRONTEND_URL) -> bool:
-    # Only private key is required to sign VAPID; public key is used by client to subscribe
-    if not VAPID_PRIVATE_KEY:
-        print("VAPID private key not configured for push notifications.", file=sys.stderr)
-        return False
+  # Only private key is required to sign VAPID; public key is used by client to subscribe
+  if not VAPID_PRIVATE_KEY:
+    print("VAPID private key not configured for push notifications.", file=sys.stderr)
+    return False
+  try:
+    payload = json.dumps({
+      "title": title,
+      "body": body,
+      "url": url,
+      "icon": f"{VITE_FRONTEND_URL}/favicon.svg",
+      "badge": f"{VITE_FRONTEND_URL}/favicon.svg",
+    })
+    webpush(
+      subscription_info=subscription_info,
+      data=payload,
+      vapid_private_key=VAPID_PRIVATE_KEY,
+      vapid_claims=VAPID_CLAIMS
+    )
+    print(f"Push notification sent to {subscription_info.get('endpoint')}", file=sys.stderr)
+    return True
+  except WebPushException as e:
+    print(f"Push notification failed: {e}", file=sys.stderr)
+    # Some providers include response with status_code (e.g., 410 Gone)
     try:
-        payload = json.dumps({
-            "title": title,
-            "body": body,
-            "url": url,
-            "icon": f"{VITE_FRONTEND_URL}/favicon.svg",
-            "badge": f"{VITE_FRONTEND_URL}/favicon.svg",
-        })
-        webpush(
-            subscription_info=subscription_info,
-            data=payload,
-            vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims=VAPID_CLAIMS
-        )
-        print(f"Push notification sent to {subscription_info.get('endpoint')}", file=sys.stderr)
-        return True
-    except WebPushException as e:
-        print(f"Push notification failed: {e}", file=sys.stderr)
-        # Some providers include response with status_code (e.g., 410 Gone)
-        try:
-            if e.response is not None and hasattr(e.response, "status_code") and e.response.status_code == 410:
-                print("Subscription is no longer valid (410 Gone). Should remove from DB.", file=sys.stderr)
-        except Exception:
-            pass
-        return False
-    except Exception as e:
-        print(f"An unexpected error occurred while sending push notification: {e}", file=sys.stderr)
-        return False
+      if e.response is not None and hasattr(e.response, "status_code") and e.response.status_code == 410:
+        print("Subscription is no longer valid (410 Gone). Should remove from DB.", file=sys.stderr)
+    except Exception:
+      pass
+    return False
+  except Exception as e:
+    print(f"An unexpected error occurred while sending push notification: {e}", file=sys.stderr)
+    return False
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.get("/api/health")
 def health():
   return jsonify({"ok": True, "service": "dayclap-backend"}), 200
@@ -497,17 +493,17 @@ def send_invitation():
     # Send invitation email
     template = _get_email_template("invitation_to_company")
     if template:
-        context = {
-            "sender_email": sender_email,
-            "company_name": company_name,
-            "role": role.capitalize(),
-            "current_year": datetime.now().year,
-            "frontend_url": VITE_FRONTEND_URL,
-        }
-        rendered_html = _render_template(template["html_content"], context)
-        _send_email_via_maileroo(recipient, template["subject"], rendered_html, sender_email)
+      context = {
+        "sender_email": sender_email,
+        "company_name": company_name,
+        "role": role.capitalize(),
+        "current_year": datetime.now().year,
+        "frontend_url": VITE_FRONTEND_URL,
+      }
+      rendered_html = _render_template(template["html_content"], context)
+      _send_email_via_maileroo(recipient, template["subject"], rendered_html, sender_email)
     else:
-        print("Warning: 'invitation_to_company' email template not found.", file=sys.stderr)
+      print("Warning: 'invitation_to_company' email template not found.", file=sys.stderr)
 
     return jsonify({
       "message": "Invitation sent",
@@ -546,18 +542,18 @@ def notify_task_assigned():
     return jsonify({"message": "Email template not found"}), 500
 
   context = {
-      "assignee_name": assigned_to_name,
-      "assigned_by_name": assigned_by_name,
-      "assigned_by_email": assigned_by_email,
-      "event_title": event_title,
-      "event_date": event_date,
-      "event_time": event_time,
-      "company_name": company_name,
-      "task_title": task_title,
-      "task_description": task_description,
-      "due_date": due_date,
-      "current_year": datetime.now().year,
-      "frontend_url": VITE_FRONTEND_URL,
+    "assignee_name": assigned_to_name,
+    "assigned_by_name": assigned_by_name,
+    "assigned_by_email": assigned_by_email,
+    "event_title": event_title,
+    "event_date": event_date,
+    "event_time": event_time,
+    "company_name": company_name,
+    "task_title": task_title,
+    "task_description": task_description,
+    "due_date": due_date,
+    "current_year": datetime.now().year,
+    "frontend_url": VITE_FRONTEND_URL,
   }
   rendered_html = _render_template(template["html_content"], context)
 
@@ -569,362 +565,371 @@ def notify_task_assigned():
 @app.post("/api/send-welcome-email")
 @require_api_key  # Protected by API key from Supabase trigger
 def send_welcome_email():
-    body = request.get_json(force=True, silent=True) or {}
-    email = (body.get("email") or "").strip().lower()
-    user_name = (body.get("user_name") or "there").strip()
+  body = request.get_json(force=True, silent=True) or {}
+  email = (body.get("email") or "").strip().lower()
+  user_name = (body.get("user_name") or "there").strip()
 
-    if not email:
-        return jsonify({"message": "Email is required"}), 400
+  if not email:
+    return jsonify({"message": "Email is required"}), 400
 
-    template = _get_email_template("welcome_email")
-    if not template:
-        print("Warning: 'welcome_email' email template not found.", file=sys.stderr)
-        return jsonify({"message": "Email template not found"}), 500
+  template = _get_email_template("welcome_email")
+  if not template:
+    print("Warning: 'welcome_email' email template not found.", file=sys.stderr)
+    return jsonify({"message": "Email template not found"}), 500
 
-    context = {
-        "user_name": user_name,
-        "current_year": datetime.now().year,
-        "frontend_url": VITE_FRONTEND_URL,
-    }
-    rendered_html = _render_template(template["html_content"], context)
+  context = {
+    "user_name": user_name,
+    "current_year": datetime.now().year,
+    "frontend_url": VITE_FRONTEND_URL,
+  }
+  rendered_html = _render_template(template["html_content"], context)
 
-    if _send_email_via_maileroo(email, template["subject"], rendered_html):
-        return jsonify({"message": "Welcome email sent"}), 200
-    else:
-        return jsonify({"message": "Failed to send welcome email"}), 500
+  if _send_email_via_maileroo(email, template["subject"], rendered_html):
+    return jsonify({"message": "Welcome email sent"}), 200
+  else:
+    return jsonify({"message": "Failed to send welcome email"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Scheduler Setup
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 scheduler = BackgroundScheduler()
 scheduler_job_id = "daily_event_reminders"
 
 def _schedule_daily_reminders_job():
-    settings = _get_email_settings()
-    if not settings or not settings.get("scheduler_enabled"):
-        print("Scheduler is disabled or settings not found. Not scheduling job.", file=sys.stderr)
-        return
+  settings = _get_email_settings()
+  if not settings or not settings.get("scheduler_enabled"):
+    print("Scheduler is disabled or settings not found. Not scheduling job.", file=sys.stderr)
+    return
 
-    reminder_time_str = settings.get("reminder_time", "02:00")
-    try:
-        hour, minute = map(int, reminder_time_str.split(':'))
-    except ValueError:
-        print(f"Invalid reminder_time format: {reminder_time_str}. Defaulting to 02:00.", file=sys.stderr)
-        hour, minute = 2, 0
+  reminder_time_str = settings.get("reminder_time", "02:00")
+  try:
+    hour, minute = map(int, reminder_time_str.split(':'))
+  except ValueError:
+    print(f"Invalid reminder_time format: {reminder_time_str}. Defaulting to 02:00.", file=sys.stderr)
+    hour, minute = 2, 0
 
-    if scheduler.get_job(scheduler_job_id):
-        scheduler.remove_job(scheduler_job_id)
-        print(f"Removed existing scheduler job: {scheduler_job_id}", file=sys.stderr)
+  if scheduler.get_job(scheduler_job_id):
+    scheduler.remove_job(scheduler_job_id)
+    print(f"Removed existing scheduler job: {scheduler_job_id}", file=sys.stderr)
 
-    scheduler.add_job(
-        _send_1week_event_reminders_job,
-        CronTrigger(hour=hour, minute=minute),
-        id=scheduler_job_id,
-        replace_existing=True
-    )
-    print(f"Scheduled daily event reminders for {reminder_time_str} UTC.", file=sys.stderr)
+  scheduler.add_job(
+    _send_1week_event_reminders_job,
+    CronTrigger(hour=hour, minute=minute),
+    id=scheduler_job_id,
+    replace_existing=True
+  )
+  print(f"Scheduled daily event reminders for {reminder_time_str} UTC.", file=sys.stderr)
 
 def _send_1week_event_reminders_job():
-    """
-    This function is called by the scheduler to send 1-week event reminders.
-    It fetches events due in 7 days and sends notifications.
-    """
-    print(f"Running daily 1-week event reminder job at {datetime.now(timezone.utc)} UTC.", file=sys.stderr)
-    if not supabase:
-        print("Supabase client not configured for scheduler job.", file=sys.stderr)
-        return
+  """
+  This function is called by the scheduler to send 1-week event reminders.
+  It fetches events due in 7 days and sends notifications.
+  """
+  print(f"Running daily 1-week event reminder job at {datetime.now(timezone.utc)} UTC.", file=sys.stderr)
+  if not supabase:
+    print("Supabase client not configured for scheduler job.", file=sys.stderr)
+    return
 
-    settings = _get_email_settings()
-    if not settings or not settings.get("scheduler_enabled"):
-        print("Scheduler is now disabled. Skipping reminder job execution.", file=sys.stderr)
-        return
+  settings = _get_email_settings()
+  if not settings or not settings.get("scheduler_enabled"):
+    print("Scheduler is now disabled. Skipping reminder job execution.", file=sys.stderr)
+    return
 
-    try:
-        # Calculate 7 days from now (local date, ignoring time for comparison)
-        seven_days_from_now = (datetime.now(timezone.utc) + timedelta(days=7)).date()
-        seven_days_from_now_str = seven_days_from_now.isoformat()
+  try:
+    # Calculate 7 days from now (local date, ignoring time for comparison)
+    seven_days_from_now = (datetime.now(timezone.utc) + timedelta(days=7)).date()
+    seven_days_from_now_str = seven_days_from_now.isoformat()
 
-        # Fetch events that are 7 days away and haven't had a 1-week reminder sent
-        resp = supabase.table("events")\
-            .select("id, user_id, company_id, title, date, time, location, description, event_tasks")\
-            .eq("date", seven_days_from_now_str)\
-            .is_("one_week_reminder_sent_at", None)\
-            .execute()
-        events_to_remind = resp.data
+    # Fetch events that are 7 days away and haven't had a 1-week reminder sent
+    resp = supabase.table("events")\
+      .select("id, user_id, company_id, title, date, time, location, description, event_tasks")\
+      .eq("date", seven_days_from_now_str)\
+      .is_("one_week_reminder_sent_at", None)\
+      .execute()
+    events_to_remind = resp.data
 
-        if not events_to_remind:
-            print("No events found for 1-week reminder.", file=sys.stderr)
-            return
+    if not events_to_remind:
+      print("No events found for 1-week reminder.", file=sys.stderr)
+      return
 
-        reminder_template = _get_email_template("event_1week_reminder")
-        if not reminder_template:
-            print("Warning: 'event_1week_reminder' email template not found.", file=sys.stderr)
-            return
+    reminder_template = _get_email_template("event_1week_reminder")
+    if not reminder_template:
+      print("Warning: 'event_1week_reminder' email template not found.", file=sys.stderr)
+      return
 
-        for event in events_to_remind:
-            user_profile_resp = supabase.table("profiles").select("email, name, notifications").eq("id", event["user_id"]).single().execute()
-            user_profile = user_profile_resp.data
+    for event in events_to_remind:
+      user_profile_resp = supabase.table("profiles").select("email, name, notifications").eq("id", event["user_id"]).single().execute()
+      user_profile = user_profile_resp.data
 
-            if not user_profile:
-                print(f"User profile not found for event {event['id']}. Skipping reminder.", file=sys.stderr)
-                continue
+      if not user_profile:
+        print(f"User profile not found for event {event['id']}. Skipping reminder.", file=sys.stderr)
+        continue
 
-            user_email = user_profile.get("email")
-            user_name = user_profile.get("name") or user_email.split('@')[0]
-            user_notifications = user_profile.get("notifications", {})
+      user_email = user_profile.get("email")
+      user_name = user_profile.get("name") or user_email.split('@')[0]
+      user_notifications = user_profile.get("notifications", {})
 
-            if not user_notifications.get("email_1week_countdown", False):
-                print(f"User {user_email} has 1-week countdown emails disabled. Skipping.", file=sys.stderr)
-                continue
+      if not user_notifications.get("email_1week_countdown", False):
+        print(f"User {user_email} has 1-week countdown emails disabled. Skipping.", file=sys.stderr)
+        continue
 
-            # Calculate task completion for the event
-            event_tasks = event.get("event_tasks", [])
-            total_tasks = len(event_tasks)
-            completed_tasks = sum(1 for task in event_tasks if task.get("completed"))
-            pending_tasks_count = total_tasks - completed_tasks
-            task_completion_percentage = f"{int((completed_tasks / total_tasks) * 100)}%" if total_tasks > 0 else "0%"
+      # Calculate task completion for the event
+      event_tasks = event.get("event_tasks", [])
+      total_tasks = len(event_tasks)
+      completed_tasks = sum(1 for task in event_tasks if task.get("completed"))
+      pending_tasks_count = total_tasks - completed_tasks
+      task_completion_percentage = f"{int((completed_tasks / total_tasks) * 100)}%" if total_tasks > 0 else "0%"
 
-            context = {
-                "user_name": user_name,
-                "event_title": event["title"],
-                "event_date": datetime.fromisoformat(event["date"]).strftime("%B %d, %Y"),
-                "event_time": event["time"] or "N/A",
-                "event_location": event["location"] or "",
-                "event_description": event["description"] or "",
-                "has_tasks": "true" if total_tasks > 0 else "",
-                "pending_tasks_count": pending_tasks_count,
-                "task_completion_percentage": task_completion_percentage,
-                "current_year": datetime.now().year,
-                "frontend_url": VITE_FRONTEND_URL,
-            }
-            rendered_html = _render_template(reminder_template["html_content"], context)
+      context = {
+        "user_name": user_name,
+        "event_title": event["title"],
+        "event_date": datetime.fromisoformat(event["date"]).strftime("%B %d, %Y"),
+        "event_time": event["time"] or "N/A",
+        "event_location": event["location"] or "",
+        "event_description": event["description"] or "",
+        "has_tasks": "true" if total_tasks > 0 else "",
+        "pending_tasks_count": pending_tasks_count,
+        "task_completion_percentage": task_completion_percentage,
+        "current_year": datetime.now().year,
+        "frontend_url": VITE_FRONTEND_URL,
+      }
+      rendered_html = _render_template(reminder_template["html_content"], context)
 
-            if _send_email_via_maileroo(user_email, reminder_template["subject"], rendered_html):
-                # Mark reminder as sent
-                supabase.table("events")\
-                    .update({"one_week_reminder_sent_at": datetime.now(timezone.utc).isoformat()})\
-                    .eq("id", event["id"])\
-                    .execute()
-                print(f"Sent 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
-            else:
-                print(f"Failed to send 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
+      if _send_email_via_maileroo(user_email, reminder_template["subject"], rendered_html):
+        # Mark reminder as sent
+        supabase.table("events")\
+          .update({"one_week_reminder_sent_at": datetime.now(timezone.utc).isoformat()})\
+          .eq("id", event["id"])\
+          .execute()
+        print(f"Sent 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
+      else:
+        print(f"Failed to send 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
 
-    except Exception as e:
-        print(f"Error in _send_1week_event_reminders_job: {e}", file=sys.stderr)
+  except Exception as e:
+    print(f"Error in _send_1week_event_reminders_job: {e}", file=sys.stderr)
 
 @app.post("/api/admin/scheduler-control")
 @require_admin_email
 def scheduler_control():
-    action = request.json.get("action")
-    if action == "start":
-        if not scheduler.running:
-            scheduler.start()
-            _schedule_daily_reminders_job()  # Schedule immediately on start
-            return jsonify({"message": "Scheduler started and job scheduled."}), 200
-        else:
-            _schedule_daily_reminders_job()  # Re-schedule if already running (e.g., settings changed)
-            return jsonify({"message": "Scheduler already running, job re-scheduled."}), 200
-    elif action == "stop":
-        if scheduler.running:
-            scheduler.shutdown(wait=False)
-            return jsonify({"message": "Scheduler stopped."}), 200
-        else:
-            return jsonify({"message": "Scheduler not running."}), 200
+  action = request.json.get("action")
+  if action == "start":
+    if not scheduler.running:
+      scheduler.start()
+      _schedule_daily_reminders_job()  # Schedule immediately on start
+      return jsonify({"message": "Scheduler started and job scheduled."}), 200
     else:
-        return jsonify({"message": "Invalid action"}), 400
+      _schedule_daily_reminders_job()  # Re-schedule if already running (e.g., settings changed)
+      return jsonify({"message": "Scheduler already running, job re-scheduled."}), 200
+  elif action == "stop":
+    if scheduler.running:
+      scheduler.shutdown(wait=False)
+      return jsonify({"message": "Scheduler stopped."}), 200
+    else:
+      return jsonify({"message": "Scheduler not running."}), 200
+  else:
+    return jsonify({"message": "Invalid action"}), 400
 
 @app.get("/api/admin/scheduler-status")
 @require_admin_email
 def scheduler_status():
-    job = scheduler.get_job(scheduler_job_id)
-    status = {
-        "is_running": scheduler.running,
-        "job_scheduled": job is not None,
-        "next_run_time": job.next_run_time.isoformat() if job and job.next_run_time else None
-    }
-    return jsonify(status), 200
+  job = scheduler.get_job(scheduler_job_id)
+  status = {
+    "is_running": scheduler.running,
+    "job_scheduled": job is not None,
+    "next_run_time": job.next_run_time.isoformat() if job and job.next_run_time else None
+  }
+  return jsonify(status), 200
 
 # Initial scheduling when app starts
 # This will be called once when the Flask app starts
 # The scheduler will then manage the job based on settings
 if not scheduler.running:
-    scheduler.start()
+  scheduler.start()
 _schedule_daily_reminders_job()
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Admin Email Settings Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.get("/api/admin/email-settings")
 @require_admin_email
 def get_email_settings_admin():
-    settings = _get_email_settings()
-    if settings:
-        # Mask the key for display
-        settings["maileroo_sending_key"] = "********" if settings.get("maileroo_sending_key") else ""
-        return jsonify(settings), 200
-    return jsonify({"message": "Email settings not found or DB error."}), 500
+  settings = _get_email_settings()
+  if settings:
+    # Mask the key for display
+    settings["maileroo_sending_key"] = "********" if settings.get("maileroo_sending_key") else ""
+    return jsonify(settings), 200
+  return jsonify({"message": "Email settings not found or DB error."}), 500
 
 @app.put("/api/admin/email-settings")
 @require_admin_email
 def update_email_settings_admin():
-    body = request.get_json(force=True, silent=True) or {}
-    settings_id = body.get("id")
-    maileroo_sending_key = body.get("maileroo_sending_key")
-    mail_default_sender = body.get("mail_default_sender")
-    scheduler_enabled = body.get("scheduler_enabled", True)
-    reminder_time = body.get("reminder_time", "02:00")
+  body = request.get_json(force=True, silent=True) or {}
+  settings_id = body.get("id")
+  maileroo_sending_key = body.get("maileroo_sending_key")
+  mail_default_sender = body.get("mail_default_sender")
+  scheduler_enabled = body.get("scheduler_enabled", True)
+  reminder_time = body.get("reminder_time", "02:00")
 
-    if not settings_id:
-        return jsonify({"message": "Settings ID is required"}), 400
+  if not settings_id:
+    return jsonify({"message": "Settings ID is required"}), 400
 
-    updates = {
-        "mail_default_sender": mail_default_sender,
-        "updated_at": _utcnow_iso(),
-        "scheduler_enabled": scheduler_enabled,
-        "reminder_time": reminder_time,
-    }
-    if maileroo_sending_key and maileroo_sending_key != "********":  # Only update if not masked
-        updates["maileroo_sending_key"] = maileroo_sending_key
+  updates = {
+    "mail_default_sender": mail_default_sender,
+    "updated_at": _utcnow_iso(),
+    "scheduler_enabled": scheduler_enabled,
+    "reminder_time": reminder_time,
+  }
+  if maileroo_sending_key and maileroo_sending_key != "********":  # Only update if not masked
+    updates["maileroo_sending_key"] = maileroo_sending_key
 
-    try:
-        resp = supabase.table("email_settings").update(updates).eq("id", settings_id).select("*").single().execute()
-        _schedule_daily_reminders_job()  # Re-schedule if settings changed
-        return jsonify({"message": "Email settings updated", "settings": resp.data}), 200
-    except Exception as e:
-        print(f"Error updating email settings: {e}", file=sys.stderr)
-        return jsonify({"message": "Failed to update email settings"}), 500
+  try:
+    # Execute update first (no .select() chaining)
+    supabase.table("email_settings").update(updates).eq("id", settings_id).execute()
+    # Re-fetch the updated row
+    refetch = supabase.table("email_settings").select("*").eq("id", settings_id).single().execute()
+    _schedule_daily_reminders_job()  # Re-schedule if settings changed
+    return jsonify({"message": "Email settings updated", "settings": refetch.data}), 200
+  except Exception as e:
+    print(f"Error updating email settings: {e}", file=sys.stderr)
+    return jsonify({"message": "Failed to update email settings"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Admin Email Templates Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.get("/api/admin/email-templates")
 @require_admin_email
 def get_email_templates_admin():
-    if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
-    try:
-        resp = supabase.table("email_templates").select("*").order("name").execute()
-        return jsonify(resp.data), 200
-    except Exception as e:
-        print(f"Error fetching email templates: {e}", file=sys.stderr)
-        return jsonify({"message": "Failed to fetch email templates"}), 500
+  if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
+  try:
+    resp = supabase.table("email_templates").select("*").order("name").execute()
+    return jsonify(resp.data), 200
+  except Exception as e:
+    print(f"Error fetching email templates: {e}", file=sys.stderr)
+    return jsonify({"message": "Failed to fetch email templates"}), 500
 
 @app.post("/api/admin/email-templates")
 @require_admin_email
 def create_email_template_admin():
-    if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
-    body = request.get_json(force=True, silent=True) or {}
-    name = body.get("name")
-    subject = body.get("subject")
-    html_content = body.get("html_content")
+  if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
+  body = request.get_json(force=True, silent=True) or {}
+  name = body.get("name")
+  subject = body.get("subject")
+  html_content = body.get("html_content")
 
-    if not name or not subject or not html_content:
-        return jsonify({"message": "Name, subject, and HTML content are required"}), 400
+  if not name or not subject or not html_content:
+    return jsonify({"message": "Name, subject, and HTML content are required"}), 400
 
-    try:
-        resp = supabase.table("email_templates").insert({
-            "name": name,
-            "subject": subject,
-            "html_content": html_content,
-            "created_at": _utcnow_iso(),
-            "updated_at": _utcnow_iso(),
-        }).select("*").single().execute()
-        return jsonify({"message": "Template created", "template": resp.data}), 201
-    except Exception as e:
-        print(f"Error creating email template: {e}", file=sys.stderr)
-        return jsonify({"message": "Failed to create template"}), 500
+  try:
+    # Insert without chaining .select()
+    supabase.table("email_templates").insert({
+      "name": name,
+      "subject": subject,
+      "html_content": html_content,
+      "created_at": _utcnow_iso(),
+      "updated_at": _utcnow_iso(),
+    }).execute()
+    # Re-fetch the inserted row by unique name
+    refetch = supabase.table("email_templates").select("*").eq("name", name).single().execute()
+    return jsonify({"message": "Template created", "template": refetch.data}), 201
+  except Exception as e:
+    print(f"Error creating email template: {e}", file=sys.stderr)
+    return jsonify({"message": "Failed to create template"}), 500
 
 @app.put("/api/admin/email-templates/<template_id>")
 @require_admin_email
 def update_email_template_admin(template_id):
-    if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
-    body = request.get_json(force=True, silent=True) or {}
-    subject = body.get("subject")
-    html_content = body.get("html_content")
+  if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
+  body = request.get_json(force=True, silent=True) or {}
+  subject = body.get("subject")
+  html_content = body.get("html_content")
 
-    if not subject or not html_content:
-        return jsonify({"message": "Subject and HTML content are required"}), 400
+  if not subject or not html_content:
+    return jsonify({"message": "Subject and HTML content are required"}), 400
 
-    try:
-        resp = supabase.table("email_templates").update({
-            "subject": subject,
-            "html_content": html_content,
-            "updated_at": _utcnow_iso(),
-        }).eq("id", template_id).select("*").single().execute()
-        return jsonify({"message": "Template updated", "template": resp.data}), 200
-    except Exception as e:
-        print(f"Error updating email template: {e}", file=sys.stderr)
-        return jsonify({"message": "Failed to update template"}), 500
+  try:
+    # Update without chaining .select()
+    supabase.table("email_templates").update({
+      "subject": subject,
+      "html_content": html_content,
+      "updated_at": _utcnow_iso(),
+    }).eq("id", template_id).execute()
+    # Re-fetch the updated row
+    refetch = supabase.table("email_templates").select("*").eq("id", template_id).single().execute()
+    return jsonify({"message": "Template updated", "template": refetch.data}), 200
+  except Exception as e:
+    print(f"Error updating email template: {e}", file=sys.stderr)
+    return jsonify({"message": "Failed to update template"}), 500
 
 @app.delete("/api/admin/email-templates/<template_id>")
 @require_admin_email
 def delete_email_template_admin(template_id):
-    if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
-    try:
-        supabase.table("email_templates").delete().eq("id", template_id).execute()
-        return jsonify({"message": "Template deleted"}), 204
-    except Exception as e:
-        print(f"Error deleting email template: {e}", file=sys.stderr)
-        return jsonify({"message": "Failed to delete template"}), 500
+  if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
+  try:
+    supabase.table("email_templates").delete().eq("id", template_id).execute()
+    return jsonify({"message": "Template deleted"}), 204
+  except Exception as e:
+    print(f"Error deleting email template: {e}", file=sys.stderr)
+    return jsonify({"message": "Failed to delete template"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Admin Test Sending Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.post("/api/admin/send-test-email")
 @require_admin_email
 def send_test_email_admin():
-    body = request.get_json(force=True, silent=True) or {}
-    recipient_email = body.get("recipient_email")
-    if not recipient_email:
-        return jsonify({"message": "Recipient email is required"}), 400
+  body = request.get_json(force=True, silent=True) or {}
+  recipient_email = body.get("recipient_email")
+  if not recipient_email:
+    return jsonify({"message": "Recipient email is required"}), 400
 
-    test_template = _get_email_template("welcome_email")  # Use welcome email as a generic test
-    if not test_template:
-        # _get_email_template already logs the error
-        return jsonify({"message": "Test email template not found (welcome_email) or DB error."}), 500
+  test_template = _get_email_template("welcome_email")  # Use welcome email as a generic test
+  if not test_template:
+    # _get_email_template already logs the error
+    return jsonify({"message": "Test email template not found (welcome_email) or DB error."}), 500
 
-    context = {
-        "user_name": "Test User",
-        "current_year": datetime.now().year,
-        "frontend_url": VITE_FRONTEND_URL,
-    }
-    rendered_html = _render_template(test_template["html_content"], context)
+  context = {
+    "user_name": "Test User",
+    "current_year": datetime.now().year,
+    "frontend_url": VITE_FRONTEND_URL,
+  }
+  rendered_html = _render_template(test_template["html_content"], context)
 
-    if _send_email_via_maileroo(recipient_email, f"[TEST] {test_template['subject']}", rendered_html):
-        return jsonify({"message": "Test email sent successfully"}), 200
-    else:
-        # _send_email_via_maileroo already logs the error
-        return jsonify({"message": "Failed to send test email. Check backend logs for details."}), 500
+  if _send_email_via_maileroo(recipient_email, f"[TEST] {test_template['subject']}", rendered_html):
+    return jsonify({"message": "Test email sent successfully"}), 200
+  else:
+    # _send_email_via_maileroo already logs the error
+    return jsonify({"message": "Failed to send test email. Check backend logs for details."}), 500
 
 @app.post("/api/admin/send-test-push")
 @require_admin_email
 def send_test_push_admin():
-    body = request.get_json(force=True, silent=True) or {}
-    recipient_email = body.get("recipient_email")
-    title = body.get("title", "Test Push Notification")
-    message_body = body.get("body", "This is a test push notification from DayClap.")
-    url = body.get("url", VITE_FRONTEND_URL)
+  body = request.get_json(force=True, silent=True) or {}
+  recipient_email = body.get("recipient_email")
+  title = body.get("title", "Test Push Notification")
+  message_body = body.get("body", "This is a test push notification from DayClap.")
+  url = body.get("url", VITE_FRONTEND_URL)
 
-    if not recipient_email:
-        return jsonify({"message": "Recipient email is required"}), 400
+  if not recipient_email:
+    return jsonify({"message": "Recipient email is required"}), 400
 
-    try:
-        resp = supabase.table("profiles").select("push_subscription").eq("email", recipient_email).single().execute()
-        profile = resp.data
-        if not profile or not profile.get("push_subscription"):
-            return jsonify({"message": f"No active push subscription found for {recipient_email}"}), 404
+  try:
+    resp = supabase.table("profiles").select("push_subscription").eq("email", recipient_email).single().execute()
+    profile = resp.data
+    if not profile or not profile.get("push_subscription"):
+      return jsonify({"message": f"No active push subscription found for {recipient_email}"}), 404
 
-        subscription_info = profile["push_subscription"]
-        if _send_push_notification(subscription_info, title, message_body, url):
-            return jsonify({"message": "Test push notification sent successfully"}), 200
-        else:
-            return jsonify({"message": "Failed to send test push notification"}), 500
-    except Exception as e:
-        print(f"Error sending test push: {e}", file=sys.stderr)
-        return jsonify({"message": f"An error occurred: {e}"}), 500
+    subscription_info = profile["push_subscription"]
+    if _send_push_notification(subscription_info, title, message_body, url):
+      return jsonify({"message": "Test push notification sent successfully"}), 200
+    else:
+      return jsonify({"message": "Failed to send test push notification"}), 500
+  except Exception as e:
+    print(f"Error sending test push: {e}", file=sys.stderr)
+    return jsonify({"message": f"An error occurred: {e}"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Entrypoint
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 if __name__ == "__main__":
   port = int(os.environ.get("PORT", "5001"))
   app.run(host="0.0.0.0", port=port, debug=True)
