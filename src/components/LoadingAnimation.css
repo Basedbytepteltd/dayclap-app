@@ -1,0 +1,94 @@
+.loading-animation-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem; /* Add padding to give it space within the constrained-content */
+  color: var(--primary-text);
+  font-size: 1.2rem;
+  gap: 1rem;
+  width: 100%; /* Ensure it takes full width of its parent */
+  box-sizing: border-box;
+}
+
+/* Calendar Loading Animation */
+.loading-calendar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1rem; /* Space between calendar and text */
+}
+
+.loading-calendar-header {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  margin-bottom: 0.75rem;
+}
+
+.loading-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* 5 days per row */
+  gap: 0.25rem;
+  width: 156px; /* Adjusted width to fit 5 items of 28px + 4 gaps of 0.25rem (4px each) */
+}
+
+.loading-date {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--primary-text);
+  border-radius: 0.25rem;
+  background-color: var(--primary-bg);
+  animation: datePulse 1.5s infinite ease-in-out;
+}
+
+@keyframes datePulse {
+  0%, 100% {
+    background-color: var(--primary-bg);
+    color: var(--primary-text);
+    transform: scale(1);
+    box-shadow: none;
+  }
+  50% {
+    background-color: var(--accent-color);
+    color: var(--button-text);
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  }
+}
+
+/* Staggered animation delays for a "moving" effect */
+.loading-date:nth-child(1) { animation-delay: 0s; }
+.loading-date:nth-child(2) { animation-delay: 0.05s; }
+.loading-date:nth-child(3) { animation-delay: 0.1s; }
+.loading-date:nth-child(4) { animation-delay: 0.15s; }
+.loading-date:nth-child(5) { animation-delay: 0.2s; }
+.loading-date:nth-child(6) { animation-delay: 0.25s; }
+.loading-date:nth-child(7) { animation-delay: 0.3s; }
+.loading-date:nth-child(8) { animation-delay: 0.35s; }
+.loading-date:nth-child(9) { animation-delay: 0.4s; }
+.loading-date:nth-child(10) { animation-delay: 0.45s; }
+.loading-date:nth-child(11) { animation-delay: 0.5s; }
+.loading-date:nth-child(12) { animation-delay: 0.55s; }
+.loading-date:nth-child(13) { animation-delay: 0.6s; }
+.loading-date:nth-child(14) { animation-delay: 0.65s; }
+.loading-date:nth-child(15) { animation-delay: 0.7s; }
+.loading-date:nth-child(16) { animation-delay: 0.75s; }
+.loading-date:nth-child(17) { animation-delay: 0.8s; }
+.loading-date:nth-child(18) { animation-delay: 0.85s; }
+.loading-date:nth-child(19) { animation-delay: 0.9s; }
+.loading-date:nth-child(20) { animation-delay: 0.95s; }
+.loading-date:nth-child(21) { animation-delay: 1.0s; }
+.loading-date:nth-child(22) { animation-delay: 1.05s; }
+.loading-date:nth-child(23) { animation-delay: 1.1s; }
+.loading-date:nth-child(24) { animation-delay: 1.15s; }
+.loading-date:nth-child(25) { animation-delay: 1.2s; }

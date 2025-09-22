@@ -5,16 +5,18 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
 from supabase import create_client, Client
 import requests
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv # NEW: Import find_dotenv
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import atexit
 from pywebpush import webpush, WebPushException
-import json # NEW: Import the json module
+import json
 
 # Load environment variables from .env file
-load_dotenv()
+# CRITICAL FIX: Explicitly specify the path to the .env file in the same directory as app.py
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path=dotenv_path)
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -375,7 +377,7 @@ def subscribe_push():
 
     # Get user ID from Authorization header (assuming JWT is passed)
     auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
+    if not auth_header or not auth_header.startswith('Bearer '):\
         return jsonify({"message": "Authorization token required"}), 401
     
     # In a real app, you'd verify the JWT and extract user_id.
@@ -408,7 +410,7 @@ def unsubscribe_push():
         return jsonify({"message": "Endpoint is required"}), 400
 
     auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
+    if not auth_header or not auth_header.startswith('Bearer '):\
         return jsonify({"message": "Authorization token required"}), 401
     
     try:
@@ -434,7 +436,7 @@ def unsubscribe_push():
 @cross_origin()
 def send_test_push():
     user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
+    if not is_super_admin(user_email):\
         return jsonify({"message": "Unauthorized access"}), 403
 
     data = request.get_json() or {}
@@ -478,7 +480,7 @@ def send_test_push():
 @cross_origin()
 def email_settings():
     user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
+    if not is_super_admin(user_email):\
         return jsonify({"message": "Unauthorized access"}), 403
 
     if request.method == 'GET':
@@ -489,7 +491,7 @@ def email_settings():
             scheduler_enabled = settings.get("scheduler_enabled", True) # NEW
             reminder_time = settings.get("reminder_time", "02:00") # NEW
 
-            result = {
+            result = {\
                 "id": settings.get("id"),
                 "maileroo_sending_key": maileroo_sending_key,
                 "mail_default_sender": mail_default_sender,
@@ -534,7 +536,7 @@ def email_settings():
 @cross_origin()
 def send_test_email():
     user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
+    if not is_super_admin(user_email):\
         return jsonify({"message": "Unauthorized access"}), 403
 
     data = request.get_json() or {}
@@ -599,6 +601,59 @@ def send_invitation():
     except Exception as e:
         return jsonify({"message": f"An unexpected error occurred: {e}"}), 500
 
+# NEW: Endpoint to send "Task Assigned" email notification
+@app.route('/api/notify-task-assigned', methods=['POST'])
+@cross_origin()
+def notify_task_assigned():
+    """
+    Body JSON:
+    {
+      assigned_to_email: string (required),
+      assigned_to_name: string,
+      assigned_by_email: string,
+      assigned_by_name: string,
+      event_title: string (required),
+      event_date: string (YYYY-MM-DD),
+      event_time: string,
+      company_name: string,
+      task_title: string,
+      task_description: string,
+      due_date: string (YYYY-MM-DD)
+    }
+    """
+    try:
+      data = request.get_json() or {}
+      assigned_to_email = (data.get('assigned_to_email') or '').strip().lower()
+      if not assigned_to_email:
+          return jsonify({"message": "assigned_to_email is required"}), 400
+      if not data.get('event_title'):
+          return jsonify({"message": "event_title is required"}), 400
+
+      # Prepare template data with sensible fallbacks
+      template_data = {
+          "assignee_name": data.get("assigned_to_name") or assigned_to_email.split('@')[0],
+          "assignee_email": assigned_to_email,
+          "assigned_by_name": data.get("assigned_by_name") or "A teammate",
+          "assigned_by_email": data.get("assigned_by_email") or "",
+          "event_title": data.get("event_title") or "Event",
+          "event_date": data.get("event_date") or "",
+          "event_time": data.get("event_time") or "",
+          "company_name": data.get("company_name") or "",
+          "task_title": data.get("task_title") or "",
+          "task_description": data.get("task_description") or "",
+          "due_date": data.get("due_date") or "",
+          "frontend_url": os.environ.get('VITE_FRONTEND_URL', 'http://localhost:5173'),
+          "current_year": datetime.now().year
+      }
+
+      ok, details = send_email_api(assigned_to_email, "task_assigned", template_data)
+      if ok:
+          return jsonify({"message": "Task assignment email sent.", "details": details}), 200
+      return jsonify({"message": "Failed to send task assignment email.", "details": details}), 500
+    except Exception as e:
+      traceback.print_exc(file=sys.stderr)
+      return jsonify({"message": f"Unexpected error: {e}"}), 500
+
 # Endpoint to send welcome email, called by Supabase trigger
 @app.route('/api/send-welcome-email', methods=['POST'])
 @cross_origin()
@@ -640,7 +695,7 @@ def send_welcome_email_endpoint():
 @cross_origin()
 def email_templates_management():
     user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
+    if not is_super_admin(user_email):\
         return jsonify({"message": "Unauthorized access"}), 403
 
     if request.method == 'GET':
@@ -681,7 +736,7 @@ def email_templates_management():
 @cross_origin()
 def email_template_detail_management(template_id):
     user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
+    if not is_super_admin(user_email):\
         return jsonify({"message": "Unauthorized access"}), 403
 
     if request.method == 'GET':
@@ -725,7 +780,7 @@ def email_template_detail_management(template_id):
 @cross_origin()
 def get_scheduler_status():
     user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
+    if not is_super_admin(user_email):\
         return jsonify({"message": "Unauthorized access"}), 403
 
     try:
@@ -745,7 +800,7 @@ def get_scheduler_status():
 @cross_origin()
 def control_scheduler():
     user_email = request.headers.get('X-User-Email')
-    if not is_super_admin(user_email):
+    if not is_super_admin(user_email):\
         return jsonify({"message": "Unauthorized access"}), 403
 
     data = request.get_json() or {}

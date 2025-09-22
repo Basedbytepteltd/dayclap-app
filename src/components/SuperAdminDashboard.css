@@ -1,5 +1,4 @@
 .super-admin-dashboard {
-  /* Enforce a cleaner, more organized light theme */
   --primary-bg: #ffffff;
   --secondary-bg: #f7f9fc;
   --primary-text: #2a3342;
@@ -18,28 +17,17 @@
     sans-serif;
 }
 
-/* Dark Mode Overrides for Super Admin Dashboard */
 .super-admin-dashboard.dark-mode {
   --primary-bg: #1a1a1a;
-  /* Darker background */
   --secondary-bg: #2d2d2d;
-  /* Slightly lighter dark background for cards/sections */
   --primary-text: #e0e0e0;
-  /* Light text */
   --secondary-text: #a0a0a0;
-  /* Lighter secondary text */
   --accent-color: #60a5fa;
-  /* Lighter blue accent for dark mode */
   --border-color: #444444;
-  /* Darker borders */
   --button-bg: #e0e0e0;
-  /* Light button background for contrast */
   --button-text: #1a1a1a;
-  /* Dark text on light button */
   --error-color: #ff6b6b;
-  /* Brighter error for dark mode */
   --success-color: #48bb78;
-  /* Brighter success for dark mode */
 }
 
 .admin-header {
@@ -80,7 +68,6 @@
 .header-title-group p {
   margin: 0;
   color: var(--secondary-text);
-  /* Reverted to secondary-text for subtitle */
   font-size: 0.875rem;
 }
 
@@ -135,23 +122,19 @@
 
 .stat-card {
   background: var(--primary-bg);
-  /* Changed to primary-bg for consistency */
   padding: 1.5rem;
   border-radius: 0.75rem;
   border: 1px solid var(--border-color);
-  /* Changed border to theme variable */
   display: flex;
   align-items: center;
   gap: 1rem;
   transition: all 0.2s ease;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  /* Lighter shadow */
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  /* Adjusted shadow for hover */
   border-color: var(--accent-color);
 }
 
@@ -159,13 +142,11 @@
   width: 48px;
   height: 48px;
   background: var(--secondary-bg);
-  /* Changed to secondary-bg */
   border-radius: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--accent-color);
-  /* Changed to accent-color */
   flex-shrink: 0;
   border: 1px solid var(--border-color);
 }
@@ -180,14 +161,12 @@
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--primary-text);
-  /* Changed to primary-text */
   line-height: 1.2;
 }
 
 .stat-content p {
   margin: 0.1rem 0 0 0;
   color: var(--secondary-text);
-  /* Changed to secondary-text */
   font-size: 0.875rem;
 }
 
@@ -212,7 +191,6 @@
   border-radius: 0.5rem;
   cursor: pointer;
   color: var(--secondary-text);
-  /* Changed to secondary-text */
   font-size: 0.875rem;
   font-weight: 500;
   text-align: left;
@@ -333,7 +311,6 @@
   color: var(--primary-text);
   font-size: 0.875rem;
   word-break: break-word;
-  /* Ensure text wraps within cells */
 }
 
 .users-table tr:hover {
@@ -348,7 +325,6 @@
 
 .user-cell span {
   white-space: normal;
-  /* Allow user names to wrap */
 }
 
 .user-avatar {
@@ -365,7 +341,6 @@
   flex-shrink: 0;
 }
 
-/* NEW: Account Type Badge */
 .account-type-badge {
   padding: 0.25rem 0.6rem;
   border-radius: 0.375rem;
@@ -373,7 +348,6 @@
   font-weight: 600;
   text-transform: capitalize;
   display: inline-block;
-  /* Ensure it doesn't stretch */
 }
 
 .account-type-badge.personal {
@@ -389,7 +363,6 @@
 
 .companies-cell {
   white-space: normal;
-  /* Allow company names to wrap */
 }
 
 .companies-cell .no-data {
@@ -523,7 +496,6 @@
   color: var(--primary-text);
 }
 
-/* NEW: User Details Form for editing */
 .user-details-form {
   padding: 1.5rem;
 }
@@ -567,10 +539,8 @@
   color: var(--primary-text);
   font-size: 0.875rem;
   word-break: break-word;
-  /* Ensure long text wraps */
 }
 
-/* Reusing form styles from Dashboard.css for consistency */
 .user-details-form .form-group {
   margin-bottom: 1rem;
 }
@@ -605,7 +575,7 @@
   color: var(--primary-text);
   font-size: 0.875rem;
   box-sizing: border-box;
-  min-height: 38px; /* Match input height */
+  min-height: 38px;
   display: flex;
   align-items: center;
 }
@@ -715,7 +685,6 @@
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-/* NEW: Scheduler Status Card */
 .scheduler-status-card {
   background-color: var(--secondary-bg);
   border: 1px solid var(--border-color);
@@ -803,7 +772,6 @@
   }
 }
 
-/* NEW: Email Templates Section Styles */
 .email-templates-section .templates-list {
   display: flex;
   flex-direction: column;
@@ -893,10 +861,8 @@
   color: var(--secondary-text);
 }
 
-/* Template Modal Specific Styles */
 .template-modal {
   max-width: 800px;
-  /* Wider for HTML content */
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -942,10 +908,8 @@
 
 .template-modal .form-textarea {
   min-height: 250px;
-  /* Larger default height for HTML */
   resize: vertical;
   padding-top: 1rem;
-  /* Adjust for icon if needed */
 }
 
 .template-modal .form-input:focus,
@@ -998,4 +962,21 @@
 }
 
 @media (max-width: 768px) {
-  .template-modal {    max-width: 95vw;  }  .template-modal .form-textarea {    min-height: 150px;  }}@media (max-width: 480px) {  .template-modal .modal-header,  .template-modal .modal-body,  .template-modal .modal-footer {    padding-left: 1rem;    padding-right: 1rem;  }  .template-modal .modal-footer {    flex-direction: column-reverse;    gap: 0.5rem;  }  .template-modal .modal-footer .btn {    width: 100%;  }}
+  .template-modal { max-width: 95vw; }
+  .template-modal .form-textarea { min-height: 150px; }
+}
+@media (max-width: 480px) {
+  .template-modal .modal-header,
+  .template-modal .modal-body,
+  .template-modal .modal-footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .template-modal .modal-footer {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+  .template-modal .modal-footer .btn {
+    width: 100%;
+  }
+}

@@ -37,8 +37,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
-  // REVERTED: Removed state for editable user data
-  // const [editingUserForm, setEditingUserForm] = useState(null); 
   const [activeTab, setActiveTab] = useState('users');
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -57,6 +55,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   });
   const [emailSettingsMessage, setEmailSettingsMessage] = useState('');
   const [emailSettingsLoading, setEmailSettingsLoading] = useState(false);
+  const [emailSettingsMessageType, setEmailSettingsMessageType] = useState('');
 
   const [testEmailRecipient, setTestEmailRecipient] = useState('');
   const [testEmailMessage, setTestEmailMessage] = useState('');
@@ -106,7 +105,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const fetchSchedulerStatus = async () => {
     setSchedulerStatusLoading(true);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
       const response = await fetch(`${backendUrl}/api/admin/scheduler-status`, {
         headers: {
           'X-User-Email': user.email,
@@ -132,7 +134,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     setEmailSettingsLoading(true);
     setEmailSettingsMessage('');
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
       const response = await fetch(`${backendUrl}/api/admin/email-settings`, {
         headers: {
           'X-User-Email': user.email,
@@ -150,7 +155,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           reminder_time: data.reminder_time || '02:00' 
         });
       } else {
-        setEmailSettingsMessage(`Error: ${data.message || 'Failed to fetch email settings'}`);
+        setEmailSettingsMessage(data.message || 'Failed to fetch email settings');
       }
     } catch (error) {
       console.error('Error fetching email settings:', error);
@@ -164,9 +169,13 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     e.preventDefault();
     setEmailSettingsLoading(true);
     setEmailSettingsMessage('');
+    setEmailSettingsMessageType('');
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
       const url = `${backendUrl}/api/admin/email-settings`;
 
       const response = await fetch(url, {
@@ -181,6 +190,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
       if (response.ok) {
         setEmailSettingsMessage('Email settings updated successfully!');
+        setEmailSettingsMessageType('success');
         if (data.settings) {
           setEmailSettingsForm({
             id: data.settings.id,
@@ -192,11 +202,13 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
         }
         fetchSchedulerStatus(); 
       } else {
-        setEmailSettingsMessage(`Error: ${data.message || 'Failed to update email settings'}`);
+        setEmailSettingsMessage(data.message || 'Failed to update email settings');
+        setEmailSettingsMessageType('error');
       }
     } catch (error) {
       console.error('Error updating email settings:', error);
       setEmailSettingsMessage('An unexpected error occurred while updating email settings.');
+      setEmailSettingsMessageType('error');
     } finally {
       setEmailSettingsLoading(false);
     }
@@ -214,7 +226,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     }
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
       const response = await fetch(`${backendUrl}/api/admin/send-test-email`, {
         method: 'POST',
         headers: {
@@ -245,42 +260,45 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     setTestPushMessageType('');
 
     if (!testPushRecipient.trim()) {
-        setTestPushMessage('Error: Recipient email is required.');
-        setTestPushMessageType('error');
-        setTestPushLoading(false);
-        return;
+      setTestPushMessage('Error: Recipient email is required.');
+      setTestPushMessageType('error');
+      setTestPushLoading(false);
+      return;
     }
 
     try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-        const response = await fetch(`${backendUrl}/api/admin/send-test-push`, {
-            method: 'POST',
-            headers: {
-                'X-User-Email': user.email,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                recipient_email: testPushRecipient,
-                title: testPushTitle,
-                body: testPushBody,
-                url: testPushUrl
-            })
-        });
-        const data = await response.json();
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
+      const response = await fetch(`${backendUrl}/api/admin/send-test-push`, {
+        method: 'POST',
+        headers: {
+          'X-User-Email': user.email,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipient_email: testPushRecipient,
+          title: testPushTitle,
+          body: testPushBody,
+          url: testPushUrl
+        })
+      });
+      const data = await response.json();
 
-        if (response.ok) {
-            setTestPushMessage(`Success: ${data.message}`);
-            setTestPushMessageType('success');
-        } else {
-            setTestPushMessage(`Error: ${data.message || 'Failed to send test push notification'}`);
-            setTestPushMessageType('error');
-        }
-    } catch (error) {
-        console.error('Error sending test push notification:', error);
-        setTestPushMessage('An unexpected error occurred while sending the test push notification.');
+      if (response.ok) {
+        setTestPushMessage(`Success: ${data.message}`);
+        setTestPushMessageType('success');
+      } else {
+        setTestPushMessage(`Error: ${data.message || 'Failed to send test push notification'}`);
         setTestPushMessageType('error');
+      }
+    } catch (error) {
+      console.error('Error sending test push notification:', error);
+      setTestPushMessage('An unexpected error occurred while sending the test push notification.');
+      setTestPushMessageType('error');
     } finally {
-        setTestPushLoading(false);
+      setTestPushLoading(false);
     }
   };
 
@@ -288,7 +306,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     setTemplateLoading(true);
     setTemplateMessage('');
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
       const response = await fetch(`${backendUrl}/api/admin/email-templates`, {
         headers: {
           'X-User-Email': user.email,
@@ -300,7 +321,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       if (response.ok) {
         setEmailTemplates(data);
       } else {
-        setTemplateMessage(`Error: ${data.message || 'Failed to fetch email templates'}`);
+        setTemplateMessage(data.message || 'Failed to fetch email templates');
         setTemplateMessageType('error');
       }
     } catch (error) {
@@ -342,7 +363,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     }
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
       let response;
       let url;
 
@@ -376,7 +400,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
         fetchEmailTemplates(); 
         setShowTemplateModal(false);
       } else {
-        setTemplateMessage(`Error: ${data.message || 'Failed to save template'}`);
+        setTemplateMessage(data.message || 'Failed to save template');
         setTemplateMessageType('error');
       }
     } catch (error) {
@@ -397,7 +421,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     setTemplateMessageType('');
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
       const response = await fetch(`${backendUrl}/api/admin/email-templates/${templateId}`, {
         method: 'DELETE',
         headers: {
@@ -412,7 +439,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
         fetchEmailTemplates(); 
       } else {
         const data = await response.json();
-        setTemplateMessage(`Error: ${data.message || 'Failed to delete template'}`);
+        setTemplateMessage(data.message || 'Failed to delete template');
         setTemplateMessageType('error');
       }
     } catch (error) {
@@ -427,7 +454,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const loadUsersData = async () => {
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, name, email, created_at, last_activity_at, companies, account_type'); // Include account_type
+      .select('id, name, email, created_at, last_activity_at, companies, account_type');
 
     if (profilesError) {
       console.error("SuperAdminDashboard: Error fetching profiles:", profilesError.message);
@@ -498,14 +525,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
   const handleViewUser = (userData) => {
     setSelectedUser(userData);
-    // REVERTED: Removed initialization of editing form
-    // setEditingUserForm({ 
-    //   id: userData.id,
-    //   name: userData.name,
-    //   email: userData.email,
-    //   account_type: userData.account_type,
-    //   companies: userData.companies, 
-    // });
     setShowUserModal(true);
   };
 
@@ -527,7 +546,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const handleSchedulerControl = async (action) => {
     setSchedulerStatusLoading(true);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        throw new Error('VITE_BACKEND_URL is not configured.');
+      }
       const response = await fetch(`${backendUrl}/api/admin/scheduler-control`, {
         method: 'POST',
         headers: {
@@ -554,46 +576,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  // REVERTED: Removed handleUserFormChange function
-  // const handleUserFormChange = (e) => {
-  //   const { name, value } = e.target;
-  //   setEditingUserForm(prev => ({ ...prev, [name]: value }));
-  // };
-
-  // REVERTED: Removed handleUserModalSave function
-  // const handleUserModalSave = async () => {
-  //   if (!editingUserForm) return;
-
-  //   const payload = {
-  //     name: editingUserForm.name,
-  //     account_type: editingUserForm.account_type,
-  //   };
-
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from('profiles')
-  //       .update(payload)
-  //       .eq('id', editingUserForm.id)
-  //       .select()
-  //       .single();
-
-  //     if (error) {
-  //       console.error('Error updating user profile:', error.message);
-  //       alert('Failed to update user profile: ' + error.message);
-  //     } else {
-  //       console.log('User profile updated:', data);
-  //       alert('User profile updated successfully!');
-  //       setShowUserModal(false);
-  //       loadUsersData(); // Reload users to reflect changes
-  //     }
-  //   } catch (err) {
-  //     console.error('Unexpected error during user profile update:', err);
-  //     alert('An unexpected error occurred.');
-  //   }
-  // };
-
   const UserModal = () => {
-    if (!selectedUser) return null; // REVERTED: Removed check for editingUserForm
+    if (!selectedUser) return null;
 
     return (
       <div className="modal-backdrop" onClick={() => setShowUserModal(false)}>
@@ -611,7 +595,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                   <label className="form-label">Name:</label>
                   <div className="input-wrapper">
                     <User size={16} className="input-icon" />
-                    {/* REVERTED: Changed input to span */}
                     <span className="form-input-display">{selectedUser.name}</span>
                   </div>
                 </div>
@@ -619,7 +602,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                   <label className="form-label">Email:</label>
                   <div className="input-wrapper">
                     <Mail size={16} className="input-icon" />
-                    {/* REVERTED: Changed input to span */}
                     <span className="form-input-display">{selectedUser.email}</span>
                   </div>
                 </div>
@@ -627,7 +609,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                   <label className="form-label">Account Type:</label>
                   <div className="input-wrapper">
                     <Users size={16} className="input-icon" />
-                    {/* REVERTED: Changed select to span */}
                     <span className="form-input-display">{selectedUser.account_type}</span>
                   </div>
                 </div>
@@ -703,8 +684,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={() => setShowUserModal(false)}>Close</button>
-            {/* REVERTED: Removed Save Changes button */}
-            {/* <button type="button" className="btn btn-primary" onClick={handleUserModalSave}>Save Changes</button> */}
           </div>
         </div>
       </div>
@@ -1063,7 +1042,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                 </div>
 
                 {emailSettingsMessage && (
-                  <div className={`info-message ${emailSettingsMessage.includes('Error') ? 'error' : 'success'}`}>
+                  <div className={`info-message ${emailSettingsMessageType || (emailSettingsMessage.includes('Error') ? 'error' : 'success')}`}>
                     {emailSettingsMessage}
                   </div>
                 )}

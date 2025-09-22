@@ -14,14 +14,14 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'DayClap Notification';
   const options = {
     body: data.body || 'You have a new notification from DayClap.',
-    icon: data.icon || '/icon-192.png', // Use your PWA icon
-    badge: data.badge || '/icon-192.png', // A small icon for notification tray
-    image: data.image || undefined, // Optional image
+    icon: data.icon || '/favicon.svg', // use SVG icon to avoid invalid PNG errors
+    badge: data.badge || '/favicon.svg',
+    image: data.image || undefined,
     data: {
-      url: data.url || '/', // URL to open when notification is clicked
+      url: data.url || '/',
       id: data.id || new Date().getTime(),
     },
-    actions: data.actions || [], // Optional actions
+    actions: data.actions || [],
   };
 
   event.waitUntil(
@@ -38,7 +38,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// These lines are for VitePWA's auto-update mechanism.
-// Do not remove them.
+// VitePWA auto-update
 self.skipWaiting();
 clients.claim();

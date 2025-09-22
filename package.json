@@ -9,7 +9,9 @@
     "start-all": "concurrently \"npm run backend\" \"npm run dev\"",
     "build": "vite build",
     "preview": "vite preview",
-    "gen:vapid": "node scripts/generateVapidKeys.js"
+    "gen:vapid": "node scripts/generateVapidKeys.cjs",
+    "gen:vapid:esm": "node scripts/generateVapidKeys.js",
+    "sanitize:dashboard": "node scripts/sanitize-dashboard.js"
   },
   "dependencies": {
     "react": "^18.2.0",
