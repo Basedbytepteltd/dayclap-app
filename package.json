@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "dev": "vite --host",
     "backend": "python3 backend/app.py",
@@ -26,8 +29,9 @@
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
     "@vitejs/plugin-react": "^4.0.3",
-    "vite": "^4.4.5",
     "concurrently": "^8.2.0",
+    "esbuild": "^0.19.12",
+    "vite": "^4.4.5",
     "vite-plugin-pwa": "^0.16.4"
   }
 }
