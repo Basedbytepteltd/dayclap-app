@@ -219,13 +219,13 @@ def _render_template(html_content: str, context: dict) -> str:
         # Regex to find {{#if key}}...{{/if}} blocks
         # We need to escape the key for regex, and also the curly braces
         if_block_regex = re.compile(
-            r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}',
+            r'\\{\\{\\s*#if\\s+' + re.escape(key) + r'\\s*\\}\\}(.*?)\\{\\{\\s*/if\\s*\\}\\}',
             re.DOTALL
         )
         if not value: # If the variable is falsy, remove the block
             rendered_content = if_block_regex.sub('', rendered_content)
         else: # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
-            rendered_content = if_block_regex.sub(r'\1', rendered_content)
+            rendered_content = if_block_regex.sub(r'\\1', rendered_content)
     return rendered_content
 
 def _get_email_settings() -> Optional[dict]:
@@ -787,7 +787,7 @@ def update_email_settings_admin():
         updates["maileroo_sending_key"] = maileroo_sending_key
 
     try:
-        resp = supabase.table("email_settings").update(updates).eq("id", settings_id).select().single().execute()
+        resp = supabase.table("email_settings").update(updates).eq("id", settings_id).select("*").single().execute()
         _schedule_daily_reminders_job()  # Re-schedule if settings changed
         return jsonify({"message": "Email settings updated", "settings": resp.data}), 200
     except Exception as e:
@@ -827,7 +827,7 @@ def create_email_template_admin():
             "html_content": html_content,
             "created_at": _utcnow_iso(),
             "updated_at": _utcnow_iso(),
-        }).select().single().execute()
+        }).select("*").single().execute()
         return jsonify({"message": "Template created", "template": resp.data}), 201
     except Exception as e:
         print(f"Error creating email template: {e}", file=sys.stderr)
@@ -849,7 +849,7 @@ def update_email_template_admin(template_id):
             "subject": subject,
             "html_content": html_content,
             "updated_at": _utcnow_iso(),
-        }).eq("id", template_id).select().single().execute()
+        }).eq("id", template_id).select("*").single().execute()
         return jsonify({"message": "Template updated", "template": resp.data}), 200
     except Exception as e:
         print(f"Error updating email template: {e}", file=sys.stderr)
