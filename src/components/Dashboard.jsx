@@ -713,6 +713,40 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     }
   };
 
+  // NEW: Derive assigned event tasks for the logged-in user
+  const assignedEventTasks = useMemo(() => {
+    const myEmail = (user?.email || '').toLowerCase();
+    const list = [];
+    events.forEach(ev => {
+      const tasksArr = Array.isArray(ev.event_tasks)
+        ? ev.event_tasks
+        : Array.isArray(ev.eventTasks)
+        ? ev.eventTasks
+        : [];
+      tasksArr.forEach((t, idx) => {
+        const assigned = (t?.assignedTo || '').toLowerCase();
+        if (assigned && assigned === myEmail) {
+          list.push({
+            event: ev,
+            eventId: ev.id,
+            eventTitle: ev.title,
+            eventDateObj: ev.dateObj || (ev.date ? toLocalDate(ev.date) : null),
+            task: t,
+            taskId: t?.id,
+            taskIndex: idx,
+          });
+        }
+      });
+    });
+    // Sort by task due date (then event date as fallback)
+    list.sort((a, b) => {
+      const ad = a.task?.dueDate ? new Date(a.task.dueDate).getTime() : (a.eventDateObj?.getTime() || 0);
+      const bd = b.task?.dueDate ? new Date(b.task.dueDate).getTime() : (b.eventDateObj?.getTime() || 0);
+      return ad - bd;
+    });
+    return list;
+  }, [events, user?.email]);
+
   // Calendar helpers (Month view)
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -1491,39 +1525,101 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               {activeTab === 'tasks' && (
                 currentCompanyId ? (
                   <div className="constrained-content">
-                    <div className="section-header">
-                      <h3 className="section-title">My Tasks</h3>
+                    {/* Assigned Event Tasks */}
+                    <div className="section">
+                      <div className="section-header">
+                        <h3 className="section-title">Assigned Event Tasks</h3>
+                      </div>
+                      {assignedEventTasks.length > 0 ? (
+                        <div className="tasks-list">
+                          {assignedEventTasks.map(item => {
+                            const t = item.task || {};
+                            // Overdue calc
+                            let overdue = false;
+                            if (!t.completed && t.dueDate) {
+                              const d = new Date(t.dueDate);
+                              d.setHours(0,0,0,0);
+                              overdue = d < today;
+                            }
+                            return (
+                              <div
+                                key={`${item.eventId}-${item.taskId || item.taskIndex}`}
+                                className={`task-card ${t.completed ? 'completed' : ''} ${overdue ? 'overdue' : ''}`}
+                              >
+                                <div className="task-checkbox">
+                                  <button
+                                    className="checkbox-btn"
+                                    onClick={() => toggleEventTaskCompletion(item.event, { id: item.taskId, index: item.taskIndex })}
+                                    title={t.completed ? 'Mark as incomplete' : 'Mark as complete'}
+                                  >
+                                    {t.completed ? <CheckSquare size={20} /> : <Square size={20} />}
+                                  </button>
+                                </div>
+                                <div className="task-content">
+                                  <div className="task-header">
+                                    <h4 className="task-title">{t.title || 'Untitled task'}</h4>
+                                    <div className="task-meta">
+                                      {t.priority && <span className={`priority-badge ${t.priority}`}>{t.priority}</span>}
+                                      <span className="category-badge">Event: {item.eventTitle}</span>
+                                    </div>
+                                  </div>
+                                  {t.description && <p className="task-description">{t.description}</p>}
+                                  <div className="task-footer">
+                                    {t.dueDate && (
+                                      <span className={`due-date ${overdue ? 'overdue' : ''}`}>
+                                        Due: {formatDate(new Date(t.dueDate))}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="no-tasks">
+                          <CheckSquare className="no-tasks-icon" />
+                          <p>No assigned event tasks.</p>
+                        </div>
+                      )}
                     </div>
-                    {tasks.length > 0 ? (
-                      <div className="tasks-list">
-                        {tasks.map(task => {
-                          const overdue = !task.completed && task.dueDateObj && task.dueDateObj < today;
-                          return (
-                            <div key={task.id} className={`task-card ${task.completed ? 'completed' : ''} ${overdue ? 'overdue' : ''}`}>
-                              <div className="task-checkbox">
-                                <button className="checkbox-btn" onClick={() => handleToggleTask(task.id)}>
-                                  {task.completed ? <CheckSquare size={20} /> : <Square size={20} />}
-                                </button>
-                              </div>
-                              <div className="task-content">
-                                <div className="task-header">
-                                  <h4 className="task-title">{task.title}</h4>
-                                </div>
-                                {task.description && <p className="task-description">{task.description}</p>}
-                                <div className="task-footer">
-                                  {task.dueDateObj && <span className={`due-date ${overdue ? 'overdue' : ''}`}>Due: {formatDate(task.dueDateObj)}</span>}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+
+                    {/* Standalone Tasks (from tasks table) */}
+                    <div className="section">
+                      <div className="section-header">
+                        <h3 className="section-title">My Tasks</h3>
                       </div>
-                    ) : (
-                      <div className="no-tasks">
-                        <CheckSquare className="no-tasks-icon" />
-                        <p>No tasks yet.</p>
-                      </div>
-                    )}
+                      {tasks.length > 0 ? (
+                        <div className="tasks-list">
+                          {tasks.map(task => {
+                            const overdue = !task.completed && task.dueDateObj && task.dueDateObj < today;
+                            return (
+                              <div key={task.id} className={`task-card ${task.completed ? 'completed' : ''} ${overdue ? 'overdue' : ''}`}>
+                                <div className="task-checkbox">
+                                  <button className="checkbox-btn" onClick={() => handleToggleTask(task.id)}>
+                                    {task.completed ? <CheckSquare size={20} /> : <Square size={20} />}
+                                  </button>
+                                </div>
+                                <div className="task-content">
+                                  <div className="task-header">
+                                    <h4 className="task-title">{task.title}</h4>
+                                  </div>
+                                  {task.description && <p className="task-description">{task.description}</p>}
+                                  <div className="task-footer">
+                                    {task.dueDateObj && <span className={`due-date ${overdue ? 'overdue' : ''}`}>Due: {formatDate(task.dueDateObj)}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="no-tasks">
+                          <CheckSquare className="no-tasks-icon" />
+                          <p>No tasks yet.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="constrained-content">
