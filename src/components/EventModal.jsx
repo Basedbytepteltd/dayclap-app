@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, AlignLeft, ListTodo, User, DollarSign, Plus, Edit, Trash2, CheckSquare, Square, Flag, Save } from 'lucide-react';
 import './EventModal.css'; // Create a new CSS file for this modal if needed, or extend Dashboard.css
+import { notifyTaskAssigned } from '../utils/taskNotify';
 
 // Helper function to format a Date object to YYYY-MM-DD in local time
 const formatDateToYYYYMMDD = (dateInput) => {
@@ -78,8 +79,36 @@ const EventModal = ({
     return taskDueDate < today;
   };
 
-  const handleSaveEventTask = () => {
+  const handleSaveEventTask = async () => {
+    // First update UI state via parent handler
     handleAddEventTask();
+
+    // Fire-and-forget notify email if an assignee exists
+    try {
+      const assignee = (currentEventTaskForm.assignedTo || '').trim();
+      if (assignee) {
+        const companyName =
+          (Array.isArray(user?.companies)
+            ? (user.companies.find(c => c.id === (user.currentCompanyId || user.current_company_id))?.name)
+            : null) || '';
+
+        await notifyTaskAssigned({
+          assigned_to_email: assignee,
+          assigned_to_name: (teamMembers || []).find(m => m.email === assignee)?.name || '',
+          assigned_by_email: user?.email || '',
+          assigned_by_name: user?.name || user?.email || 'Someone',
+          event_title: eventForm.title || 'Event',
+          event_date: formatDateToYYYYMMDD(eventForm.date),
+          event_time: eventForm.time || '',
+          company_name: companyName,
+          task_title: currentEventTaskForm.title || '',
+          task_description: currentEventTaskForm.description || '',
+          due_date: currentEventTaskForm.dueDate || '',
+        });
+      }
+    } catch {
+      // ignore notify errors
+    }
   };
 
   return (
