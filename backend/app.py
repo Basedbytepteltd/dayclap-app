@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from supabase import create_client, Client
 import os
@@ -14,9 +14,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pywebpush import webpush, WebPushException
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # App + Supabase setup
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 app = Flask(__name__)
 
 load_dotenv()  # Load .env variables
@@ -59,9 +59,32 @@ except Exception as e:
 # VAPID claims for push notifications (subject should be a contact URI)
 VAPID_CLAIMS = {"sub": f"mailto:{os.environ.get('VAPID_EMAIL', 'admin@example.com')}"}
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
+# Global CORS headers for all responses (including errors)
+# This is a fallback/enhancement to ensure CORS headers are always present.
+# -----------------------------------------------------------------------------\
+@app.after_request
+def add_cors_headers(response):
+    # Only apply to /api/ routes
+    if request.path.startswith('/api/'):
+        origin = request.headers.get('Origin')
+        if origin and origin in ALLOWED_ORIGINS:
+            response.headers['Access-Control-Allow-Origin'] = origin
+        else:
+            # If origin is not in ALLOWED_ORIGINS, do not set ACAO, or set to a default if needed
+            # Flask-CORS extension should handle this more robustly.
+            pass
+
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-User-Email, X-API-Key'
+        response.headers['Access-Control-Allow-Credentials'] = 'false' # Set to 'true' if you need cookies/auth headers
+        response.headers['Access-Control-Max-Age'] = '86400' # Cache preflight for 24 hours
+
+    return response
+
+# -----------------------------------------------------------------------------\
 # Helpers
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 def parse_bearer_token(req) -> Optional[str]:
   """
   Extracts the Bearer token from Authorization header.
@@ -187,58 +210,64 @@ def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
 
 def _render_template(html_content: str, context: dict) -> str:
     rendered_content = html_content
-    # Simple variable replacement
+    # Simple variable replacement for {{ key }}
     for key, value in context.items():
         rendered_content = rendered_content.replace(f"{{{{ {key} }}}}", str(value or ''))
 
     # Basic conditional replacement for {{#if var}}...{{/if}}
     for key, value in context.items():
-        if not value:  # If the variable is falsy, remove the block
-            rendered_content = re.sub(
-                r'\{\{#if\s+' + re.escape(key) + r'\}\}(.*?)\{\{/if\}\}',
-                '',
-                rendered_content,
-                flags=re.DOTALL
-            )
-        else:  # If the variable is truthy, remove the {{#if}} and {{/if}} tags
-            rendered_content = re.sub(
-                r'\{\{#if\s+' + re.escape(key) + r'\}\}(.*?)\{\{/if\}\}',
-                r'\1',
-                rendered_content,
-                flags=re.DOTALL
-            )
+        # Regex to find {{#if key}}...{{/if}} blocks
+        # We need to escape the key for regex, and also the curly braces
+        if_block_regex = re.compile(
+            r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}',
+            re.DOTALL
+        )
+        if not value: # If the variable is falsy, remove the block
+            rendered_content = if_block_regex.sub('', rendered_content)
+        else: # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
+            rendered_content = if_block_regex.sub(r'\1', rendered_content)
     return rendered_content
 
 def _get_email_settings() -> Optional[dict]:
-    if not supabase: return None
+    if not supabase:
+        print("ERROR: Supabase client not configured for _get_email_settings.", file=sys.stderr)
+        return None
     try:
         resp = supabase.table("email_settings").select("*").limit(1).single().execute()
         return resp.data
     except Exception as e:
-        print(f"Error fetching email settings: {e}", file=sys.stderr)
+        print(f"ERROR: Failed to fetch email settings from DB: {e}", file=sys.stderr)
         return None
 
 def _get_email_template(template_name: str) -> Optional[dict]:
-    if not supabase: return None
+    if not supabase:
+        print(f"ERROR: Supabase client not configured for _get_email_template('{template_name}').", file=sys.stderr)
+        return None
     try:
         resp = supabase.table("email_templates").select("*").eq("name", template_name).single().execute()
         return resp.data
     except Exception as e:
-        print(f"Error fetching email template '{template_name}': {e}", file=sys.stderr)
+        print(f"ERROR: Failed to fetch email template '{template_name}' from DB: {e}", file=sys.stderr)
         return None
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
     settings = _get_email_settings()
     if not settings:
-        print("Maileroo: Email settings not found in DB.", file=sys.stderr)
+        print("ERROR: Maileroo: Email settings not found in DB or Supabase client not configured.", file=sys.stderr)
         return False
 
     maileroo_api_key = settings.get("maileroo_sending_key")
     maileroo_api_endpoint = settings.get("maileroo_api_endpoint")
     default_sender = settings.get("mail_default_sender")
 
-    if not maileroo_api_key or not maileroo_api_endpoint or not default_sender:
-        print("Maileroo: Missing API key, endpoint, or default sender in settings.", file=sys.stderr)
+    if not maileroo_api_key:
+        print("ERROR: Maileroo: Missing API key in settings.", file=sys.stderr)
+        return False
+    if not maileroo_api_endpoint:
+        print("ERROR: Maileroo: Missing API endpoint in settings.", file=sys.stderr)
+        return False
+    if not default_sender:
+        print("ERROR: Maileroo: Missing default sender in settings.", file=sys.stderr)
         return False
 
     final_sender = sender_email if sender_email else default_sender
@@ -256,18 +285,18 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
                 "subject": subject,
                 "html_body": html_content,
             },
-            timeout=10  # 10 second timeout
+            timeout=10 # 10 second timeout
         )
-        response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
         print(f"Maileroo: Email sent to {recipient_email} successfully. Status: {response.status_code}", file=sys.stderr)
         return True
     except requests.exceptions.RequestException as e:
-        print(f"Maileroo: Failed to send email to {recipient_email}: {e}", file=sys.stderr)
+        print(f"ERROR: Maileroo: Failed to send email to {recipient_email}: {e}", file=sys.stderr)
         if hasattr(e, 'response') and e.response is not None:
             print(f"Maileroo Error Response: {e.response.text}", file=sys.stderr)
         return False
     except Exception as e:
-        print(f"Maileroo: An unexpected error occurred while sending email: {e}", file=sys.stderr)
+        print(f"ERROR: Maileroo: An unexpected error occurred while sending email: {e}", file=sys.stderr)
         return False
 
 def _send_push_notification(subscription_info: dict, title: str, body: str, url: str = VITE_FRONTEND_URL) -> bool:
@@ -304,9 +333,9 @@ def _send_push_notification(subscription_info: dict, title: str, body: str, url:
         print(f"An unexpected error occurred while sending push notification: {e}", file=sys.stderr)
         return False
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # Routes
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 @app.get("/api/health")
 def health():
   return jsonify({"ok": True, "service": "dayclap-backend"}), 200
@@ -374,7 +403,7 @@ def unsubscribe_push():
     return jsonify({"message": "Subscription disabled"}), 200
   except Exception as e:
     print(f"unsubscribe_push update error: {e}", file=sys.stderr)
-    return jsonify({"message": "Subscription disabled"}), 200
+    return jsonify({"message": "Subscription disabled"}), 500
 
 
 @app.post("/api/send-invitation")
@@ -564,9 +593,9 @@ def send_welcome_email():
     else:
         return jsonify({"message": "Failed to send welcome email"}), 500
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # Scheduler Setup
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 scheduler = BackgroundScheduler()
 scheduler_job_id = "daily_event_reminders"
 
@@ -722,9 +751,9 @@ if not scheduler.running:
     scheduler.start()
 _schedule_daily_reminders_job()
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # Admin Email Settings Routes
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 @app.get("/api/admin/email-settings")
 @require_admin_email
 def get_email_settings_admin():
@@ -733,7 +762,7 @@ def get_email_settings_admin():
         # Mask the key for display
         settings["maileroo_sending_key"] = "********" if settings.get("maileroo_sending_key") else ""
         return jsonify(settings), 200
-    return jsonify({"message": "Email settings not found"}), 404
+    return jsonify({"message": "Email settings not found or DB error."}), 500
 
 @app.put("/api/admin/email-settings")
 @require_admin_email
@@ -765,9 +794,9 @@ def update_email_settings_admin():
         print(f"Error updating email settings: {e}", file=sys.stderr)
         return jsonify({"message": "Failed to update email settings"}), 500
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # Admin Email Templates Routes
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 @app.get("/api/admin/email-templates")
 @require_admin_email
 def get_email_templates_admin():
@@ -837,9 +866,9 @@ def delete_email_template_admin(template_id):
         print(f"Error deleting email template: {e}", file=sys.stderr)
         return jsonify({"message": "Failed to delete template"}), 500
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # Admin Test Sending Routes
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 @app.post("/api/admin/send-test-email")
 @require_admin_email
 def send_test_email_admin():
@@ -850,7 +879,8 @@ def send_test_email_admin():
 
     test_template = _get_email_template("welcome_email")  # Use welcome email as a generic test
     if not test_template:
-        return jsonify({"message": "Test email template not found (welcome_email)"}), 500
+        # _get_email_template already logs the error
+        return jsonify({"message": "Test email template not found (welcome_email) or DB error."}), 500
 
     context = {
         "user_name": "Test User",
@@ -862,7 +892,8 @@ def send_test_email_admin():
     if _send_email_via_maileroo(recipient_email, f"[TEST] {test_template['subject']}", rendered_html):
         return jsonify({"message": "Test email sent successfully"}), 200
     else:
-        return jsonify({"message": "Failed to send test email"}), 500
+        # _send_email_via_maileroo already logs the error
+        return jsonify({"message": "Failed to send test email. Check backend logs for details."}), 500
 
 @app.post("/api/admin/send-test-push")
 @require_admin_email
@@ -891,9 +922,9 @@ def send_test_push_admin():
         print(f"Error sending test push: {e}", file=sys.stderr)
         return jsonify({"message": f"An error occurred: {e}"}), 500
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # Entrypoint
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 if __name__ == "__main__":
   port = int(os.environ.get("PORT", "5001"))
   app.run(host="0.0.0.0", port=port, debug=True)
