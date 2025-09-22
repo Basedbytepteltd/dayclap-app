@@ -1,0 +1,86 @@
+.day-items-modal {
+  max-width: 760px;
+  background-color: var(--primary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+.day-items-modal .modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--secondary-bg);
+}
+
+.day-items-modal .modal-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--primary-text);
+  flex: 1;
+}
+
+.day-items-modal .header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.day-items-modal .modal-body {
+  padding: 1.25rem 1.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.day-items-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--secondary-bg);
+}
+
+/* Sections */
+.items-section {
+  margin-bottom: 1.5rem;
+}
+
+.items-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  margin: 0 0 0.75rem 0;
+}
+
+/* Empty state */
+.no-items {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2rem 1rem;
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.no-items-icon {
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.6;
+}
+
+/* Reuse existing card styles (defined in Dashboard.css):
+   - .events-list, .event-card, .event-date, .event-day, .event-month, .event-details,
+   - .event-title, .event-time-desc, .event-location
+   - .tasks-list, .task-card, .task-checkbox, .checkbox-btn, .task-content, .task-header,
+   - .task-title, .task-description, .task-footer, .due-date
+*/

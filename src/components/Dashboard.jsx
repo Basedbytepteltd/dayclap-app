@@ -31,6 +31,9 @@ import { supabase } from '../supabaseClient';
 import './Dashboard.css';
 import LoadingAnimation from './LoadingAnimation';
 import EventDetailsModal from './EventDetailsModal';
+import EventModal from './EventModal'; // Import the EventModal
+import DateActionsModal from './DateActionsModal'; // Import the new DateActionsModal
+import DayItemsModal from './DayItemsModal'; // NEW: Lists events & tasks for a day
 
 function toLocalDate(yyyy_mm_dd) {
   if (!yyyy_mm_dd) return null;
@@ -123,6 +126,35 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   // Event details state
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+
+  // NEW: Event/Task Modals for Add/Edit
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    date: new Date(),
+    time: '',
+    location: '',
+    description: '',
+    eventTasks: [],
+  });
+  const [editingEvent, setEditingEvent] = useState(null); // Null for new event, object for editing
+  const [currentEventTaskForm, setCurrentEventTaskForm] = useState({
+    id: null,
+    title: '',
+    description: '',
+    dueDate: '',
+    assignedTo: user?.email || '',
+    priority: 'medium',
+    expenses: 0,
+    completed: false,
+  });
+
+  // NEW: Date Actions Modal state
+  const [showDateActionsModal, setShowDateActionsModal] = useState(false);
+  const [dateForActions, setDateForActions] = useState(null);
+
+  // NEW: Day Items Modal state
+  const [showDayItemsModal, setShowDayItemsModal] = useState(false);
 
   const defaultNotifications = {
     email_daily: true,
@@ -745,6 +777,190 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     });
   };
 
+  // NEW: Handle date click on calendar grid
+  const handleSelectDate = (date) => {
+    if (!date) return;
+    setSelectedDate(date);
+    setDateForActions(date);
+    setShowDateActionsModal(true);
+  };
+
+  // UPDATED: Handle "View Events & Tasks" from DateActionsModal to open day list modal
+  const handleViewEventsForDate = () => {
+    if (dateForActions) {
+      setSelectedDate(dateForActions);
+      setCurrentDate(dateForActions);
+    }
+    setShowDateActionsModal(false);
+    setShowDayItemsModal(true);
+  };
+
+  // NEW: Handle "Add New Event" from DateActionsModal
+  const handleOpenAddEventModal = () => {
+    if (dateForActions) {
+      setEditingEvent(null); // Indicate new event
+      setEventForm({
+        title: '',
+        date: dateForActions, // Pre-fill date
+        time: '',
+        location: '',
+        description: '',
+        eventTasks: [],
+      });
+      setCurrentEventTaskForm({ // Reset current task form
+        id: null,
+        title: '',
+        description: '',
+        dueDate: '',
+        assignedTo: user?.email || '',
+        priority: 'medium',
+        expenses: 0,
+        completed: false,
+      });
+      setShowEventModal(true); // Open EventModal
+    }
+    setShowDateActionsModal(false); // Close the actions modal
+  };
+
+  // NEW: Handle saving an event (from EventModal)
+  const handleSaveEvent = async (e) => {
+    e.preventDefault();
+    if (!currentCompanyId) {
+      alert('Please select a company before adding an event.');
+      return;
+    }
+
+    const payload = {
+      user_id: user.id,
+      company_id: currentCompanyId,
+      title: eventForm.title,
+      date: eventForm.date.toISOString().split('T')[0], // YYYY-MM-DD
+      time: eventForm.time,
+      location: eventForm.location,
+      description: eventForm.description,
+      event_tasks: eventForm.eventTasks, // Ensure this matches DB column name
+      last_activity_at: new Date().toISOString(),
+    };
+
+    try {
+      let response;
+      if (editingEvent) {
+        response = await supabase
+          .from('events')
+          .update(payload)
+          .eq('id', editingEvent.id)
+          .select();
+      } else {
+        response = await supabase
+          .from('events')
+          .insert(payload)
+          .select();
+      }
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      // Refresh events list
+      const { data: updatedEvents, error: fetchError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('company_id', currentCompanyId)
+        .order('date', { ascending: true });
+
+      if (fetchError) throw fetchError;
+
+      setEvents((updatedEvents || []).map(e => ({ ...e, dateObj: toLocalDate(e.date) })));
+      setShowEventModal(false);
+      setEditingEvent(null);
+      setEventForm({
+        title: '',
+        date: new Date(),
+        time: '',
+        location: '',
+        description: '',
+        eventTasks: [],
+      });
+      setCurrentEventTaskForm({
+        id: null,
+        title: '',
+        description: '',
+        dueDate: '',
+        assignedTo: user?.email || '',
+        priority: 'medium',
+        expenses: 0,
+        completed: false,
+      });
+    } catch (error) {
+      console.error('Error saving event:', error.message);
+      alert('Failed to save event: ' + error.message);
+    }
+  };
+
+  // NEW: Event Task Handlers (passed to EventModal)
+  const handleAddEventTask = () => {
+    if (!currentEventTaskForm.title.trim()) return;
+
+    const newId = currentEventTaskForm.id || (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
+    const newTask = {
+      ...currentEventTaskForm,
+      id: newId,
+      assignedTo: currentEventTaskForm.assignedTo || user.email,
+      dueDate: currentEventTaskForm.dueDate || null,
+      expenses: Number(currentEventTaskForm.expenses) || 0,
+    };
+
+    setEventForm(prev => ({
+      ...prev,
+      eventTasks: prev.eventTasks.some(task => task.id === newId)
+        ? prev.eventTasks.map(task => (task.id === newId ? newTask : task))
+        : [...prev.eventTasks, newTask],
+    }));
+
+    setCurrentEventTaskForm({
+      id: null,
+      title: '',
+      description: '',
+      dueDate: '',
+      assignedTo: user?.email || '',
+      priority: 'medium',
+      expenses: 0,
+      completed: false,
+    });
+  };
+
+  const handleEditEventTask = (taskToEdit) => {
+    setCurrentEventTaskForm({ ...taskToEdit });
+  };
+
+  const handleDeleteEventTask = (taskId) => {
+    setEventForm(prev => ({
+      ...prev,
+      eventTasks: prev.eventTasks.filter(task => task.id !== taskId),
+    }));
+    if (currentEventTaskForm.id === taskId) {
+      setCurrentEventTaskForm({
+        id: null,
+        title: '',
+        description: '',
+        dueDate: '',
+        assignedTo: user?.email || '',
+        priority: 'medium',
+        expenses: 0,
+        completed: false,
+      });
+    }
+  };
+
+  const handleToggleEventTaskCompletion = (taskId) => {
+    setEventForm(prev => ({
+      ...prev,
+      eventTasks: prev.eventTasks.map(task =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      ),
+    }));
+  };
+
   // Company & Team handlers
   const handleAddCompany = () => {
     setEditingCompany(null);
@@ -1186,7 +1402,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     <div className="section-header">
                       <h3 className="section-title">Upcoming Events</h3>
                       <div className="header-actions">
-                        <button className="btn btn-primary btn-small" onClick={() => alert('Add Event coming soon')}>
+                        <button className="btn btn-primary btn-small" onClick={() => handleOpenAddEventModal(new Date())}>
                           <Plus size={16} /> Add Event
                         </button>
                       </div>
@@ -1217,7 +1433,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       <div className="no-events">
                         <CalendarDays className="no-events-icon" />
                         <p>No events yet.</p>
-                        <button className="btn btn-primary" onClick={() => alert('Add Event coming soon')}><Plus size={16} /> Add Your First Event</button>
+                        <button className="btn btn-primary" onClick={() => handleOpenAddEventModal(new Date())}><Plus size={16} /> Add Your First Event</button>
                       </div>
                     )}
                   </div>
@@ -1343,7 +1559,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                           <div
                             key={index}
                             className={`calendar-day ${date ? '' : 'empty'} ${isToday(date) ? 'today' : ''} ${isSelected(date) ? 'selected' : ''} ${hasItems(date) ? 'has-item' : ''}`}
-                            onClick={() => date && setSelectedDate(date)}
+                            onClick={() => handleSelectDate(date)}
                           >
                             {date && <span className="day-number">{date.getDate()}</span>}
                             {date && firstTwo.map((item, i) => (
@@ -2151,6 +2367,58 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           onClose={() => setShowEventDetails(false)}
           onGoToDate={() => goToEventInCalendar(selectedEvent)}
           onToggleTask={(ref) => toggleEventTaskCompletion(selectedEvent, ref)}
+        />
+      )}
+
+      {/* NEW: Event Add/Edit Modal */}
+      {showEventModal && (
+        <EventModal
+          showModal={showEventModal}
+          onClose={() => setShowEventModal(false)}
+          eventForm={eventForm}
+          setEventForm={setEventForm}
+          editingEvent={editingEvent}
+          onSaveEvent={handleSaveEvent}
+          currentEventTaskForm={currentEventTaskForm}
+          setCurrentEventTaskForm={setCurrentEventTaskForm}
+          handleAddEventTask={handleAddEventTask}
+          handleEditEventTask={handleEditEventTask}
+          handleDeleteEventTask={handleDeleteEventTask}
+          handleToggleEventTaskCompletion={handleToggleEventTaskCompletion}
+          teamMembers={teamMembers}
+          user={user}
+        />
+      )}
+
+      {/* NEW: Date Actions Modal */}
+      {showDateActionsModal && (
+        <DateActionsModal
+          showModal={showDateActionsModal}
+          onClose={() => setShowDateActionsModal(false)}
+          selectedDate={dateForActions}
+          onViewEvents={handleViewEventsForDate}
+          onAddEvent={handleOpenAddEventModal}
+        />
+      )}
+
+      {/* NEW: Day Items Modal (list events & tasks for a selected date) */}
+      {showDayItemsModal && (
+        <DayItemsModal
+          showModal={showDayItemsModal}
+          onClose={() => setShowDayItemsModal(false)}
+          selectedDate={dateForActions || selectedDate}
+          items={eventsAndTasksForDate(dateForActions || selectedDate)}
+          onOpenEvent={(ev) => openEventDetails(ev)}
+          onToggleTask={(taskId) => handleToggleTask(taskId)}
+          onOpenInCalendar={() => {
+            const d = dateForActions || selectedDate;
+            if (d) {
+              setSelectedDate(d);
+              setCurrentDate(d);
+              setActiveTab('calendar');
+            }
+            setShowDayItemsModal(false);
+          }}
         />
       )}
     </div>

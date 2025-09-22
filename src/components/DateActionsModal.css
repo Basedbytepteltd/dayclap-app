@@ -1,0 +1,73 @@
+.date-actions-modal {
+  max-width: 400px;
+  padding: 0; /* Remove padding from modal-content, add to header/body */
+}
+
+.date-actions-modal .modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0; /* Remove default margin-bottom */
+}
+
+.date-actions-modal .modal-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary-text);
+}
+
+.date-actions-modal .modal-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.date-actions-modal .modal-description {
+  font-size: 0.9375rem;
+  color: var(--secondary-text);
+  text-align: center;
+  margin: 0;
+}
+
+.date-actions-modal .action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.date-actions-modal .btn-full {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: var(--radius);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .date-actions-modal {
+    margin: 0.5rem;
+    border-radius: var(--radius);
+  }
+  .date-actions-modal .modal-header {
+    padding: 1rem;
+  }
+  .date-actions-modal .modal-header h3 {
+    font-size: 1.125rem;
+  }
+  .date-actions-modal .modal-body {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .date-actions-modal .modal-description {
+    font-size: 0.875rem;
+  }
+  .date-actions-modal .btn-full {
+    padding: 0.625rem 0.75rem;
+    font-size: 0.9375rem;
+  }
+}
