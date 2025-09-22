@@ -7,12 +7,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      // Use 'injectManifest' strategy to use your custom service worker
-      // This ensures your push notification logic in public/sw.js is included
       strategies: 'injectManifest',
-      srcDir: 'public', // Source directory for your service worker
-      filename: 'sw.js', // Your custom service worker file
-      includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
+      srcDir: 'public',
+      filename: 'sw.js',
+      includeAssets: ['favicon.svg'], // removed pngs to avoid invalid icon fetch errors
       manifest: {
         name: 'DayClap',
         short_name: 'DayClap',
@@ -24,19 +22,15 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'icon-192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'icon-512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            src: '/favicon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
           }
         ]
       },
       devOptions: {
-        enabled: true, // Enable service worker in development for easier testing
+        enabled: true,
         type: 'module',
       },
     })

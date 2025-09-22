@@ -152,8 +152,8 @@ CREATE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION public.send_welcome_email_on_confirm()
 RETURNS TRIGGER AS $$
 DECLARE
-    backend_url TEXT := 'https://dayclap-backend-api.onrender.com'; -- <<< IMPORTANT: REPLACE THIS WITH YOUR ACTUAL DEPLOYED BACKEND URL (e.g., https://dayclap-backend-api.onrender.com)
-    api_key TEXT := 'your_strong_unique_key_for_supabase_trigger_calls'; -- <<< IMPORTANT: REPLACE THIS WITH THE SAME KEY FROM backend/.env (BACKEND_API_KEY)
+    backend_url TEXT := 'https://dayclap-backend-api.onrender.com'; -- <<< IMPORTANT: This is your deployed backend URL
+    api_key TEXT := 'your_strong_unique_key_for_supabase_trigger_calls_prod'; -- <<< IMPORTANT: REPLACE THIS WITH THE SAME KEY YOU SET FOR BACKEND_API_KEY IN RENDER
     payload JSONB;
     headers JSONB;
     request_id BIGINT;
@@ -258,13 +258,46 @@ $$;
 
 -- RLS for 'events'
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+-- Drop the old generic policy if it exists
 DROP POLICY IF EXISTS "Users can manage events in their current company." ON events;
-CREATE POLICY "Users can manage events in their current company." ON events FOR ALL USING (
+-- Drop specific policies if they exist before recreating
+DROP POLICY IF EXISTS "Users can view events in companies they belong to." ON events;
+DROP POLICY IF EXISTS "Users can insert events in their current company." ON events;
+DROP POLICY IF EXISTS "Users can update events in their current company." ON events;
+DROP POLICY IF EXISTS "Users can delete events in their current company." ON events;
+
+-- Policy for SELECT: Users can view events if they are part of the event's company
+CREATE POLICY "Users can view events in companies they belong to." ON events FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.companies @> jsonb_build_array(jsonb_build_object('id', events.company_id))
+  )
+);
+
+-- Policy for INSERT: Users can insert events if the event's company is their current company
+CREATE POLICY "Users can insert events in their current company." ON events FOR INSERT WITH CHECK (
   EXISTS (
     SELECT 1 FROM profiles
     WHERE profiles.id = auth.uid() AND profiles.current_company_id = events.company_id
   )
 );
+
+-- Policy for UPDATE: Users can update events if the event's company is their current company
+CREATE POLICY "Users can update events in their current company." ON events FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.current_company_id = events.company_id
+  )
+);
+
+-- Policy for DELETE: Users can delete events if the event's company is their current company
+CREATE POLICY "Users can delete events in their current company." ON events FOR DELETE USING (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.current_company_id = events.company_id
+  )
+);
+
 
 -- Create 'tasks' table
 CREATE TABLE IF NOT EXISTS tasks (
@@ -296,8 +329,40 @@ $$;
 
 -- RLS for 'tasks'
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+-- Drop the old generic policy if it exists
 DROP POLICY IF EXISTS "Users can manage tasks in their current company." ON tasks;
-CREATE POLICY "Users can manage tasks in their current company." ON tasks FOR ALL USING (
+-- Drop specific policies if they exist before recreating
+DROP POLICY IF EXISTS "Users can view tasks in companies they belong to." ON tasks;
+DROP POLICY IF EXISTS "Users can insert tasks in their current company." ON tasks;
+DROP POLICY IF EXISTS "Users can update tasks in their current company." ON tasks;
+DROP POLICY IF EXISTS "Users can delete tasks in their current company." ON tasks;
+
+-- Policy for SELECT: Users can view tasks if they are part of the task's company
+CREATE POLICY "Users can view tasks in companies they belong to." ON tasks FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.companies @> jsonb_build_array(jsonb_build_object('id', tasks.company_id))
+  )
+);
+
+-- Policy for INSERT: Users can insert tasks if the task's company is their current company
+CREATE POLICY "Users can insert tasks in their current company." ON tasks FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.current_company_id = tasks.company_id
+  )
+);
+
+-- Policy for UPDATE: Users can update tasks if the task's company is their current company
+CREATE POLICY "Users can update tasks in their current company." ON tasks FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.current_company_id = tasks.company_id
+  )
+);
+
+-- Policy for DELETE: Users can delete tasks if the task's company is their current company
+CREATE POLICY "Users can delete tasks in their current company." ON tasks FOR DELETE USING (
   EXISTS (
     SELECT 1 FROM profiles
     WHERE profiles.id = auth.uid() AND profiles.current_company_id = tasks.company_id
@@ -416,7 +481,7 @@ $$<!DOCTYPE html>
             <p>Your DayClap account is now active! We're thrilled to have you on board.</p>
             <p>DayClap helps you streamline your schedule, manage tasks effortlessly, and collaborate with your team. Get ready to boost your productivity!</p>
             <p style="text-align: center;">
-                <a href="{{ frontend_url }}" class="button">Go to Dashboard</a>
+                <a href="https://dayclap-app.vercel.app" class="button">Go to Dashboard</a>
             </p>
             <p>If you have any questions, feel free to reach out to our support team.</p>
             <p>Best regards,<br>The DayClap Team</p>
@@ -453,7 +518,7 @@ $$<!DOCTYPE html>
             <p><b>{{ sender_email }}</b> has invited you to join their team, <b>'{{ company_name }}'</b>, on DayClap as a <b>{{ role }}</b>.</p>
             <p>DayClap helps teams collaborate on schedules, manage tasks, and boost overall productivity.</p>
             <p style="text-align: center;">
-                <a href="{{ invitation_link }}" class="button">Accept Invitation</a>
+                <a href="https://dayclap-app.vercel.app" class="button">Accept Invitation</a>
             </p>
             <p>If you have any questions, please contact {{ sender_email }}.</p>
             <p>Best regards,<br>The DayClap Team</p>
@@ -546,12 +611,12 @@ $$<!DOCTYPE html>
             <div class="task-summary">
                 <h3>Task Progress:</h3>
                 <p>You have <b>{{ pending_tasks_count }}</b> pending tasks for this event.</p>
-                <p>Current completion: <b>{{ task_completion_percentage }}%</b></p>
+                <p>Current completion: <b>{{ task_completion_percentage }}</b></p>
             </div>
             {{/if}}
 
             <p style="text-align: center;">
-                <a href="{{ frontend_url }}" class="button">View Event in DayClap</a>
+                <a href="https://dayclap-app.vercel.app" class="button">View Event in DayClap</a>
             </p>
             <p>Stay organized and have a productive week!</p>
             <p>Best regards,<br>The DayClap Team</p>
@@ -563,3 +628,65 @@ $$<!DOCTYPE html>
 </body>
 </html>$$
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'event_1week_reminder');
+
+-- NEW: Add 'task_assigned' template
+INSERT INTO email_templates (name, subject, html_content)
+SELECT 'task_assigned', 'New Task Assigned: {{ task_title }}',
+$$<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,.08); overflow: hidden; }
+    .header { background: #3b82f6; color: #fff; padding: 16px 20px; }
+    .content { padding: 20px; color: #333; line-height: 1.6; }
+    .meta { background: #f7fafc; border-left: 4px solid #3b82f6; padding: 12px 14px; border-radius: 6px; margin: 12px 0; }
+    .label { color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; display:block; margin-bottom: 4px; }
+    .value { font-weight: 600; color: #111827; }
+    .button { display: inline-block; margin-top: 16px; background: #3b82f6; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; }
+    .footer { font-size: 12px; color: #888; padding: 16px 20px; border-top: 1px solid #eee; text-align: center;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h2>New Task Assigned</h2></div>
+    <div class="content">
+      <p>Hello {{ assignee_name }},</p>
+      <p>You have been assigned a new task{{ company_name ? ' in ' : '' }}<b>{{ company_name }}</b> for the event <b>"{{ event_title }}"</b>.</p>
+
+      <div class="meta">
+        <span class="label">Task</span>
+        <span class="value">{{ task_title }}</span>
+        {{#if task_description}}<div style="margin-top:6px;">{{ task_description }}</div>{{/if}}
+      </div>
+
+      <div class="meta">
+        <span class="label">Assigned By</span>
+        <span class="value">{{ assigned_by_name }} {{ assigned_by_email }}</span>
+      </div>
+
+      {{#if due_date}}
+      <div class="meta">
+        <span class="label">Task Due</span>
+        <span class="value">{{ due_date }}</span>
+      </div>
+      {{/if}}
+
+      {{#if event_date}}
+      <div class="meta">
+        <span class="label">Event Date</span>
+        <span class="value">{{ event_date }} {{ event_time }}</span>
+      </div>
+      {{/if}}
+
+      <p>
+        <a href="https://dayclap-app.vercel.app" class="button">Open DayClap</a>
+      </p>
+      <p>Thanks,<br/>The DayClap Team</p>
+    </div>
+    <div class="footer">&copy; {{ current_year }} DayClap. All rights reserved.</div>
+  </div>
+</body>
+</html>$$
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'task_assigned');

@@ -558,23 +558,38 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         return;
       }
       try {
+        // Updated: fetch minimal fields and filter client-side for array-of-objects JSON
         const { data: profiles, error } = await supabase
           .from('profiles')
-          .select('id, name, email, companies')
-          .contains('companies', [{ id: companyId }]);
+          .select('id, name, email, companies');
+
         if (error) {
           setTeamMembers([]);
           return;
         }
-        const members = (profiles || []).map(p => {
-          const entry = Array.isArray(p.companies) ? p.companies.find(c => c.id === companyId) : null;
-          return {
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            role: entry?.role || 'user',
-          };
+
+        const members = (profiles || [])
+          .filter(p => Array.isArray(p.companies) && p.companies.some(c => c.id === companyId))
+          .map(p => {
+            const entry = Array.isArray(p.companies) ? p.companies.find(c => c.id === companyId) : null;
+            return {
+              id: p.id,
+              name: p.name,
+              email: p.email,
+              role: (entry?.role || 'user').toLowerCase(),
+            };
+          });
+
+        // Sort: Owner first, then Admin, then User; then by name/email
+        const roleRank = { owner: 0, admin: 1, user: 2 };
+        members.sort((a, b) => {
+          const r = (roleRank[a.role] ?? 99) - (roleRank[b.role] ?? 99);
+          if (r !== 0) return r;
+          const an = (a.name || a.email || '').toLowerCase();
+          const bn = (b.name || b.email || '').toLowerCase();
+          return an.localeCompare(bn);
         });
+
         setTeamMembers(members);
       } catch {
         setTeamMembers([]);
@@ -1091,7 +1106,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                         <div className="event-details">
                           <h4 className="event-title" onClick={() => openEventDetails(ev)} style={{ cursor: 'pointer' }}>{ev.title}</h4>
                           <p className="event-time-desc">
-                            {formatDate(ev.dateObj)} {ev.time ? ` \u2022 ${ev.time}` : ''}
+                            {formatDate(ev.dateObj)} {ev.time ? ` • ${ev.time}` : ''}
                           </p>
                           {ev.location && (
                             <p className="event-location">
@@ -1187,7 +1202,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             <div className="event-details">
                               <h4 className="event-title" onClick={() => openEventDetails(ev)} style={{ cursor: 'pointer' }}>{ev.title}</h4>
                               <p className="event-time-desc">
-                                {formatDate(ev.dateObj)} {ev.time ? ` \u2022 ${ev.time}` : ''}
+                                {formatDate(ev.dateObj)} {ev.time ? ` • ${ev.time}` : ''}
                               </p>
                               {ev.location && (
                                 <p className="event-location">
@@ -1226,7 +1241,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             <div className="event-details">
                               <h4 className="event-title" onClick={() => openEventDetails(ev)} style={{ cursor: 'pointer' }}>{ev.title}</h4>
                               <p className="event-time-desc">
-                                {formatDate(ev.dateObj)} {ev.time ? ` \u2022 ${ev.time}` : ''}
+                                {formatDate(ev.dateObj)} {ev.time ? ` • ${ev.time}` : ''}
                               </p>
                               {ev.location && (
                                 <p className="event-location">
