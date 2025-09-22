@@ -12,7 +12,7 @@ import json
 import re
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from webpush import WebPushException, send_notification
+from pywebpush import webpush, WebPushException
 
 # -----------------------------------------------------------------------------\
 # App + Supabase setup
@@ -40,10 +40,8 @@ except Exception as e:
   print(f"ERROR: Failed to create Supabase client: {e}", file=sys.stderr)
   supabase = None
 
-# Initialize webpush for sending push notifications
-webpush.VAPID_CLAIMS = {"sub": f"mailto:{os.environ.get('VAPID_EMAIL', 'admin@example.com')}"}
-webpush.VAPID_PRIVATE_KEY = VAPID_PRIVATE_KEY
-webpush.VAPID_PUBLIC_KEY = VAPID_PUBLIC_KEY
+# VAPID claims for push notifications (subject should be a contact URI)
+VAPID_CLAIMS = {"sub": f"mailto:{os.environ.get('VAPID_EMAIL', 'admin@example.com')}"}
 
 # -----------------------------------------------------------------------------\
 # Helpers
@@ -257,30 +255,34 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
         return False
 
 def _send_push_notification(subscription_info: dict, title: str, body: str, url: str = VITE_FRONTEND_URL) -> bool:
-    if not VAPID_PUBLIC_KEY or not VAPID_PRIVATE_KEY:
-        print("VAPID keys not configured for push notifications.", file=sys.stderr)
+    # Only private key is required to sign VAPID; public key is used by client to subscribe
+    if not VAPID_PRIVATE_KEY:
+        print("VAPID private key not configured for push notifications.", file=sys.stderr)
         return False
     try:
-        send_notification(
+        payload = json.dumps({
+            "title": title,
+            "body": body,
+            "url": url,
+            "icon": f"{VITE_FRONTEND_URL}/favicon.svg",
+            "badge": f"{VITE_FRONTEND_URL}/favicon.svg",
+        })
+        webpush(
             subscription_info=subscription_info,
-            data=json.dumps({
-                "title": title,
-                "body": body,
-                "url": url,
-                "icon": f"{VITE_FRONTEND_URL}/favicon.svg",
-                "badge": f"{VITE_FRONTEND_URL}/favicon.svg",
-            }),
+            data=payload,
             vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_public_key=VAPID_PUBLIC_KEY,
-            vapid_claims=webpush.VAPID_CLAIMS
+            vapid_claims=VAPID_CLAIMS
         )
         print(f"Push notification sent to {subscription_info.get('endpoint')}", file=sys.stderr)
         return True
     except WebPushException as e:
         print(f"Push notification failed: {e}", file=sys.stderr)
-        if e.response and e.response.status_code == 410:
-            print("Subscription is no longer valid (410 Gone). Should remove from DB.", file=sys.stderr)
-            # TODO: Implement logic to remove expired subscription from DB
+        # Some providers include response with status_code (e.g., 410 Gone)
+        try:
+            if e.response is not None and hasattr(e.response, "status_code") and e.response.status_code == 410:
+                print("Subscription is no longer valid (410 Gone). Should remove from DB.", file=sys.stderr)
+        except Exception:
+            pass
         return False
     except Exception as e:
         print(f"An unexpected error occurred while sending push notification: {e}", file=sys.stderr)
