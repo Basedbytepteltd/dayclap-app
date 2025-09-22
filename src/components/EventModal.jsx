@@ -5,20 +5,20 @@ import { notifyTaskAssigned } from '../utils/taskNotify';
 
 // Helper function to format a Date object to YYYY-MM-DD in local time
 const formatDateToYYYYMMDD = (dateInput) => {
-  if (!dateInput) return '';
-  let date;
-  if (typeof dateInput === 'string') {
-    date = new Date(dateInput);
-  } else if (dateInput instanceof Date) {
-    date = dateInput;
-  } else {
-    return '';
-  }
-  if (isNaN(date.getTime())) {
-    return '';
-  }
-  const adjustedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-  return adjustedDate.toISOString().split('T')[0];
+  if (!dateInput || !(dateInput instanceof Date) || isNaN(dateInput.getTime())) return '';
+  const year = dateInput.getFullYear();
+  const month = (dateInput.getMonth() + 1).toString().padStart(2, '0');
+  const day = dateInput.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift)
+const parseLocalDateFromYYYYMMDD = (yyyy_mm_dd) => {
+  if (!yyyy_mm_dd || typeof yyyy_mm_dd !== 'string') return null;
+  const parts = yyyy_mm_dd.split('-').map(Number);
+  const [y, m, d] = parts;
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
 };
 
 // Helper function to format currency
@@ -59,7 +59,8 @@ const EventModal = ({
   };
 
   const handleDateChange = (e) => {
-    setEventForm(prev => ({ ...prev, date: new Date(e.target.value) }));
+    // Parse the YYYY-MM-DD string from the input as a local date
+    setEventForm(prev => ({ ...prev, date: parseLocalDateFromYYYYMMDD(e.target.value) }));
   };
 
   const handleEventTaskInputChange = (e) => {
@@ -74,7 +75,8 @@ const EventModal = ({
     if (task.completed || !task.dueDate) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const taskDueDate = new Date(task.dueDate);
+    const taskDueDate = parseLocalDateFromYYYYMMDD(task.dueDate);
+    if (!taskDueDate) return false;
     taskDueDate.setHours(0, 0, 0, 0);
     return taskDueDate < today;
   };
@@ -106,7 +108,8 @@ const EventModal = ({
           due_date: currentEventTaskForm.dueDate || '',
         });
       }
-    } catch {
+    } catch (error) {
+      console.error("Error sending task assigned notification:", error);
       // ignore notify errors
     }
   };
@@ -316,29 +319,32 @@ const EventModal = ({
 
               {eventForm.eventTasks.length > 0 && (
                 <div className="event-task-list">
-                  {eventForm.eventTasks.map(task => (
-                    <div key={task.id} className={`event-task-item ${task.completed ? 'completed' : ''} ${isTaskOverdue(task) ? 'overdue' : ''}`}>
-                      <div className="task-checkbox">
-                        <button type="button" className="checkbox-btn" onClick={() => handleToggleEventTaskCompletion(task.id)}>
-                          {task.completed ? <CheckSquare size={20} /> : <Square size={20} />}
-                        </button>
-                      </div>
-                      <div className="task-details">
-                        <h5 className="task-title">{task.title}</h5>
-                        {task.description && <p className="task-description">{task.description}</p>}
-                        <div className="task-meta">
-                          {task.assignedTo && <span>Assigned to: <span className="assigned-to">{task.assignedTo === user.email ? 'Me' : task.assignedTo}</span></span>}
-                          {task.dueDate && <span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}>Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
-                          {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
-                          {task.expenses > 0 && <span className="task-expenses"><DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}</span>}
+                  {eventForm.eventTasks.map(task => {
+                    const dd = task.dueDate ? parseLocalDateFromYYYYMMDD(task.dueDate) : null;
+                    return (
+                      <div key={task.id} className={`event-task-item ${task.completed ? 'completed' : ''} ${isTaskOverdue(task) ? 'overdue' : ''}`}>
+                        <div className="task-checkbox">
+                          <button type="button" className="checkbox-btn" onClick={() => handleToggleEventTaskCompletion(task.id)}>
+                            {task.completed ? <CheckSquare size={20} /> : <Square size={20} />}
+                          </button>
+                        </div>
+                        <div className="task-details">
+                          <h5 className="task-title">{task.title}</h5>
+                          {task.description && <p className="task-description">{task.description}</p>}
+                          <div className="task-meta">
+                            {task.assignedTo && <span>Assigned to: <span className="assigned-to">{task.assignedTo === user.email ? 'Me' : task.assignedTo}</span></span>}
+                            {dd && <span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}>Due: {dd.toLocaleDateString()}</span>}
+                            {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
+                            {task.expenses > 0 && <span className="task-expenses"><DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}</span>}
+                          </div>
+                        </div>
+                        <div className="task-actions">
+                          <button type="button" className="btn-icon-small edit" onClick={() => handleEditEventTask(task)} title="Edit Task"><Edit size={16} /></button>
+                          <button type="button" className="btn-icon-small delete" onClick={() => handleDeleteEventTask(task.id)} title="Delete Task"><Trash2 size={16} /></button>
                         </div>
                       </div>
-                      <div className="task-actions">
-                        <button type="button" className="btn-icon-small edit" onClick={() => handleEditEventTask(task)} title="Edit Task"><Edit size={16} /></button>
-                        <button type="button" className="btn-icon-small delete" onClick={() => handleDeleteEventTask(task.id)} title="Delete Task"><Trash2 size={16} /></button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
