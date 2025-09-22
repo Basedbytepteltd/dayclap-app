@@ -164,7 +164,7 @@
 }
 
 .switch-link:hover {
-  color: var(--accent-hover);
+  color: var(--accent-hover, var(--accent-color));
 }
 
 /* NEW: Password Toggle Button */

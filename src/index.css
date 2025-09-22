@@ -4,21 +4,42 @@
   --secondary-bg: #f8f9fa;
   --primary-text: #000000;
   --secondary-text: #6c757d;
-  --accent-color: #3b82f6; /* Changed to a blue accent */
+  --accent-color: #3b82f6; /* Blue accent */
+  --accent-hover: #2563eb; /* New: hover color for accent */
   --border-color: #e5e7eb;
   --input-bg: #ffffff;
   --input-border: #d1d5db;
   --button-bg: #000000;
   --button-text: #ffffff;
-  --primary-hover: #374151; /* Renamed from --button-hover */
+  --button-hover: #111827; /* New: button hover */
+  --primary-hover: #374151;
   --error-color: #ef4444;
   --success-color: #10b981;
 
-  /* NEW: Additional variables for Dashboard.css consistency */
+  /* NEW: Additional vibrant colors */
   --warning-color: #f59e0b; /* Amber/Orange */
   --info-color: #1e90ff; /* A distinct blue for info, different from accent */
   --text-muted: #9ca3af; /* Lighter grey for muted text */
   --secondary-color: #6b7280; /* A neutral grey for secondary elements */
+
+  --vibrant-purple: #8b5cf6; /* New vibrant purple */
+  --vibrant-teal: #14b8a6; /* New vibrant teal */
+  --vibrant-pink: #ec4899; /* New vibrant pink */
+  --vibrant-orange: #f97316; /* New vibrant orange */
+  --vibrant-green: #22c55e; /* New vibrant green */
+  --vibrant-red: #ef4444; /* Existing error, now vibrant red */
+  --vibrant-blue: #3b82f6; /* Existing accent, now vibrant blue */
+
+  /* NEW: Radius tokens */
+  --radius-sm: 0.375rem;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* NEW: Shadow tokens */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* Dark Mode Overrides */
@@ -27,21 +48,41 @@ body.dark-mode {
   --secondary-bg: #2d2d2d;
   --primary-text: #e0e0e0;
   --secondary-text: #a0a0a0;
-  --accent-color: #60a5fa;
+  --accent-color: #60a5fa; /* Lighter blue for dark mode */
+  --accent-hover: #93c5fd; /* New: hover color for accent (lighter) */
   --border-color: #444444;
   --input-bg: #2d2d2d;
   --input-border: #555555;
   --button-bg: #e0e0e0;
   --button-text: #1a1a1a;
-  --primary-hover: #cccccc; /* Renamed from --button-hover */
+  --button-hover: #cfcfcf; /* New: button hover in dark */
+  --primary-hover: #cccccc;
   --error-color: #ff6b6b;
   --success-color: #48bb78;
 
-  /* NEW: Dark mode overrides for additional variables */
+  /* NEW: Dark mode overrides for additional vibrant colors */
   --warning-color: #fbbf24;
   --info-color: #87cefa;
   --text-muted: #6b7280;
   --secondary-color: #9ca3af;
+
+  --vibrant-purple: #a78bfa;
+  --vibrant-teal: #2dd4bf;
+  --vibrant-pink: #f472b6;
+  --vibrant-orange: #fb923c;
+  --vibrant-green: #4ade80;
+  --vibrant-red: #f87171;
+  --vibrant-blue: #60a5fa;
+
+  /* Radius/Shadow tokens can remain the same; keep for clarity */
+  --radius-sm: 0.375rem;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.45), 0 10px 10px -5px rgba(0, 0, 0, 0.35);
 }
 
 * {
