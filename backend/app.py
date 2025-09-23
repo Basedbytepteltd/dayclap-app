@@ -426,11 +426,13 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
   final_sender = sender_email if sender_email else default_sender
 
   try:
+    # Note: Maileroo expects 'X-API-Key' header
+    print(f"Maileroo: POST {maileroo_api_endpoint} with X-API-Key header", file=sys.stderr)
     response = requests.post(
       maileroo_api_endpoint,
       headers={
         "Content-Type": "application/json",
-        "X-Maileroo-API-Key": maileroo_api_key,
+        "X-API-Key": maileroo_api_key,
       },
       json={
         "to": [{"email": recipient_email}],
