@@ -336,7 +336,7 @@ def _get_email_settings() -> Optional[dict]:
 
   # MODIFIED: Default to the correct Maileroo API endpoint
   if not settings.get("maileroo_api_endpoint"):
-    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2/emails"
+    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2/send"
   if not settings.get("mail_default_sender") and env_sender:
     settings["mail_default_sender"] = env_sender
 
@@ -389,8 +389,8 @@ def _resolved_maileroo_send_url(settings: dict) -> str:
   Resolve final Maileroo send endpoint.
   Returns the full endpoint provided in settings/environment.
   """
-  # MODIFIED: The endpoint should now be the full /emails path.
-  full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/emails").strip()
+  # MODIFIED: The endpoint should now be the full /send path.
+  full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/send").strip()
   return full_send_endpoint
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
@@ -419,7 +419,7 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
   # Build payload in v2 shape
   payload = {
     "from": final_sender,
-    "to": [recipient_email],
+    "to": [{"email": recipient_email}], # CRITICAL FIX: Changed to array of objects
     "subject": subject or "",
     "html": html_content or "",
     "text": _html_to_text(html_content or ""),
@@ -1171,7 +1171,7 @@ def diagnostics():
         "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120],
       },
     },
-    "admin_emails_count": len(_get_allowed_admin_emails() or []),
+    "admin_emails_count": len(_get_allowed_admin_emails() or []),\
   }
   return jsonify(di), 200
 

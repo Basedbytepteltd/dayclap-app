@@ -51,7 +51,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     id: null,
     maileroo_sending_key: '',
     mail_default_sender: 'no-reply@team.dayclap.com',
-    maileroo_api_endpoint: 'https://smtp.maileroo.com/api/v2/emails', // ADDED: Default endpoint
+    maileroo_api_endpoint: 'https://smtp.maileroo.com/api/v2/send', // CORRECTED: Default endpoint
     scheduler_enabled: true, 
     reminder_time: '02:00' 
   });
@@ -153,7 +153,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           id: data.id,
           maileroo_sending_key: data.maileroo_sending_key || '',
           mail_default_sender: data.mail_default_sender || '',
-          maileroo_api_endpoint: data.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails', // ADDED: Endpoint
+          maileroo_api_endpoint: data.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/send', // CORRECTED: Endpoint
           scheduler_enabled: data.scheduler_enabled, 
           reminder_time: data.reminder_time || '02:00' 
         });
@@ -199,7 +199,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             id: data.settings.id,
             maileroo_sending_key: data.settings.maileroo_sending_key || '',
             mail_default_sender: data.settings.mail_default_sender || '',
-            maileroo_api_endpoint: data.settings.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails', // ADDED: Endpoint
+            maileroo_api_endpoint: data.settings.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/send', // CORRECTED: Endpoint
             scheduler_enabled: data.settings.scheduler_enabled, 
             reminder_time: data.settings.reminder_time || '02:00' 
           });
@@ -961,7 +961,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                       value={emailSettingsForm.maileroo_api_endpoint}
                       onChange={(e) => setEmailSettingsForm(prev => ({ ...prev, maileroo_api_endpoint: e.target.value }))}
                       className="form-input"
-                      placeholder="e.g., https://smtp.maileroo.com/api/v2/emails"
+                      placeholder="e.g., https://smtp.maileroo.com/api/v2/send"
                       required
                       disabled={emailSettingsLoading}
                     />
