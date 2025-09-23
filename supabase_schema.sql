@@ -271,7 +271,7 @@ DROP POLICY IF EXISTS "Users can insert events in their current company." ON eve
 DROP POLICY IF EXISTS "Users can update events in their current company." ON events; -- ADDED
 DROP POLICY IF EXISTS "Users can delete events in their current company." ON events; -- ADDED
 
--- Policy for SELECT: Users can view events if they are part of the event's company
+-- Policy for SELECT: Users can view events in companies they belong to.
 CREATE POLICY "Users can view events in companies they belong to." ON events FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM profiles
@@ -342,7 +342,7 @@ DROP POLICY IF EXISTS "Users can insert tasks in their current company." ON task
 DROP POLICY IF EXISTS "Users can update tasks in their current company." ON tasks; -- ADDED
 DROP POLICY IF EXISTS "Users can delete tasks in their current company." ON tasks; -- ADDED
 
--- Policy for SELECT: Users can view tasks if they are part of the task's company
+-- Policy for SELECT: Users can view tasks in companies they belong to.
 CREATE POLICY "Users can view tasks in companies they belong to." ON tasks FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM profiles
@@ -377,7 +377,7 @@ CREATE POLICY "Users can delete tasks in their current company." ON tasks FOR DE
 -- Create 'email_settings' table
 CREATE TABLE IF NOT EXISTS email_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2', -- REVERT: Changed default API endpoint
+  maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/send', -- CORRECTED: Added /send
   mail_default_sender TEXT DEFAULT 'no-reply@team.dayclap.com',
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   -- NEW: Columns for internal scheduler control
@@ -389,14 +389,24 @@ CREATE TABLE IF NOT EXISTS email_settings (
 DO $$
 BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_settings') THEN
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='maileroo_api_key') AND
-           NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='maileroo_sending_key') THEN
-            ALTER TABLE email_settings RENAME COLUMN maileroo_api_key TO maileroo_sending_key;
-            RAISE NOTICE 'Column "maileroo_api_key" renamed to "maileroo_sending_key".';
+        -- Rename emailit_api_key to maileroo_sending_key if it exists
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='emailit_api_key') THEN
+            ALTER TABLE email_settings RENAME COLUMN emailit_api_key TO maileroo_sending_key;
+            RAISE NOTICE 'Column "emailit_api_key" renamed to "maileroo_sending_key".';
         ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='maileroo_sending_key') THEN
             ALTER TABLE email_settings ADD COLUMN maileroo_sending_key TEXT;
             RAISE NOTICE 'Column "maileroo_sending_key" added.';
         END IF;
+
+        -- Rename emailit_api_endpoint to maileroo_api_endpoint if it exists
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='emailit_api_endpoint') THEN
+            ALTER TABLE email_settings RENAME COLUMN emailit_api_endpoint TO maileroo_api_endpoint;
+            RAISE NOTICE 'Column "emailit_api_endpoint" renamed to "maileroo_api_endpoint".';
+        ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='maileroo_api_endpoint') THEN
+            ALTER TABLE email_settings ADD COLUMN maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/send'; -- CORRECTED: Added /send
+            RAISE NOTICE 'Column "maileroo_api_endpoint" added.';
+        END IF;
+
         -- NEW: Add scheduler_enabled column if it doesn't exist
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'email_settings' AND column_name = 'scheduler_enabled') THEN
             ALTER TABLE public.email_settings ADD COLUMN scheduler_enabled BOOLEAN DEFAULT TRUE;
@@ -419,7 +429,7 @@ CREATE POLICY "Super admin can manage email settings." ON email_settings FOR ALL
 
 -- Insert default row if table is empty
 INSERT INTO email_settings (id, maileroo_sending_key, maileroo_api_endpoint, mail_default_sender, scheduler_enabled, reminder_time)
-SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2', 'no-reply@team.dayclap.com', TRUE, '02:00' -- REVERT: Changed default API endpoint
+SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2/send', 'no-reply@team.dayclap.com', TRUE, '02:00' -- CORRECTED: Added /send
 WHERE NOT EXISTS (SELECT 1 FROM email_settings);
 
 -- **FIX**: Correct any old, incorrect default sender email values.
@@ -436,8 +446,8 @@ $$;
 DO $$
 BEGIN
     UPDATE email_settings
-    SET maileroo_api_endpoint = 'https://smtp.maileroo.com/api/v2' -- REVERT: Changed API endpoint in update
-    WHERE maileroo_api_endpoint != 'https://smtp.maileroo.com/api/v2'; -- REVERT: Changed API endpoint in condition
+    SET maileroo_api_endpoint = 'https://smtp.maileroo.com/api/v2/send' -- CORRECTED: Added /send
+    WHERE maileroo_api_endpoint != 'https://smtp.maileroo.com/api/v2/send'; -- CORRECTED: Added /send
     -- RAISE NOTICE 'Corrected outdated maileroo_api_endpoint value to the correct URL.'; -- Optional: keep for debugging, remove for production
 END
 $$;
