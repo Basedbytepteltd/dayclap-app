@@ -334,9 +334,9 @@ def _get_email_settings() -> Optional[dict]:
   if not settings.get("maileroo_sending_key") and env_api_key:
     settings["maileroo_sending_key"] = env_api_key
 
-  # MODIFIED: Default to the correct Maileroo API endpoint
+  # Default to the correct Maileroo API endpoint
   if not settings.get("maileroo_api_endpoint"):
-    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2/send"
+    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2/emails"
   if not settings.get("mail_default_sender") and env_sender:
     settings["mail_default_sender"] = env_sender
 
@@ -389,8 +389,7 @@ def _resolved_maileroo_send_url(settings: dict) -> str:
   Resolve final Maileroo send endpoint.
   Returns the full endpoint provided in settings/environment.
   """
-  # MODIFIED: The endpoint should now be the full /send path.
-  full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/send").strip()
+  full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/emails").strip()
   return full_send_endpoint
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
@@ -419,14 +418,14 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
   # Build payload in v2 shape
   payload = {
     "from": final_sender,
-    "to": [{"email": recipient_email}], # CRITICAL FIX: Changed to array of objects
+    "to": [{"email": recipient_email}],  # Array of objects as Maileroo expects
     "subject": subject or "",
     "html": html_content or "",
     "text": _html_to_text(html_content or ""),
   }
 
   try:
-    # NEW DIAGNOSTIC PRINTS
+    # Diagnostics
     print(f"Maileroo DIAG: Final send_url: {send_url}", file=sys.stderr)
     print(f"Maileroo DIAG: Payload: {json.dumps(payload, indent=2)}", file=sys.stderr)
     if maileroo_api_key and len(maileroo_api_key) > 8:
@@ -440,7 +439,7 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
       headers={
         "Content-Type": "application/json",
         "X-API-Key": maileroo_api_key,
-        "Accept": "application/json", # ADDED: Accept header
+        "Accept": "application/json",
       },
       json=payload,
       timeout=15
@@ -453,11 +452,9 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
     except Exception:
       body_text = "<non-textual response>"
 
-    # Log status and first 600 chars of response for diagnostics
     snippet = body_text[:600] if body_text else ""
     print(f"Maileroo: status={status}; resp_snippet={snippet}", file=sys.stderr)
 
-    # MODIFIED: Treat any 2xx status code as success
     if 200 <= status < 300:
       print(f"Maileroo: Email sent successfully (status {status}).", file=sys.stderr)
       return True
@@ -500,7 +497,6 @@ def _send_push_notification(subscription_info: dict, title: str, body: str, url:
     return True
   except WebPushException as e:
     print(f"Push notification failed: {e}", file=sys.stderr)
-    # Some providers include response with status_code (e.g., 410 Gone)
     try:
       if e.response is not None and hasattr(e.response, "status_code") and e.response.status_code == 410:
         print("Subscription is no longer valid (410 Gone). Should remove from DB.", file=sys.stderr)
@@ -823,7 +819,6 @@ def _send_1week_event_reminders_job():
     seven_days_from_now_str = seven_days_from_now.isoformat()
 
     # Fetch events that are 7 days away and haven't had a 1-week reminder sent
-    # Note: supabase-py .is_(..., None) translates to PostgREST is.null
     resp = supabase.table("events")\
       .select("id, user_id, company_id, title, date, time, location, description, event_tasks")\
       .eq("date", seven_days_from_now_str)\
@@ -929,8 +924,6 @@ def scheduler_status():
   return jsonify(status), 200
 
 # Initial scheduling when app starts
-# This will be called once when the Flask app starts
-# The scheduler will then manage the job based on settings
 if not scheduler.running:
   scheduler.start()
 _schedule_daily_reminders_job()
@@ -966,7 +959,7 @@ def update_email_settings_admin():
   settings_id = body.get("id")
   maileroo_sending_key = body.get("maileroo_sending_key")
   mail_default_sender = body.get("mail_default_sender")
-  maileroo_api_endpoint = body.get("maileroo_api_endpoint") # ADDED: Endpoint to update
+  maileroo_api_endpoint = body.get("maileroo_api_endpoint")
   scheduler_enabled = body.get("scheduler_enabled", True)
   reminder_time = body.get("reminder_time", "02:00")
 
@@ -975,7 +968,7 @@ def update_email_settings_admin():
 
   updates = {
     "mail_default_sender": mail_default_sender,
-    "maileroo_api_endpoint": maileroo_api_endpoint, # ADDED: Endpoint to update
+    "maileroo_api_endpoint": maileroo_api_endpoint,
     "updated_at": _utcnow_iso(),
     "scheduler_enabled": scheduler_enabled,
     "reminder_time": reminder_time,
@@ -984,9 +977,7 @@ def update_email_settings_admin():
     updates["maileroo_sending_key"] = maileroo_sending_key
 
   try:
-    # Execute update first (no .select() chaining)
     supabase.table("email_settings").update(updates).eq("id", settings_id).execute()
-    # Re-fetch the updated row
     refetch = supabase.table("email_settings").select("*").eq("id", settings_id).single().execute()
     _schedule_daily_reminders_job()  # Re-schedule if settings changed
     return jsonify({"message": "Email settings updated", "settings": refetch.data}), 200
@@ -1021,7 +1012,6 @@ def create_email_template_admin():
     return jsonify({"message": "Name, subject, and HTML content are required"}), 400
 
   try:
-    # Insert without chaining .select()
     supabase.table("email_templates").insert({
       "name": name,
       "subject": subject,
@@ -1029,7 +1019,6 @@ def create_email_template_admin():
       "created_at": _utcnow_iso(),
       "updated_at": _utcnow_iso(),
     }).execute()
-    # Re-fetch the inserted row by unique name
     refetch = supabase.table("email_templates").select("*").eq("name", name).single().execute()
     return jsonify({"message": "Template created", "template": refetch.data}), 201
   except Exception as e:
@@ -1040,7 +1029,6 @@ def create_email_template_admin():
 @app.put("/api/admin/email-templates/<template_id>")
 @require_admin_email
 def update_email_template_admin_bad(template_id):
-  # This shim keeps compatibility if any client cached the wrong route; returns 404 with hint.
   return jsonify({"message": "Bad route. Use /api/admin/email-templates/<template_id>"}), 404
 
 @app.delete("/api/admin/email-templates/<template_id>")
@@ -1061,13 +1049,11 @@ def update_email_template_admin(template_id):
     return jsonify({"message": "Subject and HTML content are required"}), 400
 
   try:
-    # Update without chaining .select()
     supabase.table("email_templates").update({
       "subject": subject,
       "html_content": html_content,
       "updated_at": _utcnow_iso(),
     }).eq("id", template_id).execute()
-    # Re-fetch the updated row
     refetch = supabase.table("email_templates").select("*").eq("id", template_id).single().execute()
     return jsonify({"message": "Template updated", "template": refetch.data}), 200
   except Exception as e:
@@ -1084,62 +1070,6 @@ def delete_email_template_admin(template_id):
   except Exception as e:
     print(f"Error deleting email template: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to delete template"}), 500
-
-# -----------------------------------------------------------------------------
-# Admin Test Sending Routes
-# -----------------------------------------------------------------------------
-@app.post("/api/admin/send-test-email")
-@require_admin_email
-def send_test_email_admin():
-  body = request.get_json(force=True, silent=True) or {}
-  recipient_email = body.get("recipient_email")
-  if not recipient_email:
-    return jsonify({"message": "Recipient email is required"}), 400
-
-  test_template = _get_email_template("welcome_email")  # Use welcome email as a generic test
-  if not test_template:
-    # _get_email_template already logs the error
-    return jsonify({"message": "Test email template not found (welcome_email) or DB error."}), 500
-
-  context = {
-    "user_name": "Test User",
-    "current_year": datetime.now().year,
-    "frontend_url": VITE_FRONTEND_URL,
-  }
-  rendered_html = _render_template(test_template["html_content"], context)
-
-  if _send_email_via_maileroo(recipient_email, f"[TEST] {test_template['subject']}", rendered_html):
-    return jsonify({"message": "Test email sent successfully"}), 200
-  else:
-    # _send_email_via_maileroo already logs the error
-    return jsonify({"message": "Failed to send test email. Check backend logs for details."}), 500
-
-@app.post("/api/admin/send-test-push")
-@require_admin_email
-def send_test_push_admin():
-  body = request.get_json(force=True, silent=True) or {}
-  recipient_email = body.get("recipient_email")
-  title = body.get("title", "Test Push Notification")
-  message_body = body.get("body", "This is a test push notification from DayClap.")
-  url = body.get("url", VITE_FRONTEND_URL)
-
-  if not recipient_email:
-    return jsonify({"message": "Recipient email is required"}), 400
-
-  try:
-    resp = supabase.table("profiles").select("push_subscription").eq("email", recipient_email).single().execute()
-    profile = resp.data
-    if not profile or not profile.get("push_subscription"):
-      return jsonify({"message": f"No active push subscription found for {recipient_email}"}), 404
-
-    subscription_info = profile["push_subscription"]
-    if _send_push_notification(subscription_info, title, message_body, url):
-      return jsonify({"message": "Test push notification sent successfully"}), 200
-    else:
-      return jsonify({"message": "Failed to send test push notification"}), 500
-  except Exception as e:
-    print(f"Error sending test push: {e}", file=sys.stderr)
-    return jsonify({"message": f"An error occurred: {e}"}), 500
 
 # -----------------------------------------------------------------------------
 # Admin Diagnostics (read-only)
@@ -1171,7 +1101,7 @@ def diagnostics():
         "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120],
       },
     },
-    "admin_emails_count": len(_get_allowed_admin_emails() or []),\
+    "admin_emails_count": len(_get_allowed_admin_emails() or []),
   }
   return jsonify(di), 200
 

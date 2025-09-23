@@ -51,7 +51,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     id: null,
     maileroo_sending_key: '',
     mail_default_sender: 'no-reply@team.dayclap.com',
-    maileroo_api_endpoint: 'https://smtp.maileroo.com/api/v2/send', // CORRECTED: Default endpoint
+    maileroo_api_endpoint: 'https://smtp.maileroo.com/api/v2/emails', // Default endpoint
     scheduler_enabled: true, 
     reminder_time: '02:00' 
   });
@@ -153,7 +153,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           id: data.id,
           maileroo_sending_key: data.maileroo_sending_key || '',
           mail_default_sender: data.mail_default_sender || '',
-          maileroo_api_endpoint: data.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/send', // CORRECTED: Endpoint
+          maileroo_api_endpoint: data.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails', // Endpoint
           scheduler_enabled: data.scheduler_enabled, 
           reminder_time: data.reminder_time || '02:00' 
         });
@@ -199,7 +199,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             id: data.settings.id,
             maileroo_sending_key: data.settings.maileroo_sending_key || '',
             mail_default_sender: data.settings.mail_default_sender || '',
-            maileroo_api_endpoint: data.settings.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/send', // CORRECTED: Endpoint
+            maileroo_api_endpoint: data.settings.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails', // Endpoint
             scheduler_enabled: data.settings.scheduler_enabled, 
             reminder_time: data.settings.reminder_time || '02:00' 
           });
@@ -465,10 +465,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       return;
     }
 
-    // REMOVED: authUsers lookup for last_sign_in_at as it's not securely available on frontend
-    // and last_activity_at from profiles is a good proxy for user activity.
-    // const authUsers = { users: [] }; 
-
     const { data: allEvents, error: eventsError } = await supabase.from('events').select('id, user_id');
     const { data: allTasks, error: tasksError } = await supabase.from('tasks').select('id, user_id, completed');
 
@@ -494,10 +490,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     const allCompanyIds = new Set();
 
     const combinedUsers = profiles.map(profile => {
-      // MODIFIED: Removed authUser lookup. last_sign_in_at will now be null,
-      // relying on profile.last_activity_at for user activity.
-      // const authUser = (authUsers?.users || []).find(au => au.id === profile.id); 
-
       if (profile.last_activity_at && new Date(profile.last_activity_at) > twentyFourHoursAgo) {
         activeTodayCount++;
       }
@@ -506,7 +498,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
       return {
         ...profile,
-        last_sign_in_at: null, // Set to null as it's not fetched securely on frontend
+        last_sign_in_at: null,
         event_count: eventsByUser[profile.id] || 0,
         task_total_count: tasksByUser[profile.id]?.total || 0,
         task_pending_count: tasksByUser[profile.id]?.pending || 0,
@@ -961,7 +953,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                       value={emailSettingsForm.maileroo_api_endpoint}
                       onChange={(e) => setEmailSettingsForm(prev => ({ ...prev, maileroo_api_endpoint: e.target.value }))}
                       className="form-input"
-                      placeholder="e.g., https://smtp.maileroo.com/api/v2/send"
+                      placeholder="e.g., https://smtp.maileroo.com/api/v2/emails"
                       required
                       disabled={emailSettingsLoading}
                     />
