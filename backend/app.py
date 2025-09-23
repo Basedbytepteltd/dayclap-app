@@ -254,13 +254,13 @@ def _render_template(html_content: str, context: dict) -> str:
     # Regex to find {{#if key}}...{{/if}} blocks
     # We need to escape the key for regex, and also the curly braces
     if_block_regex = re.compile(
-      r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}', # Corrected: Removed double backslashes
+      r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}',
       re.DOTALL
     )
     if not value:  # If the variable is falsy, remove the block
       rendered_content = if_block_regex.sub('', rendered_content)
     else:  # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
-      rendered_content = if_block_regex.sub(r'\1', rendered_content) # Corrected: Single backslash for backreference
+      rendered_content = if_block_regex.sub(r'\1', rendered_content)
   return rendered_content
 
 def _to_datetime_any(val: Optional[object]) -> Optional[datetime]:
@@ -334,9 +334,9 @@ def _get_email_settings() -> Optional[dict]:
   if not settings.get("maileroo_sending_key") and env_api_key:
     settings["maileroo_sending_key"] = env_api_key
 
-  # MODIFIED: Default to full Maileroo send endpoint
+  # MODIFIED: Default to the correct Maileroo API endpoint
   if not settings.get("maileroo_api_endpoint"):
-    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2/send"
+    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2/emails"
   if not settings.get("mail_default_sender") and env_sender:
     settings["mail_default_sender"] = env_sender
 
@@ -389,9 +389,8 @@ def _resolved_maileroo_send_url(settings: dict) -> str:
   Resolve final Maileroo send endpoint.
   Returns the full endpoint provided in settings/environment.
   """
-  # MODIFIED: The endpoint should already include the /send path.
-  # Default to the full /send path if not configured.
-  full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/send").strip()
+  # MODIFIED: The endpoint should now be the full /emails path.
+  full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/emails").strip()
   return full_send_endpoint
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
@@ -441,6 +440,7 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
       headers={
         "Content-Type": "application/json",
         "X-API-Key": maileroo_api_key,
+        "Accept": "application/json", # ADDED: Accept header
       },
       json=payload,
       timeout=15
@@ -457,23 +457,10 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
     snippet = body_text[:600] if body_text else ""
     print(f"Maileroo: status={status}; resp_snippet={snippet}", file=sys.stderr)
 
-    # Require success true in provider JSON when present
-    try:
-      data = response.json()
-    except ValueError:
-      data = None
-
+    # MODIFIED: Treat any 2xx status code as success
     if 200 <= status < 300:
-      if isinstance(data, dict):
-        success_flag = data.get("success")
-        if success_flag is True:
-          return True
-        # If provider didn't include a success flag, treat as failure per stricter policy
-        print("Maileroo: 2xx without success:true in JSON; treating as failure for debugging.", file=sys.stderr)
-        return False
-      else:
-        print("Maileroo: 2xx but response not JSON; treating as failure for debugging.", file=sys.stderr)
-        return False
+      print(f"Maileroo: Email sent successfully (status {status}).", file=sys.stderr)
+      return True
     else:
       print(f"ERROR: Maileroo non-2xx ({status}).", file=sys.stderr)
       return False
@@ -553,7 +540,7 @@ def subscribe_push():
 
   profile = fetch_profile(uid)
   if profile and isinstance(profile.get("notifications"), dict):
-    notif = dict(profile.get("notifications") or {}) # Corrected: Removed extraneous backslash
+    notif = dict(profile.get("notifications") or {})
     notif["push"] = True
     updates["notifications"] = notif
 
@@ -585,7 +572,7 @@ def unsubscribe_push():
 
   profile = fetch_profile(uid)
   if profile and isinstance(profile.get("notifications"), dict):
-    notif = dict(profile.get("notifications") or {}) # Corrected: Removed extraneous backslash
+    notif = dict(profile.get("notifications") or {})
     notif["push"] = False
     updates["notifications"] = notif
 
@@ -900,11 +887,11 @@ def _send_1week_event_reminders_job():
             .update({"one_week_reminder_sent_at": datetime.now(timezone.utc).isoformat()})\
             .eq("id", event["id"])\
             .execute()
-          print(f"Sent 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr) # Corrected: Removed extraneous backslashes
+          print(f"Sent 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
         else:
-          print(f"Failed to send 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr) # Corrected: Removed extraneous backslashes
+          print(f"Failed to send 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
       except Exception as inner_e:
-        print(f"Error processing event {event.get('id')}: {inner_e}", file=sys.stderr) # Corrected: Removed extraneous backslashes
+        print(f"Error processing event {event.get('id')}: {inner_e}", file=sys.stderr)
 
   except Exception as e:
     print(f"Error in _send_1week_event_reminders_job: {e}", file=sys.stderr)
@@ -979,6 +966,7 @@ def update_email_settings_admin():
   settings_id = body.get("id")
   maileroo_sending_key = body.get("maileroo_sending_key")
   mail_default_sender = body.get("mail_default_sender")
+  maileroo_api_endpoint = body.get("maileroo_api_endpoint") # ADDED: Endpoint to update
   scheduler_enabled = body.get("scheduler_enabled", True)
   reminder_time = body.get("reminder_time", "02:00")
 
@@ -987,6 +975,7 @@ def update_email_settings_admin():
 
   updates = {
     "mail_default_sender": mail_default_sender,
+    "maileroo_api_endpoint": maileroo_api_endpoint, # ADDED: Endpoint to update
     "updated_at": _utcnow_iso(),
     "scheduler_enabled": scheduler_enabled,
     "reminder_time": reminder_time,
@@ -1005,9 +994,9 @@ def update_email_settings_admin():
     print(f"Error updating email settings: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to update email settings"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Admin Email Templates Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.get("/api/admin/email-templates")
 @require_admin_email
 def get_email_templates_admin():
@@ -1096,9 +1085,9 @@ def delete_email_template_admin(template_id):
     print(f"Error deleting email template: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to delete template"}), 500
 
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 # Admin Test Sending Routes
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
 @app.post("/api/admin/send-test-email")
 @require_admin_email
 def send_test_email_admin():
@@ -1140,7 +1129,7 @@ def send_test_push_admin():
   try:
     resp = supabase.table("profiles").select("push_subscription").eq("email", recipient_email).single().execute()
     profile = resp.data
-    if not profile or not profile.get("push_subscription"):\
+    if not profile or not profile.get("push_subscription"):
       return jsonify({"message": f"No active push subscription found for {recipient_email}"}), 404
 
     subscription_info = profile["push_subscription"]
@@ -1152,9 +1141,9 @@ def send_test_push_admin():
     print(f"Error sending test push: {e}", file=sys.stderr)
     return jsonify({"message": f"An error occurred: {e}"}), 500
 
-# -----------------------------------------------------------------------------\
-# Admin Diagnostics (read-only)\
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
+# Admin Diagnostics (read-only)
+# -----------------------------------------------------------------------------
 @app.get("/api/admin/diagnostics")
 @require_admin_email
 def diagnostics():
@@ -1186,9 +1175,9 @@ def diagnostics():
   }
   return jsonify(di), 200
 
-# -----------------------------------------------------------------------------\
-# Entrypoint\
-# -----------------------------------------------------------------------------\
+# -----------------------------------------------------------------------------
+# Entrypoint
+# -----------------------------------------------------------------------------
 if __name__ == "__main__":
   port = int(os.environ.get("PORT", "5001"))
   app.run(host="0.0.0.0", port=port, debug=True)

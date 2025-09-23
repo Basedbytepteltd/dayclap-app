@@ -377,7 +377,7 @@ CREATE POLICY "Users can delete tasks in their current company." ON tasks FOR DE
 -- Create 'email_settings' table
 CREATE TABLE IF NOT EXISTS email_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/send', -- CORRECTED: Added /send
+  maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/emails', -- CORRECTED: Changed to /emails
   mail_default_sender TEXT DEFAULT 'no-reply@team.dayclap.com',
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   -- NEW: Columns for internal scheduler control
@@ -403,7 +403,7 @@ BEGIN
             ALTER TABLE email_settings RENAME COLUMN emailit_api_endpoint TO maileroo_api_endpoint;
             RAISE NOTICE 'Column "emailit_api_endpoint" renamed to "maileroo_api_endpoint".';
         ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='maileroo_api_endpoint') THEN
-            ALTER TABLE email_settings ADD COLUMN maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/send'; -- CORRECTED: Added /send
+            ALTER TABLE email_settings ADD COLUMN maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/emails'; -- CORRECTED: Changed to /emails
             RAISE NOTICE 'Column "maileroo_api_endpoint" added.';
         END IF;
 
@@ -429,7 +429,7 @@ CREATE POLICY "Super admin can manage email settings." ON email_settings FOR ALL
 
 -- Insert default row if table is empty
 INSERT INTO email_settings (id, maileroo_sending_key, maileroo_api_endpoint, mail_default_sender, scheduler_enabled, reminder_time)
-SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2/send', 'no-reply@team.dayclap.com', TRUE, '02:00' -- CORRECTED: Added /send
+SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2/emails', 'no-reply@team.dayclap.com', TRUE, '02:00' -- CORRECTED: Changed to /emails
 WHERE NOT EXISTS (SELECT 1 FROM email_settings);
 
 -- **FIX**: Correct any old, incorrect default sender email values.
@@ -446,8 +446,8 @@ $$;
 DO $$
 BEGIN
     UPDATE email_settings
-    SET maileroo_api_endpoint = 'https://smtp.maileroo.com/api/v2/send' -- CORRECTED: Added /send
-    WHERE maileroo_api_endpoint != 'https://smtp.maileroo.com/api/v2/send'; -- CORRECTED: Added /send
+    SET maileroo_api_endpoint = 'https://smtp.maileroo.com/api/v2/emails' -- CORRECTED: Changed to /emails
+    WHERE maileroo_api_endpoint != 'https://smtp.maileroo.com/api/v2/emails'; -- CORRECTED: Changed to /emails
     -- RAISE NOTICE 'Corrected outdated maileroo_api_endpoint value to the correct URL.'; -- Optional: keep for debugging, remove for production
 END
 $$;
@@ -698,4 +698,4 @@ $$<!DOCTYPE html>
   </div>
 </body>
 </html>$$
-WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'task_assigned')
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'task_assigned');

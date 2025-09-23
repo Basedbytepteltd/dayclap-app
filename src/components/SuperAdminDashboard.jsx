@@ -28,7 +28,7 @@ import {
   BellOff,  
   Link,
   ListTodo,
-  User // ADDED: Import User icon
+  User 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
@@ -51,6 +51,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     id: null,
     maileroo_sending_key: '',
     mail_default_sender: 'no-reply@team.dayclap.com',
+    maileroo_api_endpoint: 'https://smtp.maileroo.com/api/v2/emails', // ADDED: Default endpoint
     scheduler_enabled: true, 
     reminder_time: '02:00' 
   });
@@ -152,6 +153,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           id: data.id,
           maileroo_sending_key: data.maileroo_sending_key || '',
           mail_default_sender: data.mail_default_sender || '',
+          maileroo_api_endpoint: data.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails', // ADDED: Endpoint
           scheduler_enabled: data.scheduler_enabled, 
           reminder_time: data.reminder_time || '02:00' 
         });
@@ -197,6 +199,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             id: data.settings.id,
             maileroo_sending_key: data.settings.maileroo_sending_key || '',
             mail_default_sender: data.settings.mail_default_sender || '',
+            maileroo_api_endpoint: data.settings.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails', // ADDED: Endpoint
             scheduler_enabled: data.settings.scheduler_enabled, 
             reminder_time: data.settings.reminder_time || '02:00' 
           });
@@ -943,6 +946,22 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                       onChange={(e) => setEmailSettingsForm(prev => ({ ...prev, maileroo_sending_key: e.target.value }))}
                       className="form-input"
                       placeholder="Enter your Maileroo Sending Key"
+                      required
+                      disabled={emailSettingsLoading}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Maileroo API Endpoint</label>
+                  <div className="input-wrapper">
+                    <Link className="input-icon" />
+                    <input
+                      type="url"
+                      name="maileroo_api_endpoint"
+                      value={emailSettingsForm.maileroo_api_endpoint}
+                      onChange={(e) => setEmailSettingsForm(prev => ({ ...prev, maileroo_api_endpoint: e.target.value }))}
+                      className="form-input"
+                      placeholder="e.g., https://smtp.maileroo.com/api/v2/emails"
                       required
                       disabled={emailSettingsLoading}
                     />
