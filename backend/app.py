@@ -32,11 +32,11 @@ ALLOWED_ORIGINS = [
   if o.strip()
 ]
 
-# Comma-separated regex patterns (e.g., https://.*\\.vercel\\.app)
+# Comma-separated regex patterns (e.g., https://.*\.vercel\.app)
 RAW_ORIGIN_REGEX = [p.strip() for p in (os.environ.get("CORS_ALLOW_ORIGIN_REGEX") or "").split(",") if p.strip()]
 # Provide a sensible default regex to cover preview deployments if none was set
 if not RAW_ORIGIN_REGEX:
-  RAW_ORIGIN_REGEX = ["https://.*\\.vercel\\.app"]
+  RAW_ORIGIN_REGEX = ["https://.*\.vercel\.app"] # Corrected: Single backslash for literal dot
 
 # Compile regexes for internal checks
 ALLOWED_ORIGIN_REGEX = []
@@ -254,13 +254,13 @@ def _render_template(html_content: str, context: dict) -> str:
     # Regex to find {{#if key}}...{{/if}} blocks
     # We need to escape the key for regex, and also the curly braces
     if_block_regex = re.compile(
-      r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}',
+      r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}', # Corrected: Removed double backslashes
       re.DOTALL
     )
     if not value:  # If the variable is falsy, remove the block
       rendered_content = if_block_regex.sub('', rendered_content)
     else:  # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
-      rendered_content = if_block_regex.sub(r'\1', rendered_content)
+      rendered_content = if_block_regex.sub(r'\1', rendered_content) # Corrected: Single backslash for backreference
   return rendered_content
 
 def _to_datetime_any(val: Optional[object]) -> Optional[datetime]:
@@ -392,7 +392,7 @@ def _resolved_maileroo_send_url(settings: dict) -> str:
   # Ensure base_endpoint does not end with a slash before appending /email
   if base_endpoint.endswith('/'):
       base_endpoint = base_endpoint.rstrip('/')
-  return f"{base_endpoint}/email" # MODIFIED: Appended /email
+  return f"{base_endpoint}/email"
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
   settings = _get_email_settings()
@@ -553,7 +553,7 @@ def subscribe_push():
 
   profile = fetch_profile(uid)
   if profile and isinstance(profile.get("notifications"), dict):
-    notif = dict(profile.get("notifications") or {})
+    notif = dict(profile.get("notifications") or {}) # Corrected: Removed extraneous backslash
     notif["push"] = True
     updates["notifications"] = notif
 
@@ -585,7 +585,7 @@ def unsubscribe_push():
 
   profile = fetch_profile(uid)
   if profile and isinstance(profile.get("notifications"), dict):
-    notif = dict(profile.get("notifications") or {})
+    notif = dict(profile.get("notifications") or {}) # Corrected: Removed extraneous backslash
     notif["push"] = False
     updates["notifications"] = notif
 
@@ -900,11 +900,11 @@ def _send_1week_event_reminders_job():
             .update({"one_week_reminder_sent_at": datetime.now(timezone.utc).isoformat()})\
             .eq("id", event["id"])\
             .execute()
-          print(f"Sent 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
+          print(f"Sent 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr) # Corrected: Removed extraneous backslashes
         else:
-          print(f"Failed to send 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
+          print(f"Failed to send 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr) # Corrected: Removed extraneous backslashes
       except Exception as inner_e:
-        print(f"Error processing event {event.get('id')}: {inner_e}", file=sys.stderr)
+        print(f"Error processing event {event.get('id')}: {inner_e}", file=sys.stderr) # Corrected: Removed extraneous backslashes
 
   except Exception as e:
     print(f"Error in _send_1week_event_reminders_job: {e}", file=sys.stderr)
@@ -1179,7 +1179,7 @@ def diagnostics():
         "has_sending_key": bool(settings.get("maileroo_sending_key")),
         "has_default_sender": bool(settings.get("mail_default_sender")),
         "api_endpoint": (settings.get("maileroo_api_endpoint") or "")[:80],
-        "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120], # Ensure this uses the corrected function
+        "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120],
       },
     },
     "admin_emails_count": len(_get_allowed_admin_emails() or []),

@@ -27,7 +27,8 @@ import {
   BellRing, 
   BellOff,  
   Link,
-  ListTodo      
+  ListTodo,
+  User // ADDED: Import User icon
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
@@ -461,7 +462,9 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       return;
     }
 
-    const authUsers = { users: [] };
+    // REMOVED: authUsers lookup for last_sign_in_at as it's not securely available on frontend
+    // and last_activity_at from profiles is a good proxy for user activity.
+    // const authUsers = { users: [] }; 
 
     const { data: allEvents, error: eventsError } = await supabase.from('events').select('id, user_id');
     const { data: allTasks, error: tasksError } = await supabase.from('tasks').select('id, user_id, completed');
@@ -488,8 +491,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     const allCompanyIds = new Set();
 
     const combinedUsers = profiles.map(profile => {
-      const authUser = (authUsers?.users || []).find(au => au.id === profile.id);
-      
+      // MODIFIED: Removed authUser lookup. last_sign_in_at will now be null,
+      // relying on profile.last_activity_at for user activity.
+      // const authUser = (authUsers?.users || []).find(au => au.id === profile.id); 
+
       if (profile.last_activity_at && new Date(profile.last_activity_at) > twentyFourHoursAgo) {
         activeTodayCount++;
       }
@@ -498,7 +503,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
       return {
         ...profile,
-        last_sign_in_at: authUser?.last_sign_in_at || null,
+        last_sign_in_at: null, // Set to null as it's not fetched securely on frontend
         event_count: eventsByUser[profile.id] || 0,
         task_total_count: tasksByUser[profile.id]?.total || 0,
         task_pending_count: tasksByUser[profile.id]?.pending || 0,
@@ -629,7 +634,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                   <label className="form-label">Last Sign In:</label>
                   <div className="input-wrapper">
                     <Clock size={16} className="input-icon" />
-                    <span className="form-input-display">{formatDate(selectedUser.last_sign_in_at)}</span>
+                    {/* Display last_activity_at as a proxy if last_sign_in_at is null */}
+                    <span className="form-input-display">{formatDate(selectedUser.last_sign_in_at || selectedUser.last_activity_at)}</span>
                   </div>
                 </div>
                 <div className="form-group">
@@ -894,7 +900,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                         </td>
                         <td><span>{userData.event_count}</span></td>
                         <td><span>{userData.task_pending_count}/{userData.task_total_count}</span></td>
-                        <td>{formatDate(userData.last_sign_in_at)}</td>
+                        {/* Display last_activity_at as a proxy for last sign-in */}
+                        <td>{formatDate(userData.last_activity_at)}</td>
                         <td>{formatDate(userData.last_activity_at)}</td>
                         <td>{formatDate(userData.created_at)}</td>
                         <td>
