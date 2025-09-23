@@ -49,16 +49,6 @@ for pattern in RAW_ORIGIN_REGEX:
 # Whether to allow credentials (cookies/auth headers). Keep false by default.
 CORS_ALLOW_CREDENTIALS = (os.environ.get("CORS_ALLOW_CREDENTIALS", "false").lower() == "true")
 
-def origin_allowed(origin: Optional[str]) -> bool:
-  if not origin:
-    return False
-  if origin in ALLOWED_ORIGINS:
-    return True
-  for rx in ALLOWED_ORIGIN_REGEX:
-    if rx.match(origin):
-      return True
-  return False
-
 # Use Flask-CORS for /api/*, feeding both exact origins and regex patterns (as strings)
 CORS(
   app,
@@ -101,38 +91,9 @@ def handle_preflight():
 # -----------------------------------------------------------------------------
 # Global CORS headers for all responses (including errors)
 # This ensures CORS headers are always present and echo requested headers.
+# REMOVED: The custom @app.after_request for CORS is removed.
+# Flask-CORS handles Access-Control-Allow-Origin, Methods, and Headers.
 # -----------------------------------------------------------------------------
-@app.after_request
-def add_cors_headers(response):
-  # Only apply to /api/ routes
-  if request.path.startswith('/api/'):
-    origin = request.headers.get('Origin')
-
-    # Vary: make caches aware responses differ per origin and requested headers
-    vary_vals = set()
-    if response.headers.get('Vary'):
-      vary_vals.update(h.strip() for h in response.headers['Vary'].split(',') if h.strip())
-    vary_vals.update(['Origin', 'Access-Control-Request-Headers'])
-    response.headers['Vary'] = ', '.join(sorted(vary_vals))
-
-    if origin and origin_allowed(origin):
-      response.headers['Access-Control-Allow-Origin'] = origin
-      # Only true when explicitly enabled (default false)
-      response.headers['Access-Control-Allow-Credentials'] = 'true' if CORS_ALLOW_CREDENTIALS else 'false'
-    # else: do not set A-C-A-O, causing browser to block unauthorized origins
-
-    # Echo requested headers + include standard ones we rely on
-    req_hdrs = request.headers.get('Access-Control-Request-Headers', '')
-    requested = [h.strip() for h in req_hdrs.split(',') if h.strip()]
-    base_allowed = {"Content-Type", "Authorization", "X-User-Email", "X-API-Key"}
-    allowed_headers = base_allowed.union({h for h in requested})
-    response.headers['Access-Control-Allow-Headers'] = ', '.join(sorted(allowed_headers, key=str.lower))
-
-    # Methods and caching
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Max-Age'] = '86400'  # 24h
-
-  return response
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -320,7 +281,7 @@ def _to_datetime_any(val: Optional[object]) -> Optional[datetime]:
       return datetime.fromisoformat(val.replace("Z", "+00:00"))
   except Exception as e:
     print(f"_to_datetime_any: failed to parse date '{val}': {e}", file=sys.stderr)
-  return None
+    return None
 
 def _fmt_event_date_display(val: Optional[object]) -> str:
   """
@@ -374,9 +335,7 @@ def _get_email_settings() -> Optional[dict]:
     settings["maileroo_sending_key"] = env_api_key
 
   if not settings.get("maileroo_api_endpoint"):
-    # REVERT: Changed default API endpoint back to smtp.maileroo.com/api/v2
-    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2"
-
+    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2" # REVERTED
   if not settings.get("mail_default_sender") and env_sender:
     settings["mail_default_sender"] = env_sender
 
@@ -426,15 +385,11 @@ def _html_to_text(html_content: str) -> str:
 
 def _resolved_maileroo_send_url(settings: dict) -> str:
   """
-  Resolve final Maileroo v2 send endpoint.
-  - If admin saved a full path ending with /email, use as-is.
-  - Otherwise append /email to the base (https://smtp.maileroo.com/api/v2).
+  Resolve final Maileroo send endpoint.
+  Uses the exact endpoint provided in settings/environment.
   """
-  # REVERT: Changed default API endpoint back to smtp.maileroo.com/api/v2
-  base = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2").strip()
-  if base.endswith("/email"):
-    return base
-  return base.rstrip("/") + "/email"
+  # Use the endpoint as is, assuming it's the full URL for the POST request.
+  return (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2").strip() # MODIFIED
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
   settings = _get_email_settings()
@@ -649,7 +604,7 @@ def send_invitation():
     }
   Cooldown:
     - Enforces a cooldown between identical invitations (same sender, recipient, and company).
-    - Duration is configured via INVITE_COOLDOWN_SECONDS (default: 300).
+    - Duration is configured via INVITE_COOLDOS_SECONDS (default: 300).
     - Returns 429 with Retry-After header and JSON body if within cooldown.
   """
   if not supabase:
@@ -1082,13 +1037,13 @@ def create_email_template_admin():
     return jsonify({"message": "Failed to create template"}), 500
 
 # Legacy/bad route shims (kept to avoid confusing 404s if anything cached the wrong path)
-@app.put("/api/admin/email-templates/&lt;template_id&gt;")
+@app.put("/api/admin/email-templates/<template_id>")
 @require_admin_email
 def update_email_template_admin_bad(template_id):
   # This shim keeps compatibility if any client cached the wrong route; returns 404 with hint.
   return jsonify({"message": "Bad route. Use /api/admin/email-templates/<template_id>"}), 404
 
-@app.delete("/api/admin/email-templates/&lt;template_id&gt;")
+@app.delete("/api/admin/email-templates/<template_id>")
 @require_admin_email
 def delete_email_template_admin_bad(template_id):
   return jsonify({"message": "Bad route. Use /api/admin/email-templates/<template_id>"}), 404
@@ -1197,7 +1152,7 @@ def diagnostics():
   settings = _get_email_settings() or {}
   di = {
     "request_origin": origin,
-    "origin_allowed": origin_allowed(origin) if origin else False,
+    "origin_allowed": origin in ALLOWED_ORIGINS or any(rx.match(origin) for rx in ALLOWED_ORIGIN_REGEX) if origin else False,
     "allowed_origins": ALLOWED_ORIGINS,
     "allowed_origin_regex": RAW_ORIGIN_REGEX,
     "allow_credentials": CORS_ALLOW_CREDENTIALS,
