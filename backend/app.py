@@ -22,6 +22,7 @@ app = Flask(__name__)
 load_dotenv()  # Load .env variables
 
 # Explicit CORS configuration to allow admin dashboard calls from production domains
+# Comma-separated exact origins
 ALLOWED_ORIGINS = [
   o.strip() for o in (
     os.environ.get("CORS_ALLOW_ORIGINS")
@@ -30,10 +31,38 @@ ALLOWED_ORIGINS = [
   if o.strip()
 ]
 
+# Comma-separated regex patterns (e.g., https://.*\.vercel\.app)
+RAW_ORIGIN_REGEX = [p.strip() for p in (os.environ.get("CORS_ALLOW_ORIGIN_REGEX") or "").split(",") if p.strip()]
+# Provide a sensible default regex to cover preview deployments if none was set
+if not RAW_ORIGIN_REGEX:
+  RAW_ORIGIN_REGEX = ["https://.*\\.vercel\\.app"]
+
+# Compile regexes for internal checks
+ALLOWED_ORIGIN_REGEX = []
+for pattern in RAW_ORIGIN_REGEX:
+  try:
+    ALLOWED_ORIGIN_REGEX.append(re.compile(pattern))
+  except re.error:
+    print(f"WARNING: Invalid CORS regex skipped: {pattern}", file=sys.stderr)
+
+# Whether to allow credentials (cookies/auth headers). Keep false by default.
+CORS_ALLOW_CREDENTIALS = (os.environ.get("CORS_ALLOW_CREDENTIALS", "false").lower() == "true")
+
+def origin_allowed(origin: Optional[str]) -> bool:
+  if not origin:
+    return False
+  if origin in ALLOWED_ORIGINS:
+    return True
+  for rx in ALLOWED_ORIGIN_REGEX:
+    if rx.match(origin):
+      return True
+  return False
+
+# Use Flask-CORS for /api/*, feeding both exact origins and regex patterns (as strings)
 CORS(
   app,
-  resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
-  supports_credentials=False,
+  resources={r"/api/*": {"origins": ALLOWED_ORIGINS + RAW_ORIGIN_REGEX}},
+  supports_credentials=CORS_ALLOW_CREDENTIALS,
   methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allow_headers=["Content-Type", "Authorization", "X-User-Email", "X-API-Key"],
 )
@@ -60,21 +89,47 @@ except Exception as e:
 VAPID_CLAIMS = {"sub": f"mailto:{os.environ.get('VAPID_EMAIL', 'admin@example.com')}"}
 
 # -----------------------------------------------------------------------------
+# Preflight handler (guarantee a response for all /api/* OPTIONS)
+# -----------------------------------------------------------------------------
+@app.before_request
+def handle_preflight():
+  if request.method == "OPTIONS" and request.path.startswith("/api/"):
+    # Empty 204; headers will be attached by after_request
+    return ("", 204)
+
+# -----------------------------------------------------------------------------
 # Global CORS headers for all responses (including errors)
-# This is a fallback/enhancement to ensure CORS headers are always present.
+# This ensures CORS headers are always present and echo requested headers.
 # -----------------------------------------------------------------------------
 @app.after_request
 def add_cors_headers(response):
   # Only apply to /api/ routes
   if request.path.startswith('/api/'):
     origin = request.headers.get('Origin')
-    if origin and origin in ALLOWED_ORIGINS:
-      response.headers['Access-Control-Allow-Origin'] = origin
 
+    # Vary: make caches aware responses differ per origin and requested headers
+    vary_vals = set()
+    if response.headers.get('Vary'):
+      vary_vals.update(h.strip() for h in response.headers['Vary'].split(',') if h.strip())
+    vary_vals.update(['Origin', 'Access-Control-Request-Headers'])
+    response.headers['Vary'] = ', '.join(sorted(vary_vals))
+
+    if origin and origin_allowed(origin):
+      response.headers['Access-Control-Allow-Origin'] = origin
+      # Only true when explicitly enabled (default false)
+      response.headers['Access-Control-Allow-Credentials'] = 'true' if CORS_ALLOW_CREDENTIALS else 'false'
+    # else: do not set A-C-A-O, causing browser to block unauthorized origins
+
+    # Echo requested headers + include standard ones we rely on
+    req_hdrs = request.headers.get('Access-Control-Request-Headers', '')
+    requested = [h.strip() for h in req_hdrs.split(',') if h.strip()]
+    base_allowed = {"Content-Type", "Authorization", "X-User-Email", "X-API-Key"}
+    allowed_headers = base_allowed.union({h for h in requested})
+    response.headers['Access-Control-Allow-Headers'] = ', '.join(sorted(allowed_headers, key=str.lower))
+
+    # Methods and caching
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-User-Email, X-API-Key'
-    response.headers['Access-Control-Allow-Credentials'] = 'false'  # Set to 'true' if you need cookies/auth headers
-    response.headers['Access-Control-Max-Age'] = '86400'  # Cache preflight for 24 hours
+    response.headers['Access-Control-Max-Age'] = '86400'  # 24h
 
   return response
 
@@ -239,13 +294,13 @@ def _render_template(html_content: str, context: dict) -> str:
     # Regex to find {{#if key}}...{{/if}} blocks
     # We need to escape the key for regex, and also the curly braces
     if_block_regex = re.compile(
-      r'\\{\\{\\s*#if\\s+' + re.escape(key) + r'\\s*\\}\\}(.*?)\\{\\{\\s*/if\\s*\\}\\}',
+      r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}',
       re.DOTALL
     )
     if not value:  # If the variable is falsy, remove the block
       rendered_content = if_block_regex.sub('', rendered_content)
     else:  # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
-      rendered_content = if_block_regex.sub(r'\\1', rendered_content)
+      rendered_content = if_block_regex.sub(r'\1', rendered_content)
   return rendered_content
 
 def _get_email_settings() -> Optional[dict]:
@@ -859,7 +914,7 @@ def create_email_template_admin():
     print(f"Error creating email template: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to create template"}), 500
 
-@app.put("/api/admin/email-templates/<template_id>")
+@app.put("/api/admin/email-templates/&lt;template_id&gt;")
 @require_admin_email
 def update_email_template_admin(template_id):
   if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
@@ -884,7 +939,7 @@ def update_email_template_admin(template_id):
     print(f"Error updating email template: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to update template"}), 500
 
-@app.delete("/api/admin/email-templates/<template_id>")
+@app.delete("/api/admin/email-templates/&lt;template_id&gt;")
 @require_admin_email
 def delete_email_template_admin(template_id):
   if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
