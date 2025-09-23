@@ -4,13 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": "18.x"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "vite --host",
     "backend": "python3 backend/app.py",
     "start-all": "concurrently \"npm run backend\" \"npm run dev\"",
     "build": "vite build",
+    "prebuild": "npm rebuild esbuild || true",
+    "postinstall": "npm rebuild esbuild || true",
     "preview": "vite preview",
     "gen:vapid": "node scripts/generateVapidKeys.cjs",
     "gen:vapid:esm": "node scripts/generateVapidKeys.js",
@@ -33,5 +35,8 @@
     "esbuild": "^0.19.12",
     "vite": "^4.4.5",
     "vite-plugin-pwa": "^0.16.4"
+  },
+  "optionalDependencies": {
+    "@esbuild/linux-x64": "0.19.12"
   }
 }
