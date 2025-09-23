@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import requests
 import json
 import re
+import html
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pywebpush import webpush, WebPushException
@@ -403,6 +404,36 @@ def _get_email_template(template_name: str) -> Optional[dict]:
     print(f"ERROR: Failed to fetch email template '{template_name}' from DB: {e}", file=sys.stderr)
     return None
 
+def _html_to_text(html_content: str) -> str:
+  """
+  Very basic HTML-to-text fallback for providers that require a text part.
+  Strips tags, scripts/styles, unescapes entities, collapses whitespace.
+  """
+  try:
+    # Remove script/style blocks
+    txt = re.sub(r'(?is)<(script|style)[^>]*>.*?</\1>', ' ', html_content or '')
+    # Strip remaining tags
+    txt = re.sub(r'(?s)<[^>]+>', ' ', txt)
+    # Unescape HTML entities
+    txt = html.unescape(txt)
+    # Collapse whitespace
+    txt = re.sub(r'\s+', ' ', txt).strip()
+    # Limit to a reasonable length
+    return txt[:10000]
+  except Exception:
+    return ""
+
+def _resolved_maileroo_send_url(settings: dict) -> str:
+  """
+  Resolve final Maileroo v2 send endpoint.
+  - If admin saved a full path ending with /email, use as-is.
+  - Otherwise append /email to the base (https://smtp.maileroo.com/api/v2).
+  """
+  base = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2").strip()
+  if base.endswith("/email"):
+    return base
+  return base.rstrip("/") + "/email"
+
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
   settings = _get_email_settings()
   if not settings:
@@ -410,13 +441,13 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
     return False
 
   maileroo_api_key = settings.get("maileroo_sending_key")
-  maileroo_api_endpoint = settings.get("maileroo_api_endpoint")
+  base_or_full_endpoint = settings.get("maileroo_api_endpoint")
   default_sender = settings.get("mail_default_sender")
 
   if not maileroo_api_key:
     print("ERROR: Maileroo: Missing API key in settings or ENV.", file=sys.stderr)
     return False
-  if not maileroo_api_endpoint:
+  if not base_or_full_endpoint:
     print("ERROR: Maileroo: Missing API endpoint in settings or ENV.", file=sys.stderr)
     return False
   if not default_sender and not sender_email:
@@ -424,34 +455,71 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
     return False
 
   final_sender = sender_email if sender_email else default_sender
+  send_url = _resolved_maileroo_send_url(settings)
+
+  # Build payload in v2 shape
+  payload = {
+    "from": final_sender,
+    "to": [recipient_email],
+    "subject": subject or "",
+    "html": html_content or "",
+    "text": _html_to_text(html_content or ""),
+  }
 
   try:
-    # Note: Maileroo expects 'X-API-Key' header
-    print(f"Maileroo: POST {maileroo_api_endpoint} with X-API-Key header", file=sys.stderr)
+    print(f"Maileroo: POST {send_url} (base: {base_or_full_endpoint})", file=sys.stderr)
     response = requests.post(
-      maileroo_api_endpoint,
+      send_url,
       headers={
         "Content-Type": "application/json",
         "X-API-Key": maileroo_api_key,
       },
-      json={
-        "to": [{"email": recipient_email}],
-        "from": {"email": final_sender},
-        "subject": subject,
-        "html_body": html_content,
-      },
-      timeout=10  # 10 second timeout
+      json=payload,
+      timeout=15
     )
-    response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-    print(f"Maileroo: Email sent to {recipient_email} successfully. Status: {response.status_code}", file=sys.stderr)
-    return True
+
+    status = response.status_code
+    body_text = ""
+    try:
+      body_text = response.text
+    except Exception:
+      body_text = "<non-textual response>"
+
+    # Log status and first 600 chars of response for diagnostics
+    snippet = body_text[:600] if body_text else ""
+    print(f"Maileroo: status={status}; resp_snippet={snippet}", file=sys.stderr)
+
+    # Require success true in provider JSON when present
+    try:
+      data = response.json()
+    except ValueError:
+      data = None
+
+    if 200 <= status < 300:
+      if isinstance(data, dict):
+        success_flag = data.get("success")
+        if success_flag is True:
+          return True
+        # If provider didn't include a success flag, treat as failure per stricter policy
+        print("Maileroo: 2xx without success:true in JSON; treating as failure for debugging.", file=sys.stderr)
+        return False
+      else:
+        print("Maileroo: 2xx but response not JSON; treating as failure for debugging.", file=sys.stderr)
+        return False
+    else:
+      print(f"ERROR: Maileroo non-2xx ({status}).", file=sys.stderr)
+      return False
+
   except requests.exceptions.RequestException as e:
-    print(f"ERROR: Maileroo: Failed to send email to {recipient_email}: {e}", file=sys.stderr)
-    if hasattr(e, 'response') and e.response is not None:
-      print(f"Maileroo Error Response: {e.response.text}", file=sys.stderr)
+    print(f"ERROR: Maileroo: Request error while sending to {recipient_email}: {e}", file=sys.stderr)
+    try:
+      if getattr(e, "response", None) is not None:
+        print(f"Maileroo Error Response: {e.response.text}", file=sys.stderr)
+    except Exception:
+      pass
     return False
   except Exception as e:
-    print(f"ERROR: Maileroo: An unexpected error occurred while sending email: {e}", file=sys.stderr)
+    print(f"ERROR: Maileroo: Unexpected error: {e}", file=sys.stderr)
     return False
 
 def _send_push_notification(subscription_info: dict, title: str, body: str, url: str = VITE_FRONTEND_URL) -> bool:
@@ -1143,6 +1211,7 @@ def diagnostics():
         "has_sending_key": bool(settings.get("maileroo_sending_key")),
         "has_default_sender": bool(settings.get("mail_default_sender")),
         "api_endpoint": (settings.get("maileroo_api_endpoint") or "")[:80],
+        "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120],
       },
     },
     "admin_emails_count": len(_get_allowed_admin_emails() or []),
