@@ -292,7 +292,7 @@ def _fmt_event_date_display(val: Optional[object]) -> str:
     # Fallback to raw string if provided
     return str(val or "")
   try:
-    return d.strftime("%B %d, %Y")
+    return d.strftime("%B  %d, %Y")
   except Exception:
     return str(val or "")
 
@@ -334,7 +334,7 @@ def _get_email_settings() -> Optional[dict]:
   if not settings.get("maileroo_sending_key") and env_api_key:
     settings["maileroo_sending_key"] = env_api_key
 
-  # Default to the correct Maileroo API endpoint
+  # Default to the Maileroo API endpoint; using /emails (works per logs)
   if not settings.get("maileroo_api_endpoint"):
     settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2/emails"
   if not settings.get("mail_default_sender") and env_sender:
@@ -1104,6 +1104,28 @@ def diagnostics():
     "admin_emails_count": len(_get_allowed_admin_emails() or []),
   }
   return jsonify(di), 200
+
+# NEW: Admin route to list all registered API routes (for diagnostics)
+@app.get("/api/admin/routes")
+@require_admin_email
+def list_routes_admin():
+  try:
+    routes = []
+    for rule in app.url_map.iter_rules():
+      rule_str = str(rule.rule)
+      if not rule_str.startswith("/api/"):
+        continue
+      methods = sorted(m for m in (rule.methods or []) if m not in ("HEAD", "OPTIONS"))
+      routes.append({
+        "rule": rule_str,
+        "endpoint": rule.endpoint,
+        "methods": methods
+      })
+    routes.sort(key=lambda r: (r["rule"], ",".join(r["methods"])))
+    return jsonify({"count": len(routes), "routes": routes}), 200
+  except Exception as e:
+    print(f"Error listing routes: {e}", file=sys.stderr)
+    return jsonify({"message": "Failed to list routes"}), 500
 
 # -----------------------------------------------------------------------------
 # Entrypoint
