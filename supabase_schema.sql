@@ -698,4 +698,4 @@ $$<!DOCTYPE html>
   </div>
 </body>
 </html>$$
-WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'task_assigned');
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'task_assigned')
