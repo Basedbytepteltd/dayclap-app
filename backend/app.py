@@ -418,7 +418,7 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
   # Build payload in v2 shape
   payload = {
     "from": final_sender,
-    "to": [{"email": recipient_email}],  # Array of objects as Maileroo expects
+    "to": [{"address": recipient_email}],  # CRITICAL FIX: Changed to array of objects with "address" key
     "subject": subject or "",
     "html": html_content or "",
     "text": _html_to_text(html_content or ""),
