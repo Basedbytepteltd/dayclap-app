@@ -10,7 +10,7 @@
 # 4. This script should be run on a server where you can configure cron jobs.
 
 BACKEND_URL="https://dayclap-backend-api.onrender.com" # Example: Your deployed backend URL
-API_KEY="your_strong_unique_key_for_supabase_trigger_calls" # Must match BACKEND_API_KEY in backend/.env
+API_KEY="your_local_backend_api_key_for_supabase_trigger" # Updated. Must match BACKEND_API_KEY in backend/.env
 
 echo "Attempting to send 1-week event reminders at $(date)"
 

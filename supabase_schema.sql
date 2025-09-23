@@ -49,6 +49,12 @@ BEGIN
         ALTER TABLE public.profiles ADD COLUMN account_type TEXT DEFAULT 'personal';
         RAISE NOTICE 'Column account_type added to public.profiles table.';
     END IF;
+
+    -- NEW: Add push_subscription column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'push_subscription') THEN
+        ALTER TABLE public.profiles ADD COLUMN push_subscription JSONB;
+        RAISE NOTICE 'Column push_subscription added to public.profiles table.';
+    END IF;
 END
 $$;
 
@@ -152,8 +158,8 @@ CREATE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION public.send_welcome_email_on_confirm()
 RETURNS TRIGGER AS $$
 DECLARE
-    backend_url TEXT := 'https://dayclap-backend-api.onrender.com'; -- <<< IMPORTANT: This is your deployed backend URL
-    api_key TEXT := 'your_strong_unique_key_for_supabase_trigger_calls_prod'; -- <<< IMPORTANT: REPLACE THIS WITH THE SAME KEY YOU SET FOR BACKEND_API_KEY IN RENDER
+    backend_url TEXT := 'https://dayclap-backend-api.onrender.com'; -- IMPORTANT: Update for deployment (e.g., 'https://your-backend-url.com')
+    api_key TEXT := 'your_local_backend_api_key_for_supabase_trigger'; -- <<< IMPORTANT: REPLACE THIS WITH THE SAME KEY YOU SET FOR BACKEND_API_KEY IN backend/.env
     payload JSONB;
     headers JSONB;
     request_id BIGINT;
@@ -188,10 +194,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- NEW: Trigger to call the welcome email function after auth.users update
 DROP TRIGGER IF EXISTS on_auth_user_confirmed ON auth.users;
--- Temporarily commented out to debug OTP issue. Re-enable after OTP works.
--- CREATE TRIGGER on_auth_user_confirmed
--- AFTER UPDATE OF email_confirmed_at ON auth.users
--- FOR EACH ROW EXECUTE FUNCTION public.send_welcome_email_on_confirm();
+CREATE TRIGGER on_auth_user_confirmed
+AFTER UPDATE OF email_confirmed_at ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.send_welcome_email_on_confirm();
 
 
 -- Create 'invitations' table
@@ -262,9 +267,9 @@ ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can manage events in their current company." ON events;
 -- Drop specific policies if they exist before recreating
 DROP POLICY IF EXISTS "Users can view events in companies they belong to." ON events;
-DROP POLICY IF EXISTS "Users can insert events in their current company." ON events;
-DROP POLICY IF EXISTS "Users can update events in their current company." ON events;
-DROP POLICY IF EXISTS "Users can delete events in their current company." ON events;
+DROP POLICY IF EXISTS "Users can insert events in their current company." ON events; -- ADDED
+DROP POLICY IF EXISTS "Users can update events in their current company." ON events; -- ADDED
+DROP POLICY IF EXISTS "Users can delete events in their current company." ON events; -- ADDED
 
 -- Policy for SELECT: Users can view events if they are part of the event's company
 CREATE POLICY "Users can view events in companies they belong to." ON events FOR SELECT USING (
@@ -333,9 +338,9 @@ ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can manage tasks in their current company." ON tasks;
 -- Drop specific policies if they exist before recreating
 DROP POLICY IF EXISTS "Users can view tasks in companies they belong to." ON tasks;
-DROP POLICY IF EXISTS "Users can insert tasks in their current company." ON tasks;
-DROP POLICY IF EXISTS "Users can update tasks in their current company." ON tasks;
-DROP POLICY IF EXISTS "Users can delete tasks in their current company." ON tasks;
+DROP POLICY IF EXISTS "Users can insert tasks in their current company." ON tasks; -- ADDED
+DROP POLICY IF EXISTS "Users can update tasks in their current company." ON tasks; -- ADDED
+DROP POLICY IF EXISTS "Users can delete tasks in their current company." ON tasks; -- ADDED
 
 -- Policy for SELECT: Users can view tasks if they are part of the task's company
 CREATE POLICY "Users can view tasks in companies they belong to." ON tasks FOR SELECT USING (
@@ -372,7 +377,7 @@ CREATE POLICY "Users can delete tasks in their current company." ON tasks FOR DE
 -- Create 'email_settings' table
 CREATE TABLE IF NOT EXISTS email_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2',
+  maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2', -- REVERT: Changed default API endpoint
   mail_default_sender TEXT DEFAULT 'no-reply@team.dayclap.com',
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   -- NEW: Columns for internal scheduler control
@@ -393,13 +398,13 @@ BEGIN
             RAISE NOTICE 'Column "maileroo_sending_key" added.';
         END IF;
         -- NEW: Add scheduler_enabled column if it doesn't exist
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='scheduler_enabled') THEN
-            ALTER TABLE email_settings ADD COLUMN scheduler_enabled BOOLEAN DEFAULT TRUE;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'email_settings' AND column_name = 'scheduler_enabled') THEN
+            ALTER TABLE public.email_settings ADD COLUMN scheduler_enabled BOOLEAN DEFAULT TRUE;
             RAISE NOTICE 'Column "scheduler_enabled" added.';
         END IF;
         -- NEW: Add reminder_time column if it doesn't exist
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='reminder_time') THEN
-            ALTER TABLE email_settings ADD COLUMN reminder_time TEXT DEFAULT '02:00';
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'email_settings' AND column_name = 'reminder_time') THEN
+            ALTER TABLE public.email_settings ADD COLUMN reminder_time TEXT DEFAULT '02:00';
             RAISE NOTICE 'Column "reminder_time" added.';
         END IF;
     END IF;
@@ -414,30 +419,26 @@ CREATE POLICY "Super admin can manage email settings." ON email_settings FOR ALL
 
 -- Insert default row if table is empty
 INSERT INTO email_settings (id, maileroo_sending_key, maileroo_api_endpoint, mail_default_sender, scheduler_enabled, reminder_time)
-SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2', 'no-reply@team.dayclap.com', TRUE, '02:00'
+SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2', 'no-reply@team.dayclap.com', TRUE, '02:00' -- REVERT: Changed default API endpoint
 WHERE NOT EXISTS (SELECT 1 FROM email_settings);
 
 -- **FIX**: Correct any old, incorrect default sender email values.
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM email_settings WHERE mail_default_sender = 'DayClap Notifications <noreply@dayclap.com>') THEN
-        UPDATE email_settings
-        SET mail_default_sender = 'no-reply@team.dayclap.com'
-        WHERE mail_default_sender = 'DayClap Notifications <noreply@dayclap.com>';
-        RAISE NOTICE 'Corrected outdated mail_default_sender value.';
-    END IF;
+    UPDATE email_settings
+    SET mail_default_sender = 'no-reply@team.dayclap.com'
+    WHERE mail_default_sender = 'DayClap Notifications <noreply@dayclap.com>';
+    -- RAISE NOTICE 'Corrected outdated mail_default_sender value.'; -- Optional: keep for debugging, remove for production
 END
 $$;
 
 -- **FIX**: Correct any old, incorrect API endpoints to the new correct one.
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM email_settings WHERE maileroo_api_endpoint != 'https://smtp.maileroo.com/api/v2') THEN
-        UPDATE email_settings
-        SET maileroo_api_endpoint = 'https://smtp.maileroo.com/api/v2'
-        WHERE maileroo_api_endpoint != 'https://smtp.maileroo.com/api/v2';
-        RAISE NOTICE 'Corrected outdated maileroo_api_endpoint value to the correct URL.';
-    END IF;
+    UPDATE email_settings
+    SET maileroo_api_endpoint = 'https://smtp.maileroo.com/api/v2' -- REVERT: Changed API endpoint in update
+    WHERE maileroo_api_endpoint != 'https://smtp.maileroo.com/api/v2'; -- REVERT: Changed API endpoint in condition
+    -- RAISE NOTICE 'Corrected outdated maileroo_api_endpoint value to the correct URL.'; -- Optional: keep for debugging, remove for production
 END
 $$;
 
@@ -671,8 +672,6 @@ $$<!DOCTYPE html>
         <span class="label">Task Due</span>
         <span class="value">{{ due_date }}</span>
       </div>
-      {{/if}}
-
       {{#if event_date}}
       <div class="meta">
         <span class="label">Event Date</span>
