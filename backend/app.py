@@ -1072,6 +1072,35 @@ def delete_email_template_admin(template_id):
     return jsonify({"message": "Failed to delete template"}), 500
 
 # -----------------------------------------------------------------------------
+# Admin Test Sending Routes
+# -----------------------------------------------------------------------------
+@app.post("/api/admin/send-test-email")
+@require_admin_email
+def send_test_email_admin():
+  body = request.get_json(force=True, silent=True) or {}
+  recipient_email = (body.get("recipient_email") or "").strip()
+  if not recipient_email:
+    return jsonify({"message": "Recipient email is required"}), 400
+
+  test_template = _get_email_template("welcome_email")  # Use welcome email as a generic test
+  if not test_template:
+    # _get_email_template already logs the error
+    return jsonify({"message": "Test email template not found (welcome_email) or DB error."}), 500
+
+  context = {
+    "user_name": "Test User",
+    "current_year": datetime.now().year,
+    "frontend_url": VITE_FRONTEND_URL,
+  }
+  rendered_html = _render_template(test_template["html_content"], context)
+
+  if _send_email_via_maileroo(recipient_email, f"[TEST] {test_template['subject']}", rendered_html):
+    return jsonify({"message": "Test email sent successfully"}), 200
+  else:
+    # _send_email_via_maileroo already logs the error
+    return jsonify({"message": "Failed to send test email. Check backend logs for details."}), 500
+
+# -----------------------------------------------------------------------------
 # Admin Diagnostics (read-only)
 # -----------------------------------------------------------------------------
 @app.get("/api/admin/diagnostics")
