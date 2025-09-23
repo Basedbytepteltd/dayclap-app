@@ -5,7 +5,7 @@ import os
 import sys
 from functools import wraps
 from typing import Optional, Tuple
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date as dt_date
 from dotenv import load_dotenv
 import requests
 import json
@@ -267,13 +267,11 @@ def fetch_profile(user_id: str) -> Optional[dict]:
     print(f"fetch_profile error: {e}", file=sys.stderr)
     return None
 
-
 def _utcnow_iso() -> str:
   try:
     return datetime.now(timezone.utc).isoformat()
   except Exception:
     return ""
-
 
 def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
   if not dt_str:
@@ -303,16 +301,96 @@ def _render_template(html_content: str, context: dict) -> str:
       rendered_content = if_block_regex.sub(r'\1', rendered_content)
   return rendered_content
 
-def _get_email_settings() -> Optional[dict]:
-  if not supabase:
-    print("ERROR: Supabase client not configured for _get_email_settings.", file=sys.stderr)
+def _to_datetime_any(val: Optional[object]) -> Optional[datetime]:
+  """
+  Convert various date-like values to a datetime for formatting.
+  Accepts: datetime, date, ISO string 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM:SS'.
+  """
+  if val is None:
     return None
   try:
-    resp = supabase.table("email_settings").select("*").limit(1).single().execute()
-    return resp.data
+    if isinstance(val, datetime):
+      return val
+    if isinstance(val, dt_date):
+      # Make a naive datetime (date only) for display
+      return datetime(val.year, val.month, val.day)
+    if isinstance(val, str):
+      # Accepts 'YYYY-MM-DD' and full ISO datetimes
+      return datetime.fromisoformat(val.replace("Z", "+00:00"))
   except Exception as e:
-    print(f"ERROR: Failed to fetch email settings from DB: {e}", file=sys.stderr)
+    print(f"_to_datetime_any: failed to parse date '{val}': {e}", file=sys.stderr)
+  return None
+
+def _fmt_event_date_display(val: Optional[object]) -> str:
+  """
+  Format event date for emails safely as 'Month DD, YYYY'.
+  """
+  d = _to_datetime_any(val)
+  if not d:
+    # Fallback to raw string if provided
+    return str(val or "")
+  try:
+    return d.strftime("%B %d, %Y")
+  except Exception:
+    return str(val or "")
+
+def _ensure_list_event_tasks(raw) -> list:
+  """
+  Ensure event_tasks is a list. Accepts list or JSON string representations.
+  """
+  if isinstance(raw, list):
+    return raw
+  if isinstance(raw, str):
+    try:
+      val = json.loads(raw)
+      if isinstance(val, list):
+        return val
+    except Exception as e:
+      print(f"_ensure_list_event_tasks: failed to json.loads tasks: {e}", file=sys.stderr)
+  return []
+
+def _get_email_settings() -> Optional[dict]:
+  """
+  Fetch email settings from DB (if available) and transparently fall back to environment variables
+  for any missing values. This ensures email sending works even before UI saves settings.
+  """
+  db_settings = None
+  if supabase:
+    try:
+      resp = supabase.table("email_settings").select("*").limit(1).single().execute()
+      db_settings = resp.data
+    except Exception as e:
+      print(f"ERROR: Failed to fetch email settings from DB: {e}", file=sys.stderr)
+
+  settings = dict(db_settings or {})
+
+  # Transparent ENV fallbacks
+  env_api_key = os.environ.get("MAILEROO_API_KEY")
+  env_endpoint = os.environ.get("MAILEROO_API_ENDPOINT")
+  env_sender = os.environ.get("MAIL_DEFAULT_SENDER")
+
+  if not settings.get("maileroo_sending_key") and env_api_key:
+    settings["maileroo_sending_key"] = env_api_key
+
+  if not settings.get("maileroo_api_endpoint"):
+    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2"
+
+  if not settings.get("mail_default_sender") and env_sender:
+    settings["mail_default_sender"] = env_sender
+
+  # Scheduler-related sensible defaults
+  if settings.get("scheduler_enabled") is None:
+    env_sched = os.environ.get("SCHEDULER_ENABLED")
+    settings["scheduler_enabled"] = (env_sched.lower() == "true") if isinstance(env_sched, str) else True
+
+  if not settings.get("reminder_time"):
+    settings["reminder_time"] = os.environ.get("REMINDER_TIME", "02:00")
+
+  # If still empty overall, return None to signal unusable config
+  if not any([settings.get("maileroo_sending_key"), settings.get("mail_default_sender"), settings.get("maileroo_api_endpoint")]):
     return None
+
+  return settings
 
 def _get_email_template(template_name: str) -> Optional[dict]:
   if not supabase:
@@ -328,7 +406,7 @@ def _get_email_template(template_name: str) -> Optional[dict]:
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
   settings = _get_email_settings()
   if not settings:
-    print("ERROR: Maileroo: Email settings not found in DB or Supabase client not configured.", file=sys.stderr)
+    print("ERROR: Maileroo: Email settings not found in DB and no usable ENV fallback.", file=sys.stderr)
     return False
 
   maileroo_api_key = settings.get("maileroo_sending_key")
@@ -336,13 +414,13 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
   default_sender = settings.get("mail_default_sender")
 
   if not maileroo_api_key:
-    print("ERROR: Maileroo: Missing API key in settings.", file=sys.stderr)
+    print("ERROR: Maileroo: Missing API key in settings or ENV.", file=sys.stderr)
     return False
   if not maileroo_api_endpoint:
-    print("ERROR: Maileroo: Missing API endpoint in settings.", file=sys.stderr)
+    print("ERROR: Maileroo: Missing API endpoint in settings or ENV.", file=sys.stderr)
     return False
-  if not default_sender:
-    print("ERROR: Maileroo: Missing default sender in settings.", file=sys.stderr)
+  if not default_sender and not sender_email:
+    print("ERROR: Maileroo: Missing default sender in settings or ENV.", file=sys.stderr)
     return False
 
   final_sender = sender_email if sender_email else default_sender
@@ -720,6 +798,7 @@ def _send_1week_event_reminders_job():
     seven_days_from_now_str = seven_days_from_now.isoformat()
 
     # Fetch events that are 7 days away and haven't had a 1-week reminder sent
+    # Note: supabase-py .is_(..., None) translates to PostgREST is.null
     resp = supabase.table("events")\
       .select("id, user_id, company_id, title, date, time, location, description, event_tasks")\
       .eq("date", seven_days_from_now_str)\
@@ -727,8 +806,9 @@ def _send_1week_event_reminders_job():
       .execute()
     events_to_remind = resp.data
 
+    count_events = len(events_to_remind or [])
+    print(f"1-week reminder: {count_events} event(s) on {seven_days_from_now_str}", file=sys.stderr)
     if not events_to_remind:
-      print("No events found for 1-week reminder.", file=sys.stderr)
       return
 
     reminder_template = _get_email_template("event_1week_reminder")
@@ -737,52 +817,56 @@ def _send_1week_event_reminders_job():
       return
 
     for event in events_to_remind:
-      user_profile_resp = supabase.table("profiles").select("email, name, notifications").eq("id", event["user_id"]).single().execute()
-      user_profile = user_profile_resp.data
+      try:
+        user_profile_resp = supabase.table("profiles").select("email, name, notifications").eq("id", event["user_id"]).single().execute()
+        user_profile = user_profile_resp.data
 
-      if not user_profile:
-        print(f"User profile not found for event {event['id']}. Skipping reminder.", file=sys.stderr)
-        continue
+        if not user_profile:
+          print(f"User profile not found for event {event['id']}. Skipping reminder.", file=sys.stderr)
+          continue
 
-      user_email = user_profile.get("email")
-      user_name = user_profile.get("name") or user_email.split('@')[0]
-      user_notifications = user_profile.get("notifications", {})
+        user_email = user_profile.get("email")
+        user_name = user_profile.get("name") or (user_email.split('@')[0] if user_email else "there")
+        user_notifications = user_profile.get("notifications", {}) or {}
 
-      if not user_notifications.get("email_1week_countdown", False):
-        print(f"User {user_email} has 1-week countdown emails disabled. Skipping.", file=sys.stderr)
-        continue
+        if not user_notifications.get("email_1week_countdown", False):
+          print(f"User {user_email} has 1-week countdown emails disabled. Skipping.", file=sys.stderr)
+          continue
 
-      # Calculate task completion for the event
-      event_tasks = event.get("event_tasks", [])
-      total_tasks = len(event_tasks)
-      completed_tasks = sum(1 for task in event_tasks if task.get("completed"))
-      pending_tasks_count = total_tasks - completed_tasks
-      task_completion_percentage = f"{int((completed_tasks / total_tasks) * 100)}%" if total_tasks > 0 else "0%"
+        # Calculate task completion for the event (defensively)
+        event_tasks_raw = event.get("event_tasks")
+        event_tasks = _ensure_list_event_tasks(event_tasks_raw)
+        total_tasks = len(event_tasks)
+        completed_tasks = sum(1 for task in event_tasks if isinstance(task, dict) and task.get("completed"))
+        pending_tasks_count = total_tasks - completed_tasks
+        task_completion_percentage = f"{int((completed_tasks / total_tasks) * 100)}%" if total_tasks > 0 else "0%"
 
-      context = {
-        "user_name": user_name,
-        "event_title": event["title"],
-        "event_date": datetime.fromisoformat(event["date"]).strftime("%B %d, %Y"),
-        "event_time": event["time"] or "N/A",
-        "event_location": event["location"] or "",
-        "event_description": event["description"] or "",
-        "has_tasks": "true" if total_tasks > 0 else "",
-        "pending_tasks_count": pending_tasks_count,
-        "task_completion_percentage": task_completion_percentage,
-        "current_year": datetime.now().year,
-        "frontend_url": VITE_FRONTEND_URL,
-      }
-      rendered_html = _render_template(reminder_template["html_content"], context)
+        context = {
+          "user_name": user_name,
+          "event_title": event.get("title") or "",
+          "event_date": _fmt_event_date_display(event.get("date")),
+          "event_time": event.get("time") or "N/A",
+          "event_location": event.get("location") or "",
+          "event_description": event.get("description") or "",
+          "has_tasks": "true" if total_tasks > 0 else "",
+          "pending_tasks_count": pending_tasks_count,
+          "task_completion_percentage": task_completion_percentage,
+          "current_year": datetime.now().year,
+          "frontend_url": VITE_FRONTEND_URL,
+        }
+        rendered_html = _render_template(reminder_template["html_content"], context)
 
-      if _send_email_via_maileroo(user_email, reminder_template["subject"], rendered_html):
-        # Mark reminder as sent
-        supabase.table("events")\
-          .update({"one_week_reminder_sent_at": datetime.now(timezone.utc).isoformat()})\
-          .eq("id", event["id"])\
-          .execute()
-        print(f"Sent 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
-      else:
-        print(f"Failed to send 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
+        if _send_email_via_maileroo(user_email, reminder_template["subject"], rendered_html):
+          # Mark reminder as sent
+          supabase.table("events")\
+            .update({"one_week_reminder_sent_at": datetime.now(timezone.utc).isoformat()})\
+            .eq("id", event["id"])\
+            .execute()
+          print(f"Sent 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
+        else:
+          print(f"Failed to send 1-week reminder for event {event['id']} to {user_email}", file=sys.stderr)
+      except Exception as inner_e:
+        print(f"Error processing event {event.get('id')}: {inner_e}", file=sys.stderr)
 
   except Exception as e:
     print(f"Error in _send_1week_event_reminders_job: {e}", file=sys.stderr)
@@ -826,6 +910,16 @@ if not scheduler.running:
   scheduler.start()
 _schedule_daily_reminders_job()
 
+# Manual (API-key protected) trigger for the 1-week reminder job (useful for testing/cron over HTTP)
+@app.post("/api/send-1week-event-reminders")
+@require_api_key
+def trigger_1week_event_reminders():
+  try:
+    _send_1week_event_reminders_job()
+    return jsonify({"message": "Triggered 1-week reminder job"}), 200
+  except Exception as e:
+    return jsonify({"message": f"Failed to trigger: {e}"}), 500
+
 # -----------------------------------------------------------------------------
 # Admin Email Settings Routes
 # -----------------------------------------------------------------------------
@@ -835,9 +929,10 @@ def get_email_settings_admin():
   settings = _get_email_settings()
   if settings:
     # Mask the key for display
-    settings["maileroo_sending_key"] = "********" if settings.get("maileroo_sending_key") else ""
+    if settings.get("maileroo_sending_key"):
+      settings["maileroo_sending_key"] = "********"
     return jsonify(settings), 200
-  return jsonify({"message": "Email settings not found or DB error."}), 500
+  return jsonify({"message": "Email settings not found or DB/ENV error."}), 500
 
 @app.put("/api/admin/email-settings")
 @require_admin_email
@@ -914,7 +1009,20 @@ def create_email_template_admin():
     print(f"Error creating email template: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to create template"}), 500
 
+# Legacy/bad route shims (kept to avoid confusing 404s if anything cached the wrong path)
 @app.put("/api/admin/email-templates/&lt;template_id&gt;")
+@require_admin_email
+def update_email_template_admin_bad(template_id):
+  # This shim keeps compatibility if any client cached the wrong route; returns 404 with hint.
+  return jsonify({"message": "Bad route. Use /api/admin/email-templates/<template_id>"}), 404
+
+@app.delete("/api/admin/email-templates/&lt;template_id&gt;")
+@require_admin_email
+def delete_email_template_admin_bad(template_id):
+  return jsonify({"message": "Bad route. Use /api/admin/email-templates/<template_id>"}), 404
+
+# Correct implementation:
+@app.put("/api/admin/email-templates/<template_id>")
 @require_admin_email
 def update_email_template_admin(template_id):
   if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
@@ -939,7 +1047,7 @@ def update_email_template_admin(template_id):
     print(f"Error updating email template: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to update template"}), 500
 
-@app.delete("/api/admin/email-templates/&lt;template_id&gt;")
+@app.delete("/api/admin/email-templates/<template_id>")
 @require_admin_email
 def delete_email_template_admin(template_id):
   if not supabase: return jsonify({"message": "Supabase client not configured"}), 500
@@ -1005,6 +1113,39 @@ def send_test_push_admin():
   except Exception as e:
     print(f"Error sending test push: {e}", file=sys.stderr)
     return jsonify({"message": f"An error occurred: {e}"}), 500
+
+# -----------------------------------------------------------------------------
+# Admin Diagnostics (read-only)
+# -----------------------------------------------------------------------------
+@app.get("/api/admin/diagnostics")
+@require_admin_email
+def diagnostics():
+  origin = request.headers.get("Origin")
+  job = scheduler.get_job(scheduler_job_id)
+  settings = _get_email_settings() or {}
+  di = {
+    "request_origin": origin,
+    "origin_allowed": origin_allowed(origin) if origin else False,
+    "allowed_origins": ALLOWED_ORIGINS,
+    "allowed_origin_regex": RAW_ORIGIN_REGEX,
+    "allow_credentials": CORS_ALLOW_CREDENTIALS,
+    "scheduler": {
+      "running": scheduler.running,
+      "job_scheduled": job is not None,
+      "next_run_time": job.next_run_time.isoformat() if job and job.next_run_time else None,
+    },
+    "email_config": {
+      "has_db_row": bool(settings.get("id")),
+      "has_env_maileroo_api_key": bool(os.environ.get("MAILEROO_API_KEY")),
+      "resolved": {
+        "has_sending_key": bool(settings.get("maileroo_sending_key")),
+        "has_default_sender": bool(settings.get("mail_default_sender")),
+        "api_endpoint": (settings.get("maileroo_api_endpoint") or "")[:80],
+      },
+    },
+    "admin_emails_count": len(_get_allowed_admin_emails() or []),
+  }
+  return jsonify(di), 200
 
 # -----------------------------------------------------------------------------
 # Entrypoint
