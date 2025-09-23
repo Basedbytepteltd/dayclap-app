@@ -427,6 +427,14 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
   }
 
   try:
+    # NEW DIAGNOSTIC PRINTS
+    print(f"Maileroo DIAG: Final send_url: {send_url}", file=sys.stderr)
+    print(f"Maileroo DIAG: Payload: {json.dumps(payload, indent=2)}", file=sys.stderr)
+    if maileroo_api_key and len(maileroo_api_key) > 8:
+        print(f"Maileroo DIAG: X-API-Key (masked): {maileroo_api_key[:4]}...{maileroo_api_key[-4:]}", file=sys.stderr)
+    else:
+        print(f"Maileroo DIAG: X-API-Key (masked): {maileroo_api_key}", file=sys.stderr)
+
     print(f"Maileroo: POST {send_url} (base: {base_or_full_endpoint})", file=sys.stderr)
     response = requests.post(
       send_url,
@@ -1075,7 +1083,7 @@ def update_email_template_admin(template_id):
     return jsonify({"message": "Template updated", "template": refetch.data}), 200
   except Exception as e:
     print(f"Error updating email template: {e}", file=sys.stderr)
-    return jsonify({"message": "Failed to update template"}), 500
+    return jsonify({"message": "Failed to update email settings"}), 500
 
 @app.delete("/api/admin/email-templates/<template_id>")
 @require_admin_email
