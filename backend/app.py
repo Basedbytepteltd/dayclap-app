@@ -32,7 +32,7 @@ ALLOWED_ORIGINS = [
   if o.strip()
 ]
 
-# Comma-separated regex patterns (e.g., https://.*\.vercel\.app)
+# Comma-separated regex patterns (e.g., https://.*\\.vercel\\.app)
 RAW_ORIGIN_REGEX = [p.strip() for p in (os.environ.get("CORS_ALLOW_ORIGIN_REGEX") or "").split(",") if p.strip()]
 # Provide a sensible default regex to cover preview deployments if none was set
 if not RAW_ORIGIN_REGEX:
@@ -335,7 +335,7 @@ def _get_email_settings() -> Optional[dict]:
     settings["maileroo_sending_key"] = env_api_key
 
   if not settings.get("maileroo_api_endpoint"):
-    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2" # REVERTED
+    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2"
   if not settings.get("mail_default_sender") and env_sender:
     settings["mail_default_sender"] = env_sender
 
@@ -386,10 +386,13 @@ def _html_to_text(html_content: str) -> str:
 def _resolved_maileroo_send_url(settings: dict) -> str:
   """
   Resolve final Maileroo send endpoint.
-  Uses the exact endpoint provided in settings/environment.
+  Appends '/email' to the base endpoint provided in settings/environment.
   """
-  # Use the endpoint as is, assuming it's the full URL for the POST request.
-  return (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2").strip() # MODIFIED
+  base_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2").strip()
+  # Ensure base_endpoint does not end with a slash before appending /email
+  if base_endpoint.endswith('/'):
+      base_endpoint = base_endpoint.rstrip('/')
+  return f"{base_endpoint}/email" # MODIFIED: Appended /email
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
   settings = _get_email_settings()
@@ -1168,7 +1171,7 @@ def diagnostics():
         "has_sending_key": bool(settings.get("maileroo_sending_key")),
         "has_default_sender": bool(settings.get("mail_default_sender")),
         "api_endpoint": (settings.get("maileroo_api_endpoint") or "")[:80],
-        "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120],
+        "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120], # Ensure this uses the corrected function
       },
     },
     "admin_emails_count": len(_get_allowed_admin_emails() or []),
