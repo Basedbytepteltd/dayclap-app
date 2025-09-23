@@ -374,6 +374,7 @@ def _get_email_settings() -> Optional[dict]:
     settings["maileroo_sending_key"] = env_api_key
 
   if not settings.get("maileroo_api_endpoint"):
+    # REVERT: Changed default API endpoint back to smtp.maileroo.com/api/v2
     settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2"
 
   if not settings.get("mail_default_sender") and env_sender:
@@ -429,6 +430,7 @@ def _resolved_maileroo_send_url(settings: dict) -> str:
   - If admin saved a full path ending with /email, use as-is.
   - Otherwise append /email to the base (https://smtp.maileroo.com/api/v2).
   """
+  # REVERT: Changed default API endpoint back to smtp.maileroo.com/api/v2
   base = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2").strip()
   if base.endswith("/email"):
     return base
