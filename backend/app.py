@@ -36,7 +36,7 @@ ALLOWED_ORIGINS = [
 RAW_ORIGIN_REGEX = [p.strip() for p in (os.environ.get("CORS_ALLOW_ORIGIN_REGEX") or "").split(",") if p.strip()]
 # Provide a sensible default regex to cover preview deployments if none was set
 if not RAW_ORIGIN_REGEX:
-  RAW_ORIGIN_REGEX = ["https://.*\.vercel\.app"] # Corrected: Single backslash for literal dot
+  RAW_ORIGIN_REGEX = ["https://.*\\.vercel\\.app"] # Corrected: Single backslash for literal dot
 
 # Compile regexes for internal checks
 ALLOWED_ORIGIN_REGEX = []
@@ -334,8 +334,9 @@ def _get_email_settings() -> Optional[dict]:
   if not settings.get("maileroo_sending_key") and env_api_key:
     settings["maileroo_sending_key"] = env_api_key
 
+  # MODIFIED: Default to full Maileroo send endpoint
   if not settings.get("maileroo_api_endpoint"):
-    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2"
+    settings["maileroo_api_endpoint"] = env_endpoint or "https://smtp.maileroo.com/api/v2/send"
   if not settings.get("mail_default_sender") and env_sender:
     settings["mail_default_sender"] = env_sender
 
@@ -386,13 +387,12 @@ def _html_to_text(html_content: str) -> str:
 def _resolved_maileroo_send_url(settings: dict) -> str:
   """
   Resolve final Maileroo send endpoint.
-  Appends '/email' to the base endpoint provided in settings/environment.
+  Returns the full endpoint provided in settings/environment.
   """
-  base_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2").strip()
-  # Ensure base_endpoint does not end with a slash before appending /email
-  if base_endpoint.endswith('/'):
-      base_endpoint = base_endpoint.rstrip('/')
-  return f"{base_endpoint}/email"
+  # MODIFIED: The endpoint should already include the /send path.
+  # Default to the full /send path if not configured.
+  full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/send").strip()
+  return full_send_endpoint
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
   settings = _get_email_settings()
@@ -1005,9 +1005,9 @@ def update_email_settings_admin():
     print(f"Error updating email settings: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to update email settings"}), 500
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # Admin Email Templates Routes
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 @app.get("/api/admin/email-templates")
 @require_admin_email
 def get_email_templates_admin():
@@ -1096,9 +1096,9 @@ def delete_email_template_admin(template_id):
     print(f"Error deleting email template: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to delete template"}), 500
 
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 # Admin Test Sending Routes
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
 @app.post("/api/admin/send-test-email")
 @require_admin_email
 def send_test_email_admin():
@@ -1140,7 +1140,7 @@ def send_test_push_admin():
   try:
     resp = supabase.table("profiles").select("push_subscription").eq("email", recipient_email).single().execute()
     profile = resp.data
-    if not profile or not profile.get("push_subscription"):
+    if not profile or not profile.get("push_subscription"):\
       return jsonify({"message": f"No active push subscription found for {recipient_email}"}), 404
 
     subscription_info = profile["push_subscription"]
@@ -1152,9 +1152,9 @@ def send_test_push_admin():
     print(f"Error sending test push: {e}", file=sys.stderr)
     return jsonify({"message": f"An error occurred: {e}"}), 500
 
-# -----------------------------------------------------------------------------
-# Admin Diagnostics (read-only)
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
+# Admin Diagnostics (read-only)\
+# -----------------------------------------------------------------------------\
 @app.get("/api/admin/diagnostics")
 @require_admin_email
 def diagnostics():
@@ -1186,9 +1186,9 @@ def diagnostics():
   }
   return jsonify(di), 200
 
-# -----------------------------------------------------------------------------
-# Entrypoint
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\
+# Entrypoint\
+# -----------------------------------------------------------------------------\
 if __name__ == "__main__":
   port = int(os.environ.get("PORT", "5001"))
   app.run(host="0.0.0.0", port=port, debug=True)
