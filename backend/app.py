@@ -111,6 +111,17 @@ def get_user_from_token(token: str) -> Tuple[Optional[str], Optional[str], Optio
     print(f"get_user_from_token error: {e}", file=sys.stderr)
     return None, None, None
 
+def _get_allowed_admin_emails() -> set:
+  """
+  Returns a set of allowed admin emails (lowercased) from ADMIN_EMAILS env.
+  Defaults to {'admin@example.com'} if unset/empty.
+  """
+  raw = os.environ.get("ADMIN_EMAILS", "")
+  emails = {e.strip().lower() for e in raw.split(",") if e and e.strip()}
+  if not emails:
+    emails = {"admin@example.com"}
+  return emails
+
 
 def require_auth(fn):
   @wraps(fn)
@@ -143,10 +154,23 @@ def require_admin_email(fn):
   def wrapper(*args, **kwargs):
     if request.method == "OPTIONS":  # Preflight: return early with 204, CORS will add headers
       return ("", 204)
-    admin_email = request.headers.get("X-User-Email")
-    if not admin_email or admin_email != "admin@example.com":
-      return jsonify({"message": "Forbidden: Admin access required"}), 403
-    return fn(*args, **kwargs)
+
+    allowed = _get_allowed_admin_emails()
+
+    # 1) Prefer explicit X-User-Email header
+    hdr_email = (request.headers.get("X-User-Email") or "").strip().lower()
+    if hdr_email and hdr_email in allowed:
+      return fn(*args, **kwargs)
+
+    # 2) Fallback to Supabase Bearer token to derive email
+    token = parse_bearer_token(request)
+    if token:
+      uid, email, raw = get_user_from_token(token)
+      if email and email.strip().lower() in allowed:
+        request._auth = {"id": uid, "email": email, "raw": raw, "token": token}
+        return fn(*args, **kwargs)
+
+    return jsonify({"message": "Forbidden: Admin access required"}), 403
   return wrapper
 
 
