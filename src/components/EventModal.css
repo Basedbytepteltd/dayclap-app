@@ -164,6 +164,12 @@
   transform: none; /* Remove vertical transform */
 }
 
+/* Ensure the modal close button is always clickable */
+.modal-close {
+  position: relative; /* Needed for z-index to apply */
+  z-index: 2001; /* Higher than modal-backdrop (2000) */
+}
+
 
 /* Responsive adjustments for EventModal */
 /* Removed @media (max-width: 880px) rule */
