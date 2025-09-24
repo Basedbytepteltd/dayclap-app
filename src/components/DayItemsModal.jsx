@@ -8,7 +8,7 @@ const DayItemsModal = ({
   selectedDate,
   items = [],
   onOpenEvent,
-  onToggleTask,
+  onToggleTask, // This now expects the full task object
   onOpenInCalendar,
 }) => {
   if (!showModal) return null;
@@ -109,7 +109,7 @@ const DayItemsModal = ({
                         <div className="task-checkbox">
                           <button
                             className="checkbox-btn"
-                            onClick={() => onToggleTask?.(task.id)}
+                            onClick={() => onToggleTask?.(task)}
                             title={task.completed ? 'Mark as incomplete' : 'Mark as complete'}
                           >
                             {task.completed ? <CheckSquare size={20} /> : <Square size={20} />}

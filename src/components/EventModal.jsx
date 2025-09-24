@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, MapPin, AlignLeft, ListTodo, User, DollarSign, Plus, Edit, Trash2, CheckSquare, Square, Flag, Save } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, AlignLeft, ListTodo, User, Plus, Edit, Trash2, CheckSquare, Square, Flag, Save } from 'lucide-react';
 import './EventModal.css'; // Create a new CSS file for this modal if needed, or extend Dashboard.css
 import { notifyTaskAssigned } from '../utils/taskNotify';
+import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers'; // NEW: Import currency helpers
 
 // Helper function to format a Date object to YYYY-MM-DD in local time
 const formatDateToYYYYMMDD = (dateInput) => {
@@ -21,19 +22,7 @@ const parseLocalDateFromYYYYMMDD = (yyyy_mm_dd) => {
   return new Date(y, m - 1, d);
 };
 
-// Helper function to format currency
-const formatCurrency = (amount, currencyCode = 'USD') => {
-  if (amount === null || amount === undefined || isNaN(Number(amount))) {
-    return '';
-  }
-  const numericAmount = Number(amount);
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currencyCode,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(numericAmount);
-};
+// REMOVED: getCurrencySymbol and formatCurrency are now imported from currencyHelpers.js
 
 const EventModal = ({
   showModal,
@@ -52,6 +41,8 @@ const EventModal = ({
   user,
 }) => {
   if (!showModal) return null;
+
+  console.log('EventModal rendering. User currency:', user?.currency); // DEBUG LOG
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -114,12 +105,31 @@ const EventModal = ({
     }
   };
 
+  // NEW: Function to reset the current event task form
+  const handleCancelEditTask = () => {
+    setCurrentEventTaskForm({
+      id: null,
+      title: '',
+      description: '',
+      dueDate: formatDateToYYYYMMDD(eventForm.date), // Reset dueDate to current event's date
+      assignedTo: user?.email || '',
+      priority: 'medium',
+      expenses: 0,
+      completed: false,
+    });
+  };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={() => {
+      console.log('EventModal: Backdrop clicked!');
+      onClose();
+    }}>
       <div className="modal-content event-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
-          <button className="modal-close" onClick={onClose}><X /></button>
+          <button className="modal-close" onClick={onClose} title="Close">
+            <X />
+          </button>
         </div>
         <form onSubmit={onSaveEvent}>
           <div className="modal-body">
@@ -228,8 +238,7 @@ const EventModal = ({
                       onChange={handleEventTaskInputChange}
                       className="form-textarea"
                       rows="4"
-                      placeholder="Detailed description for the task..."
-                    ></textarea>
+                      placeholder="Detailed description for the task..."></textarea>
                   </div>
                 </div>
                 <div className="form-row">
@@ -284,7 +293,10 @@ const EventModal = ({
                   <div className="form-group">
                     <label className="form-label">Expenses <span className="optional-text">(Optional)</span></label>
                     <div className="input-wrapper">
-                      <DollarSign className="input-icon" />
+                      {/* Dynamic currency symbol */}
+                      <span className="input-icon" style={{ left: '1rem', top: 'calc(50% - 2px)', transform: 'translateY(-50%)' }}>
+                        {getCurrencySymbol(user?.currency || 'USD')}
+                      </span>
                       <input
                         type="number"
                         name="expenses"
@@ -294,6 +306,7 @@ const EventModal = ({
                         placeholder="0.00"
                         step="0.01"
                         min="0"
+                        style={{ paddingLeft: '3.5rem' }} /* Adjusted padding for dynamic symbol */
                       />
                     </div>
                   </div>
@@ -310,10 +323,20 @@ const EventModal = ({
                   <label htmlFor="currentEventTaskCompleted" className="form-label" style={{ marginBottom: 0, cursor: 'pointer' }}>Mark as Completed</label>
                 </div>
                 <div className="event-tasks-footer">
-                  <button type="button" className="btn btn-primary btn-small" onClick={handleSaveEventTask}>
-                    {currentEventTaskForm.id ? <Save size={16} /> : <Plus size={16} />}
-                    {currentEventTaskForm.id ? 'Save Task' : 'Add Task'}
-                  </button>
+                  {currentEventTaskForm.id ? (
+                    <>
+                      <button type="button" className="btn btn-outline btn-small" onClick={handleCancelEditTask}>
+                        Cancel
+                      </button>
+                      <button type="button" className="btn btn-primary btn-small" onClick={handleSaveEventTask}>
+                        <Save size={16} /> Save Task
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btn-primary btn-small" onClick={handleSaveEventTask}>
+                      <Plus size={16} /> Add Task
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -335,7 +358,7 @@ const EventModal = ({
                             {task.assignedTo && <span>Assigned to: <span className="assigned-to">{task.assignedTo === user.email ? 'Me' : task.assignedTo}</span></span>}
                             {dd && <span className={`due-date ${isTaskOverdue(task) ? 'overdue' : ''}`}>Due: {dd.toLocaleDateString()}</span>}
                             {task.priority && <span className={`priority-badge ${task.priority}`}>{task.priority}</span>}
-                            {task.expenses > 0 && <span className="task-expenses"><DollarSign size={14} /> {formatCurrency(task.expenses, user.currency)}</span>}
+                            {task.expenses > 0 && <span className="task-expenses">{getCurrencySymbol(user?.currency || 'USD')} {formatCurrency(task.expenses, user?.currency || 'USD')}</span>}
                           </div>
                         </div>
                         <div className="task-actions">

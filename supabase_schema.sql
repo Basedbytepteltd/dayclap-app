@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   theme TEXT DEFAULT 'light',
   language TEXT DEFAULT 'en',
   timezone TEXT DEFAULT 'UTC',
-  notifications JSONB DEFAULT '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}', -- UPDATED: Added "email_1week_countdown": true
+  notifications JSONB DEFAULT '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}',
   privacy JSONB DEFAULT '{"profileVisibility": "team", "calendarSharing": "private"}',
   company_name TEXT
 );
@@ -44,13 +44,11 @@ BEGIN
         RAISE NOTICE 'Column currency added to public.profiles table.';
     END IF;
 
-    -- NEW: Add account_type column
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'account_type') THEN
         ALTER TABLE public.profiles ADD COLUMN account_type TEXT DEFAULT 'personal';
         RAISE NOTICE 'Column account_type added to public.profiles table.';
     END IF;
 
-    -- NEW: Add push_subscription column
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'push_subscription') THEN
         ALTER TABLE public.profiles ADD COLUMN push_subscription JSONB;
         RAISE NOTICE 'Column push_subscription added to public.profiles table.';
@@ -88,11 +86,9 @@ BEGIN
     initial_companies := '[]'::jsonb;
     new_company_id := NULL;
 
-    -- NEW LOGIC START: Automatically create a default company for BOTH personal and business accounts
     new_company_id := gen_random_uuid();
 
     IF user_account_type = 'business' AND user_company_name_signup IS NOT NULL AND user_company_name_signup <> '' THEN
-        -- For business accounts, use the provided company name
         initial_companies := jsonb_build_array(jsonb_build_object(
             'id', new_company_id,
             'name', user_company_name_signup,
@@ -100,7 +96,6 @@ BEGIN
             'createdAt', NOW()::text
         ));
     ELSE
-        -- For personal accounts (or business without a name), create a default personal space
         initial_companies := jsonb_build_array(jsonb_build_object(
             'id', new_company_id,
             'name', user_name_signup || '''s Space',
@@ -108,7 +103,6 @@ BEGIN
             'createdAt', NOW()::text
         ));
     END IF;
-    -- NEW LOGIC END
 
     INSERT INTO public.profiles (
         id,
@@ -135,7 +129,7 @@ BEGIN
         'light',
         'en',
         'UTC',
-        '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}'::jsonb, -- UPDATED: Added "email_1week_countdown": true
+        '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}'::jsonb,
         '{"profileVisibility": "team", "calendarSharing": "private"}'::jsonb,
         CASE WHEN user_account_type = 'business' THEN user_company_name_signup ELSE NULL END,
         initial_companies,
@@ -148,23 +142,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger for new user creation
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- NEW: Function to send welcome email via backend API after email confirmation
+-- Send welcome email after email confirmation
 CREATE OR REPLACE FUNCTION public.send_welcome_email_on_confirm()
 RETURNS TRIGGER AS $$
 DECLARE
-    backend_url TEXT := 'https://dayclap-backend-api.onrender.com'; -- IMPORTANT: Update for deployment (e.g., 'https://your-backend-url.com')
-    api_key TEXT := 'your_local_backend_api_key_for_supabase_trigger'; -- <<< IMPORTANT: REPLACE THIS WITH THE SAME KEY YOU SET FOR BACKEND_API_KEY IN backend/.env
+    backend_url TEXT := 'https://dayclap-backend-api.onrender.com';
+    api_key TEXT := 'your_local_backend_api_key_for_supabase_trigger';
     payload JSONB;
     headers JSONB;
     request_id BIGINT;
 BEGIN
-    -- Only send if email_confirmed_at was NULL and is now set (i.e., email just confirmed)
     IF OLD.email_confirmed_at IS NULL AND NEW.email_confirmed_at IS NOT NULL THEN
         payload := jsonb_build_object(
             'email', NEW.email,
@@ -176,10 +168,6 @@ BEGIN
             'X-API-Key', api_key
         );
 
-        -- Make an asynchronous HTTP POST request to your Flask backend
-        -- This will not block the database transaction.
-        -- Ensure pg_net extension is enabled in Supabase (Database -> Extensions)
-        -- And your backend URL is whitelisted in Supabase Network Restrictions.
         SELECT extensions.http_post(
             uri := backend_url || '/api/send-welcome-email',
             content := payload,
@@ -192,12 +180,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- NEW: Trigger to call the welcome email function after auth.users update
 DROP TRIGGER IF EXISTS on_auth_user_confirmed ON auth.users;
 CREATE TRIGGER on_auth_user_confirmed
 AFTER UPDATE OF email_confirmed_at ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.send_welcome_email_on_confirm();
-
 
 -- Create 'invitations' table
 CREATE TABLE IF NOT EXISTS invitations (
@@ -211,7 +197,6 @@ CREATE TABLE IF NOT EXISTS invitations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add 'sender_email' column to 'invitations' if it doesn't exist
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'invitations' AND column_name = 'sender_email') THEN
@@ -221,7 +206,6 @@ BEGIN
 END
 $$;
 
--- RLS for 'invitations'
 ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their sent or received invitations." ON invitations;
 CREATE POLICY "Users can view their sent or received invitations." ON invitations FOR SELECT USING ( auth.uid() = sender_id OR auth.email() = recipient_email );
@@ -244,16 +228,13 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add/modify columns for 'events'
 DO $$
 BEGIN
     ALTER TABLE public.events ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-    -- NEW: Add notification_dismissed_at column to events
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'notification_dismissed_at') THEN
         ALTER TABLE public.events ADD COLUMN notification_dismissed_at TIMESTAMP WITH TIME ZONE;
         RAISE NOTICE 'Column notification_dismissed_at added to public.events table.';
     END IF;
-    -- NEW: Add one_week_reminder_sent_at column to events
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'one_week_reminder_sent_at') THEN
         ALTER TABLE public.events ADD COLUMN one_week_reminder_sent_at TIMESTAMP WITH TIME ZONE;
         RAISE NOTICE 'Column one_week_reminder_sent_at added to public.events table.';
@@ -261,17 +242,9 @@ BEGIN
 END
 $$;
 
--- RLS for 'events'
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
--- Drop the old generic policy if it exists
-DROP POLICY IF EXISTS "Users can manage events in their current company." ON events;
--- Drop specific policies if they exist before recreating
+-- Corrected: Added DROP POLICY IF EXISTS for all event policies
 DROP POLICY IF EXISTS "Users can view events in companies they belong to." ON events;
-DROP POLICY IF EXISTS "Users can insert events in their current company." ON events; -- ADDED
-DROP POLICY IF EXISTS "Users can update events in their current company." ON events; -- ADDED
-DROP POLICY IF EXISTS "Users can delete events in their current company." ON events; -- ADDED
-
--- Policy for SELECT: Users can view events in companies they belong to.
 CREATE POLICY "Users can view events in companies they belong to." ON events FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM profiles
@@ -279,7 +252,7 @@ CREATE POLICY "Users can view events in companies they belong to." ON events FOR
   )
 );
 
--- Policy for INSERT: Users can insert events if the event's company is their current company
+DROP POLICY IF EXISTS "Users can insert events in their current company." ON events;
 CREATE POLICY "Users can insert events in their current company." ON events FOR INSERT WITH CHECK (
   EXISTS (
     SELECT 1 FROM profiles
@@ -287,7 +260,7 @@ CREATE POLICY "Users can insert events in their current company." ON events FOR 
   )
 );
 
--- Policy for UPDATE: Users can update events if the event's company is their current company
+DROP POLICY IF EXISTS "Users can update events in their current company." ON events;
 CREATE POLICY "Users can update events in their current company." ON events FOR UPDATE USING (
   EXISTS (
     SELECT 1 FROM profiles
@@ -295,7 +268,7 @@ CREATE POLICY "Users can update events in their current company." ON events FOR 
   )
 );
 
--- Policy for DELETE: Users can delete events if the event's company is their current company
+DROP POLICY IF EXISTS "Users can delete events in their current company." ON events;
 CREATE POLICY "Users can delete events in their current company." ON events FOR DELETE USING (
   EXISTS (
     SELECT 1 FROM profiles
@@ -303,76 +276,8 @@ CREATE POLICY "Users can delete events in their current company." ON events FOR 
   )
 );
 
-
--- Create 'tasks' table
-CREATE TABLE IF NOT EXISTS tasks (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  company_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  due_date DATE,
-  priority TEXT DEFAULT 'medium' NOT NULL,
-  category TEXT,
-  completed BOOLEAN DEFAULT FALSE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Add/modify columns for 'tasks'
-DO $$
-BEGIN
-    ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-    ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS expenses NUMERIC(10, 2);
-    ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS description TEXT;
-    -- NEW: Add notification_dismissed_at column
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tasks' AND column_name = 'notification_dismissed_at') THEN
-        ALTER TABLE public.tasks ADD COLUMN notification_dismissed_at TIMESTAMP WITH TIME ZONE;
-        RAISE NOTICE 'Column notification_dismissed_at added to public.tasks table.';
-    END IF;
-END
-$$;
-
--- RLS for 'tasks'
-ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
--- Drop the old generic policy if it exists
-DROP POLICY IF EXISTS "Users can manage tasks in their current company." ON tasks;
--- Drop specific policies if they exist before recreating
-DROP POLICY IF EXISTS "Users can view tasks in companies they belong to." ON tasks;
-DROP POLICY IF EXISTS "Users can insert tasks in their current company." ON tasks; -- ADDED
-DROP POLICY IF EXISTS "Users can update tasks in their current company." ON tasks; -- ADDED
-DROP POLICY IF EXISTS "Users can delete tasks in their current company." ON tasks; -- ADDED
-
--- Policy for SELECT: Users can view tasks in companies they belong to.
-CREATE POLICY "Users can view tasks in companies they belong to." ON tasks FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid() AND profiles.companies @> jsonb_build_array(jsonb_build_object('id', tasks.company_id))
-  )
-);
-
--- Policy for INSERT: Users can insert tasks if the task's company is their current company
-CREATE POLICY "Users can insert tasks in their current company." ON tasks FOR INSERT WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid() AND profiles.current_company_id = tasks.company_id
-  )
-);
-
--- Policy for UPDATE: Users can update tasks if the task's company is their current company
-CREATE POLICY "Users can update tasks in their current company." ON tasks FOR UPDATE USING (
-  EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid() AND profiles.current_company_id = tasks.company_id
-  )
-);
-
--- Policy for DELETE: Users can delete tasks if the task's company is their current company
-CREATE POLICY "Users can delete tasks in their current company." ON tasks FOR DELETE USING (
-  EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid() AND profiles.current_company_id = tasks.company_id
-  )
-);
+-- REMOVED: 'tasks' table and its RLS policies are removed to enforce tasks only within events.
+-- Any existing 'tasks' table data will remain but will not be managed by the application.
 
 -- Create 'email_settings' table
 CREATE TABLE IF NOT EXISTS email_settings (
@@ -380,16 +285,14 @@ CREATE TABLE IF NOT EXISTS email_settings (
   maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/emails', -- CORRECTED: Changed to /emails
   mail_default_sender TEXT DEFAULT 'no-reply@team.dayclap.com',
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  -- NEW: Columns for internal scheduler control
   scheduler_enabled BOOLEAN DEFAULT TRUE,
-  reminder_time TEXT DEFAULT '02:00' -- Stored as HH:MM string
+  reminder_time TEXT DEFAULT '02:00'
 );
 
--- Idempotently add or rename the sending key column
+-- Idempotently add or rename columns
 DO $$
 BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_settings') THEN
-        -- Rename emailit_api_key to maileroo_sending_key if it exists
         IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='emailit_api_key') THEN
             ALTER TABLE email_settings RENAME COLUMN emailit_api_key TO maileroo_sending_key;
             RAISE NOTICE 'Column "emailit_api_key" renamed to "maileroo_sending_key".';
@@ -398,21 +301,18 @@ BEGIN
             RAISE NOTICE 'Column "maileroo_sending_key" added.';
         END IF;
 
-        -- Rename emailit_api_endpoint to maileroo_api_endpoint if it exists
         IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='emailit_api_endpoint') THEN
             ALTER TABLE email_settings RENAME COLUMN emailit_api_endpoint TO maileroo_api_endpoint;
             RAISE NOTICE 'Column "emailit_api_endpoint" renamed to "maileroo_api_endpoint".';
         ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='maileroo_api_endpoint') THEN
-            ALTER TABLE email_settings ADD COLUMN maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/emails'; -- CORRECTED: Changed to /emails
+            ALTER TABLE public.email_settings ADD COLUMN maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/emails'; -- CORRECTED: Changed to /emails
             RAISE NOTICE 'Column "maileroo_api_endpoint" added.';
         END IF;
 
-        -- NEW: Add scheduler_enabled column if it doesn't exist
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'email_settings' AND column_name = 'scheduler_enabled') THEN
             ALTER TABLE public.email_settings ADD COLUMN scheduler_enabled BOOLEAN DEFAULT TRUE;
             RAISE NOTICE 'Column "scheduler_enabled" added.';
         END IF;
-        -- NEW: Add reminder_time column if it doesn't exist
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'email_settings' AND column_name = 'reminder_time') THEN
             ALTER TABLE public.email_settings ADD COLUMN reminder_time TEXT DEFAULT '02:00';
             RAISE NOTICE 'Column "reminder_time" added.';
@@ -421,7 +321,6 @@ BEGIN
 END
 $$;
 
--- RLS for 'email_settings'
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_settings_singleton ON email_settings ((id IS NOT NULL));
 ALTER TABLE email_settings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Super admin can manage email settings." ON email_settings;
@@ -542,22 +441,13 @@ $$<!DOCTYPE html>
 </html>$$
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'invitation_to_company');
 
--- NEW: Add default 'verification_email' template
--- NOTE: This template is for backend-initiated verification emails.
--- Supabase Auth's built-in signUp function uses the template configured in the Supabase Dashboard (Authentication -> Email Templates).
 INSERT INTO email_templates (name, subject, html_content)
 SELECT 'verification_email', 'Confirm Your DayClap Account',
 $$<!DOCTYPE html>
 <html>
 <head>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
-        .content { padding: 20px; line-height: 1.6; color: #333333; }
-        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
-    </style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }\n        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }\n        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }\n        .content { padding: 20px; line-height: 1.6; color: #333333; }\n        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }\n        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }\n    </style>
 </head>
 <body>
     <div class="container">
@@ -581,7 +471,6 @@ $$<!DOCTYPE html>
 </html>$$
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'verification_email');
 
--- NEW: Add 'event_1week_reminder' template
 INSERT INTO email_templates (name, subject, html_content)
 SELECT 'event_1week_reminder', 'Reminder: Your Event is One Week Away!',
 $$<!DOCTYPE html>
@@ -640,7 +529,6 @@ $$<!DOCTYPE html>
 </html>$$
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'event_1week_reminder');
 
--- NEW: Add 'task_assigned' template
 INSERT INTO email_templates (name, subject, html_content)
 SELECT 'task_assigned', 'New Task Assigned: {{ task_title }}',
 $$<!DOCTYPE html>

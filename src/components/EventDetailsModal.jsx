@@ -7,10 +7,12 @@ import {
   AlignLeft,
   CheckSquare,
   Square,
-  DollarSign,
   User,
-  Flag
+  Flag,
+  Edit,
+  Trash2 // Import Trash2 icon for delete
 } from 'lucide-react';
+import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers'; // NEW: Import currency helpers
 
 const parseLocalDate = (yyyy_mm_dd) => {
   if (!yyyy_mm_dd || typeof yyyy_mm_dd !== 'string') return null;
@@ -20,8 +22,12 @@ const parseLocalDate = (yyyy_mm_dd) => {
   return new Date(y, m - 1, d);
 };
 
-const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate, onToggleTask, onEdit, onQuickAddTask }) => {
+// REMOVED: getCurrencySymbol and formatCurrency are now imported from currencyHelpers.js
+
+const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate, onToggleTask, onEdit, onDeleteEvent, onQuickAddTask }) => {
   if (!event) return null;
+
+  console.log('EventDetailsModal rendering. User currency:', user?.currency); // DEBUG LOG
 
   const dateObj =
     event.dateObj instanceof Date
@@ -54,21 +60,6 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
     if (!td) return false;
     td.setHours(0, 0, 0, 0);
     return td < today;
-  };
-
-  const formatCurrency = (amount, currencyCode = 'USD') => {
-    const n = Number(amount);
-    if (isNaN(n)) return '';
-    try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currencyCode,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(n);
-    } catch {
-      return `${n.toFixed(2)} ${currencyCode}`;
-    }
   };
 
   const canToggleFor = (t) => {
@@ -158,18 +149,35 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
     }
   };
 
+  const handleDeleteClick = () => {
+    if (window.confirm(`Are you sure you want to delete the event "${event.title}"? This action cannot be undone.`)) {
+      onDeleteEvent?.(event.id);
+    }
+  };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={() => {
+      console.log('EventDetailsModal: Backdrop clicked!');
+      onClose();
+    }}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{event.title || 'Event Details'}</h3>
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
             {onEdit && (
               <button className="btn btn-outline btn-small" onClick={onEdit} title="Edit Event">
-                Edit
+                <Edit size={16} /> Edit
               </button>
             )}
-            <button className="modal-close" onClick={onClose} title="Close">
+            {onDeleteEvent && (
+              <button className="btn btn-danger btn-small" onClick={handleDeleteClick} title="Delete Event">
+                <Trash2 size={16} /> Delete
+              </button>
+            )}
+            <button className="modal-close" onClick={() => {
+              console.log('EventDetailsModal: X button clicked!');
+              onClose();
+            }} title="Close">
               <X />
             </button>
           </div>
@@ -290,7 +298,10 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
                   </select>
                 </div>
                 <div className="input-wrapper">
-                  <DollarSign className="input-icon" />
+                  {/* Dynamic currency symbol */}
+                  <span className="input-icon" style={{ left: '1rem', top: 'calc(50% - 2px)', transform: 'translateY(-50%)' }}>
+                    {getCurrencySymbol(user?.currency || 'USD')}
+                  </span>
                   <input
                     type="number"
                     name="expenses"
@@ -300,6 +311,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
                     placeholder="0.00"
                     step="0.01"
                     min="0"
+                    style={{ paddingLeft: '3.5rem' }} /* Adjusted padding for dynamic symbol */
                   />
                 </div>
               </div>
@@ -374,7 +386,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
                           )}
                           {typeof t.expenses === 'number' && t.expenses > 0 && (
                             <span className="task-expenses">
-                              <DollarSign size={14} /> {formatCurrency(t.expenses, user?.currency || 'USD')}
+                              {getCurrencySymbol(user?.currency || 'USD')} {formatCurrency(t.expenses, user?.currency || 'USD')}
                             </span>
                           )}
                         </div>

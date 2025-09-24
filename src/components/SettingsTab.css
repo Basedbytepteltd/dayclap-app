@@ -1,0 +1,538 @@
+/* SettingsTab.css */
+
+/* This file contains styles specific to the SettingsTab component.
+   It reuses many general styles defined in Dashboard.css and index.css. */
+
+/* The .settings-tab-container class is now handled by applying 'constrained-content' directly in JSX. */
+
+/* Radio Group (for theme selection) */
+.radio-group {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--primary-text);
+}
+
+.radio-group input[type="radio"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.radio-group input[type="radio"]:checked {
+  border-color: var(--accent-color);
+}
+
+.radio-group input[type="radio"]:checked::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  background-color: var(--accent-color);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.radio-group input[type="radio"]:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Responsive adjustments for radio group */
+@media (max-width: 480px) {
+  .radio-group {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+/* No Companies/Team placeholder styles */
+.no-companies {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--secondary-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.no-companies-icon {
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* NEW: Company & Team Sub-tab Navigation */
+.company-team-sub-nav {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem; /* Space below sub-nav */
+  padding: 0.5rem;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  flex-shrink: 0;
+  justify-content: flex-start;
+}
+
+.company-team-sub-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.company-team-sub-nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem; /* Slightly smaller padding than main tabs */
+  border: none;
+  background: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--secondary-text);
+  font-size: 0.8125rem; /* Slightly smaller font size */
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.company-team-sub-nav-tab:hover {
+  background-color: var(--primary-bg);
+  color: var(--primary-text);
+}
+
+.company-team-sub-nav-tab.active {
+  background-color: var(--accent-color);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Subtle shadow for active sub-tab */
+}
+
+.company-team-sub-nav-tab svg {
+  width: 1rem; /* Smaller icons for sub-tabs */
+  height: 1rem;
+}
+
+/* Company List Styles (for Overview tab) */
+.companies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.company-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--primary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.company-item:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.company-item.active {
+  border-left: 4px solid var(--accent-color);
+  background-color: rgba(59, 130, 246, 0.05); /* Light accent background */
+}
+
+.company-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.company-icon {
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.company-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  margin: 0;
+}
+
+.company-role,
+.company-joined {
+  font-size: 0.875rem;
+  color: var(--secondary-text);
+  margin: 0.25rem 0 0;
+}
+
+.company-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.current-company-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  background-color: var(--success-color);
+  color: white;
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.current-company-badge svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Responsive adjustments for company list */
+@media (max-width: 640px) {
+  .company-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .company-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .company-item {
+    padding: 0.75rem;
+  }
+
+  .company-name {
+    font-size: 0.9375rem;
+  }
+
+  .company-role,
+  .company-joined {
+    font-size: 0.8125rem;
+  }
+
+  .company-actions .btn-small {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .current-company-badge {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* NEW: Team Members List Styles */
+.team-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.team-member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--primary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.team-member-item:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.member-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.member-icon {
+  color: var(--secondary-text);
+  flex-shrink: 0;
+}
+
+.member-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  margin: 0;
+}
+
+.member-email {
+  font-size: 0.875rem;
+  color: var(--secondary-text);
+  margin: 0.25rem 0 0;
+}
+
+.member-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.role-select {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--secondary-bg);
+  color: var(--primary-text);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.role-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.role-select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background-color: var(--primary-bg);
+}
+
+.member-role-display {
+  padding: 0.375rem 0.75rem;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--primary-text);
+  text-transform: capitalize;
+}
+
+.current-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  background-color: var(--info-color);
+  color: white;
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* No members state */
+.no-members {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--secondary-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.no-members-icon {
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* Responsive adjustments for team members list */
+@media (max-width: 640px) {
+  .team-member-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .member-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .team-member-item {
+    padding: 0.75rem;
+  }
+
+  .member-name {
+    font-size: 0.9375rem;
+  }
+
+  .member-email {
+    font-size: 0.8125rem;
+  }
+
+  .member-actions .btn-small {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .role-select,
+  .member-role-display,
+  .current-user-badge {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* NEW: Currency Select with Search */
+.currency-select-wrapper {
+  position: relative;
+  width: 100%;
+  z-index: 10; /* Ensure dropdown appears above other elements */
+}
+
+.currency-display-button {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.currency-display-button:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.currency-display-button.open {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.currency-display-button .input-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.currency-dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--primary-bg);
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100; /* Ensure it's above other content */
+}
+
+.currency-search-input-wrapper {
+  position: sticky;
+  top: 0;
+  background: var(--primary-bg);
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  z-index: 101; /* Ensure search input stays on top when scrolling options */
+}
+
+.currency-search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--secondary-bg);
+  color: var(--primary-text);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.currency-search-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.currency-options-list {
+  padding: 0.25rem 0;
+}
+
+.currency-option-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  color: var(--primary-text);
+  font-size: 0.875rem;
+  transition: background-color 0.15s ease;
+}
+
+.currency-option-item:hover {
+  background: var(--secondary-bg);
+}
+
+.currency-option-item.active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.no-options-message {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
