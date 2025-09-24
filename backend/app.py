@@ -4,7 +4,7 @@ from supabase import create_client, Client
 import os
 import sys
 from functools import wraps
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 from datetime import datetime, timezone, timedelta, date as dt_date
 from dotenv import load_dotenv
 import requests
@@ -392,6 +392,23 @@ def _resolved_maileroo_send_url(settings: dict) -> str:
   full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/emails").strip()
   return full_send_endpoint
 
+def _parse_sender_email_string(sender_string: str) -> Dict[str, str]:
+  """
+  Parses a sender email string (e.g., "Name <email@example.com>" or "email@example.com")
+  into Maileroo's EmailObject format: {"address": "...", "display_name": "..."}
+  """
+  match = re.match(r'^(?:"?([^"]+)"?\s+)?<([^>]+)>$', sender_string)
+  if match:
+    display_name = match.group(1)
+    address = match.group(2)
+    result = {"address": address}
+    if display_name:
+      result["display_name"] = display_name
+    return result
+  else:
+    # Assume it's just an email address if no display name is found
+    return {"address": sender_string}
+
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
   settings = _get_email_settings()
   if not settings:
@@ -412,13 +429,16 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
     print("ERROR: Maileroo: Missing default sender in settings or ENV.", file=sys.stderr)
     return False
 
-  final_sender = sender_email if sender_email else default_sender
+  # CRITICAL FIX: Parse the sender email string into the required EmailObject format
+  final_sender_string = sender_email if sender_email else default_sender
+  from_email_object = _parse_sender_email_string(final_sender_string)
+
   send_url = _resolved_maileroo_send_url(settings)
 
   # Build payload in v2 shape
   payload = {
-    "from": final_sender,
-    "to": [{"address": recipient_email}],  # CRITICAL FIX: Changed to array of objects with "address" key
+    "from": from_email_object, # CRITICAL FIX: Changed to EmailObject
+    "to": [{"address": recipient_email}],  # Already fixed: Array of objects with "address" key
     "subject": subject or "",
     "html": html_content or "",
     "text": _html_to_text(html_content or ""),
@@ -1130,7 +1150,7 @@ def diagnostics():
         "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120],
       },
     },
-    "admin_emails_count": len(_get_allowed_admin_emails() or []),
+    "admin_emails_count": len(_get_allowed_admin_emails() or []),\
   }
   return jsonify(di), 200
 
