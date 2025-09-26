@@ -77,6 +77,8 @@
     </style>
     <!-- Lucide React CheckCircle icon for success -->
     <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
+    <!-- Supabase JS client for session handling -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <div class="container">
@@ -85,17 +87,71 @@
         </div>
         <h1>Account Verified!</h1>
         <p>Your DayClap account has been successfully verified. You can now log in to start managing your schedule and tasks.</p>
-        <button class="button" onclick="redirectToLogin()">Login Now</button>
+        <button class="button" onclick="redirectToLogin()">Go to Dashboard</button>
         <div class="logo">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
             <span>DayClap</span>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+        // IMPORTANT: Replace with your actual Supabase URL and Anon Key
+        // These should ideally come from your environment variables, but for a static HTML,
+        // you might hardcode them or inject them via a build step.
+        // For now, I'll use placeholders. You MUST replace these.
+        const SUPABASE_URL = "https://rmpuptsogepyhvktyttm.supabase.co"; // Replace with your VITE_SUPABASE_URL
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcHVwdHNvZ2VweWh2a3R5dHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NDc3MDAsImV4cCI6MjA3MzUyMzcwMH0.B9Gzw3p6WZtat2SfkmpMKSPgp0ayY_0EsS98CqVK0Jg"; // Replace with your VITE_SUPABASE_ANON_KEY
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function handleVerification() {
+            const fragment = window.location.hash.substring(1);
+            const params = new URLSearchParams(fragment);
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+            const type = params.get('type'); // 'signup', 'recovery', etc.
+
+            if (accessToken && refreshToken) {
+                try {
+                    // Set the session explicitly. This will also update email_confirmed_at.
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+
+                    if (error) {
+                        console.error('Error setting session:', error.message);
+                        // Optionally display an error message to the user
+                        document.querySelector('h1').textContent = 'Verification Failed!';
+                        document.querySelector('p').textContent = 'There was an issue verifying your account. Please try logging in directly.';
+                        document.querySelector('.icon svg').style.color = '#ef4444'; // Error red
+                        return;
+                    }
+
+                    console.log('Session set successfully:', data.session);
+                    // Redirect to the dashboard after successful session setup
+                    window.location.href = window.location.origin + '/'; // Redirect to your main app
+                } catch (e) {
+                    console.error('Unexpected error during session setup:', e);
+                    document.querySelector('h1').textContent = 'Verification Error!';
+                    document.querySelector('p').textContent = 'An unexpected error occurred. Please try logging in directly.';
+                    document.querySelector('.icon svg').style.color = '#ef4444'; // Error red
+                }
+            } else {
+                // If no tokens, just redirect to login or dashboard if already logged in
+                console.log('No session tokens found in URL. Redirecting to main app.');
+                window.location.href = window.location.origin + '/';
+            }
+        }
+
+        // Call handleVerification when the page loads
+        window.addEventListener('load', handleVerification);
+
+        // This function is for the button click, but the auto-redirect should handle most cases
         function redirectToLogin() {
-            // Redirects to the root of your frontend application
-            window.location.href = window.location.origin;
+            window.location.href = window.location.origin + '/';
         }
     </script>
 </body>
