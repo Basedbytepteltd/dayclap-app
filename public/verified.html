@@ -77,7 +77,7 @@
     </style>
     <!-- Lucide React CheckCircle icon for success -->
     <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
-    <!-- Supabase JS client for session handling -->
+    <!-- Supabase JS client for session handling (loads global 'supabase' object) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -94,57 +94,86 @@
         </div>
     </div>
 
-    <script type="module">
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    <script>
+        // IMPORTANT: This console.log should appear FIRST if the script runs at all.
+        console.log('VERIFIED_HTML_SCRIPT: Script execution started.');
 
         // IMPORTANT: REPLACE THESE WITH YOUR ACTUAL SUPABASE PROJECT URL AND ANON KEY
         // You can find these in your Supabase project settings under "API".
-        // Example: const SUPABASE_URL = "https://your-project-ref.supabase.co";
-        // Example: const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiI...";
         const SUPABASE_URL = "https://rmpuptsogepyhvktyttm.supabase.co"; // <<< REPLACE THIS WITH YOUR VITE_SUPABASE_URL
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcHVwdHNvZ2VweWh2a3R5dHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NDc3MDAsImV4cCI6MjA3MzUyMzcwMH0.B9Gzw3p6WZtat2SfkmpMKSPgp0ayY_0EsS98CqVK0Jg"; // <<< REPLACE THIS WITH YOUR VITE_SUPABASE_ANON_KEY
 
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let supabaseClient; // Declare a variable to hold the Supabase client
+
+        try {
+            // Ensure Supabase client is available globally from the CDN script
+            if (typeof window.supabase === 'undefined' || typeof window.supabase.createClient === 'undefined') {
+                console.error('VERIFIED_HTML_SCRIPT: Supabase client library not loaded or not available globally.');
+                document.querySelector('h1').textContent = 'Error Loading Supabase!';
+                document.querySelector('p').textContent = 'The necessary library to verify your account could not be loaded. Please try again or contact support.';
+                document.querySelector('.icon svg').style.color = '#ef4444'; // Error red
+                return;
+            }
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('VERIFIED_HTML_SCRIPT: Supabase client initialized.');
+        } catch (e) {
+            console.error('VERIFIED_HTML_SCRIPT: Error initializing Supabase client:', e);
+            document.querySelector('h1').textContent = 'Initialization Error!';
+            document.querySelector('p').textContent = 'An error occurred while preparing for verification. Please try again.';
+            document.querySelector('.icon svg').style.color = '#ef4444'; // Error red
+            return;
+        }
 
         async function handleVerification() {
-            console.log('handleVerification: Page loaded, attempting to process verification.');
+            console.log('VERIFIED_HTML_SCRIPT: handleVerification function called.');
+            console.log('VERIFIED_HTML_SCRIPT: Current URL hash:', window.location.hash);
+
             const fragment = window.location.hash.substring(1);
             const params = new URLSearchParams(fragment);
             const accessToken = params.get('access_token');
             const refreshToken = params.get('refresh_token');
             const type = params.get('type'); // 'signup', 'recovery', etc.
 
-            console.log('handleVerification: Extracted params - type:', type, 'accessToken present:', !!accessToken, 'refreshToken present:', !!refreshToken);
+            console.log('VERIFIED_HTML_SCRIPT: Extracted params - type:', type, 'accessToken present:', !!accessToken, 'refreshToken present:', !!refreshToken);
+            // For debugging, you can log the full tokens, but be cautious in production
+            // console.log('VERIFIED_HTML_SCRIPT: Access Token:', accessToken);
+            // console.log('VERIFIED_HTML_SCRIPT: Refresh Token:', refreshToken);
 
             if (accessToken && refreshToken) {
                 try {
-                    console.log('handleVerification: Calling supabase.auth.setSession...');
-                    const { data, error } = await supabase.auth.setSession({
+                    console.log('VERIFIED_HTML_SCRIPT: Calling supabaseClient.auth.setSession with provided tokens...');
+                    const { data, error } = await supabaseClient.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken,
                     });
 
                     if (error) {
-                        console.error('handleVerification: Error setting session:', error.message);
+                        console.error('VERIFIED_HTML_SCRIPT: ERROR setting session:', error.message);
                         document.querySelector('h1').textContent = 'Verification Failed!';
                         document.querySelector('p').textContent = 'There was an issue verifying your account. Please try logging in directly.';
                         document.querySelector('.icon svg').style.color = '#ef4444'; // Error red
+                        // Do not redirect immediately on error, let user see message
                         return;
                     }
 
-                    console.log('handleVerification: Session set successfully. User:', data.user);
+                    console.log('VERIFIED_HTML_SCRIPT: Session set successfully. User data:', data.user);
+                    console.log('VERIFIED_HTML_SCRIPT: Redirecting to main app in 3 seconds...');
                     // Redirect to the dashboard after successful session setup
-                    window.location.href = window.location.origin + '/'; // Redirect to your main app
+                    setTimeout(() => {
+                        window.location.href = window.location.origin + '/'; // Redirect to your main app
+                    }, 3000); // Give time to read console logs
                 } catch (e) {
-                    console.error('handleVerification: Unexpected error during session setup:', e);
+                    console.error('VERIFIED_HTML_SCRIPT: UNEXPECTED ERROR during session setup:', e);
                     document.querySelector('h1').textContent = 'Verification Error!';
                     document.querySelector('p').textContent = 'An unexpected error occurred. Please try logging in directly.';
                     document.querySelector('.icon svg').style.color = '#ef4444'; // Error red
                 }
             } else {
-                console.warn('handleVerification: No session tokens found in URL hash. Redirecting to main app.');
+                console.warn('VERIFIED_HTML_SCRIPT: No session tokens found in URL hash. Redirecting to main app in 5 seconds...');
                 // If no tokens, just redirect to login or dashboard if already logged in
-                window.location.href = window.location.origin + '/';
+                setTimeout(() => {
+                    window.location.href = window.location.origin + '/';
+                }, 5000); // Give time to read console logs
             }
         }
 
@@ -153,6 +182,7 @@
 
         // This function is for the button click, but the auto-redirect should handle most cases
         function redirectToLogin() {
+            console.log('VERIFIED_HTML_SCRIPT: redirectToLogin: Button clicked, redirecting to main app.');
             window.location.href = window.location.origin + '/';
         }
     </script>
