@@ -397,7 +397,11 @@ def _parse_sender_email_string(sender_string: str) -> Dict[str, str]:
   Parses a sender email string (e.g., "Name <email@example.com>" or "email@example.com")
   into Maileroo's EmailObject format: {"address": "...", "display_name": "..."}
   """
-  match = re.match(r'^(?:"?([^"]+)"?\s+)?<([^>]+)>$', sender_string)
+  # Corrected regex:
+  # - `\"?` matches an optional literal double quote.
+  # - `([^\"]+)` captures one or more characters that are NOT a literal double quote.
+  # - `\s+` matches one or more whitespace characters.
+  match = re.match(r'^(?:\"?([^\"]+)\"?\s+)?<([^>]+)>$', sender_string)
   if match:
     display_name = match.group(1)
     address = match.group(2)
@@ -1150,7 +1154,7 @@ def diagnostics():
         "send_endpoint": (_resolved_maileroo_send_url(settings) or "")[:120],
       },
     },
-    "admin_emails_count": len(_get_allowed_admin_emails() or []),\
+    "admin_emails_count": len(_get_allowed_admin_emails() or []),
   }
   return jsonify(di), 200
 
