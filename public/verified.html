@@ -89,7 +89,7 @@
         <p>Your DayClap account has been successfully verified. You can now log in to start managing your schedule and tasks.</p>
         <button class="button" onclick="redirectToLogin()">Go to Dashboard</button>
         <div class="logo">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days"><rect width="18" height="18" x="3" y="4" rx="2" ry=\"2\"/><line x1=\"16\" x2=\"16\" y1=\"2\" y2=\"6\"/><line x1=\"8\" x2=\"8\" y1=\"2\" y2=\"6\"/><line x1=\"3\" x2=\"21\" y1=\"10\" y2=\"10\"/><path d=\"M8 14h.01\"/><path d=\"M12 14h.01\"/><path d=\"M16 14h.01\"/><path d=\"M8 18h.01\"/><path d=\"M12 18h.01\"/><path d=\"M16 18h.01\"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
             <span>DayClap</span>
         </div>
     </div>
@@ -101,8 +101,8 @@
         // You can find these in your Supabase project settings under "API".
         // Example: const SUPABASE_URL = "https://your-project-ref.supabase.co";
         // Example: const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiI...";
-        const SUPABASE_URL = "https://rmpuptsogepyhvktyttm.supabase.co"; // <<< REPLACE THIS
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcHVwdHNvZ2VweWh2a3R5dHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NDc3MDAsImV4cCI6MjA3MzUyMzcwMH0.B9Gzw3p6WZtat2SfkmpMKSPgp0ayY_0EsS98CqVK0Jg"; // <<< REPLACE THIS
+        const SUPABASE_URL = "https://rmpuptsogepyhvktyttm.supabase.co"; // <<< REPLACE THIS WITH YOUR VITE_SUPABASE_URL
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcHVwdHNvZ2VweWh2a3R5dHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NDc3MDAsImV4cCI6MjA3MzUyMzcwMH0.B9Gzw3p6WZtat2SfkmpMKSPgp0ayY_0EsS98CqVK0Jg"; // <<< REPLACE THIS WITH YOUR VITE_SUPABASE_ANON_KEY
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
