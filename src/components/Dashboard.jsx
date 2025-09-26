@@ -20,6 +20,7 @@ import {
   ListTodo, // NEW: Import ListTodo for task source badge
   Trash2, // NEW: Import Trash2 icon for delete
   Edit, // NEW: Import Edit icon for future task editing
+  DollarSign, // NEW: Import DollarSign icon for expenses
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './Dashboard.css';
@@ -105,6 +106,18 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const [showDateActionsModal, setShowDateActionsModal] = useState(false);
   const [dateForActions, setDateForActions] = useState(null);
   const [showDayItemsModal, setShowDayItemsModal] = useState(false);
+
+  // NEW: State for current time display
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Effect to update current time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000); // Update every second
+
+    return () => clearInterval(timer); // Cleanup on unmount
+  }, []);
 
   const currentCompanyId =
     user?.currentCompanyId ||
@@ -210,6 +223,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const stats = useMemo(() => {
     let allTasks = []; // Start with an empty array, as standalone tasks are removed
+    let totalExpenses = 0; // NEW: Initialize total expenses
 
     // Add tasks from events
     events.forEach(event => {
@@ -219,6 +233,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         dueDateObj: t.dueDate ? toLocalDate(t.dueDate) : null, // Parse dueDate string to Date object
       }));
       allTasks = [...allTasks, ...mappedEventTasks];
+      
+      // NEW: Sum expenses from event tasks
+      eventTasks.forEach(task => {
+        totalExpenses += Number(task.expenses || 0);
+      });
     });
 
     const totalTasks = allTasks.length;
@@ -242,6 +261,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       totalEvents: events.length,
       completedPercentage,
       pendingPercentage,
+      totalExpenses, // NEW: Add total expenses to stats
     };
   }, [events, today]); // REMOVED: tasks from dependencies
 
@@ -856,6 +876,28 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     return 'profile'; // Default for other cases
   }, [activeTab]);
 
+  // NEW: Helper to format date and time for display based on user's timezone
+  const formatDateTimeForTimezone = (date, timezone) => {
+    if (!date || !timezone) return 'N/A';
+    try {
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: timezone,
+        hour12: true // Or false, depending on user preference or app setting
+      };
+      return new Intl.DateTimeFormat('en-US', options).format(date);
+    } catch (e) {
+      console.error('Error formatting date for timezone:', e);
+      return 'Invalid Timezone';
+    }
+  };
+
   // UI renderers
   const renderHeader = () => (
     <header className="dashboard-header">
@@ -914,10 +956,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </div>
 
         <div className="nav-items user-info">
-          <Settings className="user-icon" />
+          {/* User details (display only) */}
           <div className="user-details">
             <p className="user-name">{user?.name || user?.email}</p>
           </div>
+          {/* Separate Settings button */}
+          <button className="btn-icon-small header-settings-btn" onClick={() => setActiveTab('settings')} title="Settings">
+            <Settings size={20} />
+          </button>
           <button className="btn btn-outline btn-small" onClick={onLogout}>
             <LogOut size={16} /> Logout
           </button>
@@ -987,6 +1033,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       <div className="overview-header">
         <h2>Welcome back{user?.name ? `, ${user.name}` : ''}</h2>
         <p className="overview-subtitle">Here's a quick look at your productivity</p>
+        {/* NEW: Display current date and time based on user's timezone */}
+        <p className="current-datetime">
+          <Clock size={16} style={{ marginRight: '0.5rem' }} />
+          {formatDateTimeForTimezone(currentTime, user?.timezone)}
+        </p>
       </div>
 
       <div className="stats-grid">
@@ -1024,6 +1075,16 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           <div className="stat-content">
             <h3>{stats.totalEvents}</h3>
             <p>Total Events</p>
+          </div>
+        </div>
+        {/* NEW: Total Expenses Card */}
+        <div className="stat-card">
+          <div className="stat-icon expenses">
+            <DollarSign />
+          </div>
+          <div className="stat-content">
+            <h3>{formatCurrency(stats.totalExpenses, user?.currency || 'USD')}</h3>
+            <p>Total Expenses</p>
           </div>
         </div>
         {/* NEW: Task Percentage Completed */}

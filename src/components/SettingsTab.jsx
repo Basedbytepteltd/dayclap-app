@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { User, Palette, Bell, Building2, Users, Save, Globe, DollarSign, Clock, Mail, Plus, Send, Key, CheckCircle, LogOut, UserMinus, Search } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { User, Palette, Bell, Building2, Users, Save, Globe, DollarSign, Clock, Mail, Plus, Send, Key, CheckCircle, LogOut, UserMinus, Settings, ChevronDown, Search } from 'lucide-react';
 import './SettingsTab.css';
 import { supabase } from '../supabaseClient'; // Ensure supabase is imported for direct DB ops if needed, or for token
+import { getCurrencySymbol } from '../utils/currencyHelpers'; // Import getCurrencySymbol
 
 const currencies = [
   { code: 'USD', name: 'US Dollar' },
@@ -27,7 +28,7 @@ const currencies = [
   { code: 'AED', name: 'UAE Dirham' },
   { code: 'ARS', name: 'Argentine Peso' },
   { code: 'CLP', name: 'Chilean Peso' },
-  { code: 'COP', name: 'Colombian Peso' },
+  { code: 'COP', 'name': 'Colombian Peso' },
   { code: 'DKK', name: 'Danish Krone' },
   { code: 'EGP', name: 'Egyptian Pound' },
   { code: 'ILS', name: 'Israeli New Shekel' },
@@ -38,95 +39,27 @@ const currencies = [
   { code: 'SAR', name: 'Saudi Riyal' },
   { code: 'THB', name: 'Thai Baht' },
   { code: 'VND', name: 'Vietnamese Dong' },
-  { code: 'LKR', name: 'Sri Lankan Rupee' }, // Added Sri Lankan Rupee
   // Add more currencies as needed
 ];
 
-// Custom CurrencySelect component
-const CurrencySelect = ({ value, onChange, disabled }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const dropdownRef = useRef(null);
-
-  const filteredCurrencies = currencies.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleSelect = (currencyCode) => {
-    onChange({ target: { name: 'currency', value: currencyCode } });
-    setIsOpen(false);
-    setSearchTerm(''); // Clear search term on selection
-  };
-
-  const toggleDropdown = () => {
-    if (!disabled) {
-      setIsOpen(prev => !prev);
-      setSearchTerm(''); // Clear search term when opening/closing
-    }
-  };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const selectedCurrencyName = currencies.find(c => c.code === value)?.name || value;
-
-  return (
-    <div className="currency-select-wrapper" ref={dropdownRef}>
-      <button
-        type="button"
-        className={`currency-display-button ${isOpen ? 'open' : ''}`}
-        onClick={toggleDropdown}
-        disabled={disabled}
-      >
-        <DollarSign className="input-icon" />
-        <span>{value} - {selectedCurrencyName}</span>
-      </button>
-
-      {isOpen && (
-        <div className="currency-dropdown-options">
-          <div className="currency-search-input-wrapper">
-            <Search className="input-icon" />
-            <input
-              type="text"
-              className="currency-search-input"
-              placeholder="Search currency..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="currency-options-list">
-            {filteredCurrencies.length > 0 ? (
-              filteredCurrencies.map(c => (
-                <div
-                  key={c.code}
-                  className={`currency-option-item ${value === c.code ? 'active' : ''}`}
-                  onClick={() => handleSelect(c.code)}
-                >
-                  {c.code} - {c.name}
-                </div>
-              ))
-            ) : (
-              <div className="no-options-message">No currencies found.</div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+// Helper function to get the GMT offset for a given IANA timezone
+const getGmtOffset = (timeZone) => {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'longOffset', // e.g., "GMT-05:00"
+      hour: 'numeric', // Required for timeZoneName: 'longOffset' to work consistently
+      minute: 'numeric',
+    });
+    const parts = formatter.formatToParts(now);
+    const timeZoneNamePart = parts.find(p => p.type === 'timezonename');
+    return timeZoneNamePart ? ` (${timeZoneNamePart.value})` : '';
+  } catch (e) {
+    console.warn(`Could not get GMT offset for ${timeZone}:`, e);
+    return '';
+  }
 };
-
 
 const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
   const [activeMainTab, setActiveMainTab] = useState(initialSubTab); // Renamed for clarity
@@ -179,6 +112,19 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
   const [teamMembersMessage, setTeamMembersMessage] = useState('');
   const [teamMembersMessageType, setTeamMembersMessageType] = useState('');
 
+  // NEW: State for all available timezones
+  const [availableTimezones, setAvailableTimezones] = useState([]);
+
+  // NEW: State for currency search and dropdown
+  const [currencySearchTerm, setCurrencySearchTerm] = useState('');
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+  const currencyDropdownRef = useRef(null); // Ref for the currency dropdown wrapper
+
+  // NEW: State for timezone search and dropdown
+  const [timezoneSearchTerm, setTimezoneSearchTerm] = useState('');
+  const [showTimezoneDropdown, setShowTimezoneDropdown] = useState(false);
+  const timezoneDropdownRef = useRef(null); // Ref for the timezone dropdown wrapper
+
   // DEBUG LOG: Check user object and initialSubTab when component mounts or updates
   useEffect(() => {
     console.log('SettingsTab: User prop received:', user);
@@ -207,6 +153,17 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
       });
     }
   }, [user]);
+
+  // Effect to populate availableTimezones
+  useEffect(() => {
+    try {
+      const timezones = Intl.supportedValuesOf('timeZone');
+      setAvailableTimezones(timezones);
+    } catch (error) {
+      console.error('Error fetching timezones:', error);
+      setAvailableTimezones(['UTC', 'America/New_York', 'Europe/London']); // Fallback
+    }
+  }, []);
 
   // Effect to update activeMainTab and reset activeCompanySubTab if initialSubTab prop changes
   useEffect(() => {
@@ -662,6 +619,53 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
     }
   };
 
+  // Filtered currencies for the search bar
+  const filteredCurrencies = useMemo(() => {
+    const term = currencySearchTerm.toLowerCase();
+    if (!term) return currencies;
+    return currencies.filter(c =>
+      c.name.toLowerCase().includes(term) || c.code.toLowerCase().includes(term)
+    );
+  }, [currencySearchTerm]);
+
+  const handleSelectCurrency = (currencyCode) => {
+    setProfileForm(prev => ({ ...prev, currency: currencyCode }));
+    setShowCurrencyDropdown(false);
+    setCurrencySearchTerm(''); // Clear search term on selection
+  };
+
+  // Handle blur for the entire currency dropdown wrapper
+  const handleCurrencyDropdownBlur = (e) => {
+    // Check if the new focused element is outside the dropdown wrapper
+    if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(e.relatedTarget)) {
+      setShowCurrencyDropdown(false);
+      setCurrencySearchTerm(''); // Clear search term when dropdown closes
+    }
+  };
+
+  // Filtered timezones for the search bar
+  const filteredTimezones = useMemo(() => {
+    const term = timezoneSearchTerm.toLowerCase();
+    if (!term) return availableTimezones;
+    return availableTimezones.filter(tz =>
+      tz.toLowerCase().includes(term) || getGmtOffset(tz).toLowerCase().includes(term)
+    );
+  }, [timezoneSearchTerm, availableTimezones]);
+
+  const handleSelectTimezone = (timezoneCode) => {
+    setProfileForm(prev => ({ ...prev, timezone: timezoneCode }));
+    setShowTimezoneDropdown(false);
+    setTimezoneSearchTerm(''); // Clear search term on selection
+  };
+
+  // Handle blur for the entire timezone dropdown wrapper
+  const handleTimezoneDropdownBlur = (e) => {
+    if (timezoneDropdownRef.current && !timezoneDropdownRef.current.contains(e.relatedTarget)) {
+      setShowTimezoneDropdown(false);
+      setTimezoneSearchTerm(''); // Clear search term when dropdown closes
+    }
+  };
+
   const renderProfileSettings = () => (
     <div className="settings-section">
       <div className="settings-section-header">
@@ -719,28 +723,94 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
         </div>
         <div className="form-group">
           <label className="form-label">Timezone</label>
-          <div className="input-wrapper">
-            <Clock className="input-icon" />
-            <select
-              name="timezone"
-              value={profileForm.timezone}
-              onChange={handleProfileChange}
-              className="form-select"
+          <div className="timezone-select-wrapper" ref={timezoneDropdownRef} onBlur={handleTimezoneDropdownBlur}>
+            <button
+              type="button"
+              className={`timezone-display-button ${showTimezoneDropdown ? 'open' : ''}`}
+              onClick={() => setShowTimezoneDropdown(prev => !prev)}
             >
-              <option value="UTC">UTC</option>
-              <option value="America/New_York">America/New_York</option>
-              <option value="Europe/London">Europe/London</option>
-              {/* Add more timezones as needed */}
-            </select>
+              <Clock className="input-icon" />
+              <span>{profileForm.timezone}{getGmtOffset(profileForm.timezone)}</span>
+              <ChevronDown size={16} className="dropdown-arrow" style={{ marginLeft: 'auto' }} />
+            </button>
+            {showTimezoneDropdown && (
+              <div className="timezone-dropdown-options">
+                <div className="timezone-search-input-wrapper">
+                  <Search className="input-icon" />
+                  <input
+                    type="text"
+                    className="timezone-search-input"
+                    placeholder="Search timezone..."
+                    value={timezoneSearchTerm}
+                    onChange={(e) => setTimezoneSearchTerm(e.target.value)}
+                    onFocus={() => setShowTimezoneDropdown(true)} // Ensure dropdown stays open on focus
+                  />
+                </div>
+                <div className="timezone-options-list">
+                  {filteredTimezones.length > 0 ? (
+                    filteredTimezones.map(tz => (
+                      <div
+                        key={tz}
+                        className={`timezone-option-item ${profileForm.timezone === tz ? 'active' : ''}`}
+                        onClick={() => handleSelectTimezone(tz)}
+                        onMouseDown={(e) => e.preventDefault()} // Prevent blur from closing dropdown when clicking an option
+                      >
+                        {tz}{getGmtOffset(tz)}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-options-message">No timezones found.</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <div className="form-group">
           <label className="form-label">Currency</label>
-          <CurrencySelect
-            value={profileForm.currency}
-            onChange={handleProfileChange}
-            disabled={loading}
-          />
+          <div className="currency-select-wrapper" ref={currencyDropdownRef} onBlur={handleCurrencyDropdownBlur}>
+            <button
+              type="button"
+              className={`currency-display-button ${showCurrencyDropdown ? 'open' : ''}`}
+              onClick={() => setShowCurrencyDropdown(prev => !prev)}
+            >
+              <DollarSign className="input-icon" />
+              <span>{profileForm.currency} - {currencies.find(c => c.code === profileForm.currency)?.name || 'Select Currency'}</span>
+              <ChevronDown size={16} className="dropdown-arrow" style={{ marginLeft: 'auto' }} />
+            </button>
+            {showCurrencyDropdown && (
+              <div className="currency-dropdown-options">
+                <div className="currency-search-input-wrapper">
+                  <Search className="input-icon" />
+                  <input
+                    type="text"
+                    className="currency-search-input"
+                    placeholder="Search currency..."
+                    value={currencySearchTerm}
+                    onChange={(e) => setCurrencySearchTerm(e.target.value)}
+                    onFocus={() => setShowCurrencyDropdown(true)} // Ensure dropdown stays open on focus
+                  />
+                </div>
+                <div className="currency-options-list">
+                  {filteredCurrencies.length > 0 ? (
+                    filteredCurrencies.map(c => (
+                      <div
+                        key={c.code}
+                        className={`currency-option-item ${profileForm.currency === c.code ? 'active' : ''}`}
+                        onClick={() => handleSelectCurrency(c.code)}
+                        // Prevent blur from closing dropdown when clicking an option
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        {c.code} - {c.name} ({getCurrencySymbol(c.code)})
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-options-message">No currencies found.</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <div className="form-group">
           <label className="form-label">Account Type</label>
@@ -819,75 +889,90 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
         </div>
       </div>
       <form onSubmit={handleSaveSettings}>
-        <div className="setting-item">
-          <div className="setting-info">
-            <h4>Daily Email Summary</h4>
-            <p>Receive a daily email with your upcoming events and tasks.</p>
+        <div className="form-group">
+          <label className="form-label">Daily Email Summary</label>
+          <div className="setting-item">
+            <div className="setting-info">
+              <h4>Daily Email Summary</h4>
+              <p>Receive a daily email with your upcoming events and tasks.</p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={notificationSettings.email_daily}
+                onChange={() => handleNotificationToggle('email_daily')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
           </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={notificationSettings.email_daily}
-              onChange={() => handleNotificationToggle('email_daily')}
-            />
-            <span className="toggle-slider"></span>
-          </label>
         </div>
-        <div className="setting-item">
-          <div className="setting-info">
-            <h4>1-Week Event Countdown</h4>
-            <p>Get an email reminder one week before an event.</p>
+        <div className="form-group">
+          <label className="form-label">1-Week Event Countdown</label>
+          <div className="setting-item">
+            <div className="setting-info">
+              <h4>1-Week Event Countdown</h4>
+              <p>Get an email reminder one week before an event.</p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={notificationSettings.email_1week_countdown}
+                onChange={() => handleNotificationToggle('email_1week_countdown')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
           </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={notificationSettings.email_1week_countdown}
-              onChange={() => handleNotificationToggle('email_1week_countdown')}
-            />
-            <span className="toggle-slider"></span>
-          </label>
         </div>
-        <div className="setting-item">
-          <div className="setting-info">
-            <h4>Push Notifications</h4>
-            <p>Receive real-time alerts directly to your device (browser/PWA).</p>
+        <div className="form-group">
+          <label className="form-label">Push Notifications</label>
+          <div className="setting-item">
+            <div className="setting-info">
+              <h4>Push Notifications</h4>
+              <p>Receive real-time alerts directly to your device (browser/PWA).</p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={notificationSettings.push}
+                onChange={() => handleNotificationToggle('push')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
           </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={notificationSettings.push}
-              onChange={() => handleNotificationToggle('push')}
-            />
-            <span className="toggle-slider"></span>
-          </label>
         </div>
-        <div className="setting-item">
-          <div className="setting-info">
-            <h4>Task Reminders</h4>
-            <p>Get reminders for upcoming task due dates.</p>
+        <div className="form-group">
+          <label className="form-label">Task Reminders</label>
+          <div className="setting-item">
+            <div className="setting-info">
+              <h4>Task Reminders</h4>
+              <p>Get reminders for upcoming task due dates.</p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={notificationSettings.reminders}
+                onChange={() => handleNotificationToggle('reminders')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
           </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={notificationSettings.reminders}
-              onChange={() => handleNotificationToggle('reminders')}
-            />
-            <span className="toggle-slider"></span>
-          </label>
         </div>
-        <div className="setting-item">
-          <div className="setting-info">
-            <h4>Invitation Alerts</h4>
-            <p>Receive notifications when you get a new company invitation.</p>
+        <div className="form-group">
+          <label className="form-label">Invitation Alerts</label>
+          <div className="setting-item">
+            <div className="setting-info">
+              <h4>Invitation Alerts</h4>
+              <p>Receive notifications when you get a new company invitation.</p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={notificationSettings.invitations}
+                onChange={() => handleNotificationToggle('invitations')}
+              />
+              <span className="toggle-slider"></span>
+            </label>
           </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={notificationSettings.invitations}
-              onChange={() => handleNotificationToggle('invitations')}
-            />
-            <span className="toggle-slider"></span>
-          </label>
         </div>
         {message && activeMainTab === 'notifications' && <div className={`info-message ${messageType}`}>{message}</div>}
         <div style={{ textAlign: 'right', marginTop: '1.5rem' }}>
@@ -1214,10 +1299,18 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
           <Bell size={16} /> Notifications
         </button>
         <button
-          className={`settings-nav-tab ${activeMainTab === 'company-team' ? 'active' : ''}`}
+          className={`nav-tab ${activeMainTab === 'company-team' ? 'active' : ''}`}
           onClick={() => setActiveMainTab('company-team')}
+          title="Company & Team"
         >
-          <Building2 size={16} /> Company & Team
+          <Users className="tab-icon" />
+          Company & Team
+        </button>
+        <button
+          className={`settings-nav-tab ${activeMainTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveMainTab('settings')}
+        >
+          <Settings size={16} /> Settings
         </button>
       </nav>
 
@@ -1242,6 +1335,11 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
         // so it doesn't need an outer .settings-tab-content wrapper here.
         // Its internal renderCompanyTeamSection will manage its own content layout.
         renderCompanyTeamSection()
+      )}
+      {activeMainTab === 'settings' && (
+        <div className="settings-tab-content">
+          {renderProfileSettings()}
+        </div>
       )}
     </div>
   );

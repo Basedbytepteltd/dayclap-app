@@ -501,6 +501,29 @@
   }
 }
 
+/* NEW: Current Date/Time Display */
+.current-datetime {
+  display: flex;
+  align-items: center;
+  font-size: 0.95rem;
+  color: var(--secondary-text);
+  margin-top: 1rem;
+  font-weight: 500;
+}
+
+.current-datetime svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .current-datetime {
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+  }
+}
+
+
 /* Stats Grid */
 .stats-grid {
   display: grid;
@@ -580,6 +603,11 @@
 
 .stat-icon.percentage-pending {
   background: var(--vibrant-orange); /* Use a vibrant orange */
+}
+
+/* NEW: Style for expenses stat icon */
+.stat-icon.expenses {
+  background: var(--vibrant-purple); /* Use a vibrant purple for expenses */
 }
 
 .stat-content h3 {
@@ -2000,6 +2028,12 @@
   outline: none;
 }
 
+.currency-search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
 .currency-option-item {
   padding: 0.75rem 1rem;
   cursor: pointer;
@@ -2440,6 +2474,7 @@ input:checked+.toggle-slider:before {
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
 }
 
 .team-member-item:hover {
@@ -2701,5 +2736,28 @@ input:checked+.toggle-slider:before {
   .event-task-item .task-meta {
     font-size: 0.7rem;
     gap: 0.3rem;
+  }
+}
+
+/* REMOVED: Style for the settings button in the header (as it's now a generic btn-icon-small) */
+/* .settings-button { ... } */
+
+/* NEW: Specific style for the header settings icon button */
+.header-settings-btn {
+  color: var(--secondary-text); /* Default icon color */
+  width: 2.5rem; /* Make it a bit larger for easier clicking */
+  height: 2.5rem;
+  border-radius: var(--radius); /* Slightly rounded corners */
+}
+
+.header-settings-btn:hover {
+  background: var(--primary-bg); /* Hover background */
+  color: var(--accent-color); /* Accent color on hover */
+}
+
+@media (max-width: 480px) {
+  .header-settings-btn {
+    width: 2.25rem;
+    height: 2.25rem;
   }
 }

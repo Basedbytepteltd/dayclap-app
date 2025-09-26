@@ -371,7 +371,6 @@
   text-align: center;
   color: var(--text-muted);
   background: var(--secondary-bg);
-  border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
 }
@@ -526,6 +525,113 @@
 }
 
 .currency-option-item.active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+/* NEW: Timezone Select with Search (similar to currency) */
+.timezone-select-wrapper {
+  position: relative;
+  width: 100%;
+  z-index: 11; /* Higher z-index than currency to ensure it's on top if both are open */
+}
+
+.timezone-display-button {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.timezone-display-button:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.timezone-display-button.open {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.timezone-display-button .input-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.timezone-dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--primary-bg);
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 101; /* Ensure it's above currency dropdown if both are open */
+}
+
+.timezone-search-input-wrapper {
+  position: sticky;
+  top: 0;
+  background: var(--primary-bg);
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  z-index: 102; /* Ensure search input stays on top when scrolling options */
+}
+
+.timezone-search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--secondary-bg);
+  color: var(--primary-text);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.timezone-search-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.timezone-options-list {
+  padding: 0.25rem 0;
+}
+
+.timezone-option-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  color: var(--primary-text);
+  font-size: 0.875rem;
+  transition: background-color 0.15s ease;
+}
+
+.timezone-option-item:hover {
+  background: var(--secondary-bg);
+}
+
+.timezone-option-item.active {
   background-color: var(--accent-color);
   color: white;
 }
