@@ -75,8 +75,8 @@
             height: 1.5rem;
         }
     </style>
-    <!-- Lucide React CheckCircle icon for success -->
-    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
+    <!-- REMOVED: Lucide React CheckCircle icon script, as it's not needed for plain HTML and was causing errors. -->
+    <!-- The SVG is directly embedded below. -->
     <!-- Supabase JS client for session handling (loads global 'supabase' object) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -104,6 +104,7 @@
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtcHVwdHNvZ2VweWh2a3R5dHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NDc3MDAsImV4cCI6MjA3MzUyMzcwMH0.B9Gzw3p6WZtat2SfkmpMKSPgp0ayY_0EsS98CqVK0Jg"; // <<< REPLACE THIS WITH YOUR VITE_SUPABASE_ANON_KEY
 
         let supabaseClient; // Declare a variable to hold the Supabase client
+        let scriptInitializedSuccessfully = false; // Flag to track successful initialization
 
         try {
             // Ensure Supabase client is available globally from the CDN script
@@ -112,19 +113,26 @@
                 document.querySelector('h1').textContent = 'Error Loading Supabase!';
                 document.querySelector('p').textContent = 'The necessary library to verify your account could not be loaded. Please try again or contact support.';
                 document.querySelector('.icon svg').style.color = '#ef4444'; // Error red
-                return;
+                // Do not set scriptInitializedSuccessfully to true
+            } else {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('VERIFIED_HTML_SCRIPT: Supabase client initialized.');
+                scriptInitializedSuccessfully = true; // Mark as successful
             }
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log('VERIFIED_HTML_SCRIPT: Supabase client initialized.');
         } catch (e) {
             console.error('VERIFIED_HTML_SCRIPT: Error initializing Supabase client:', e);
             document.querySelector('h1').textContent = 'Initialization Error!';
             document.querySelector('p').textContent = 'An error occurred while preparing for verification. Please try again.';
             document.querySelector('.icon svg').style.color = '#ef4444'; // Error red
-            return;
+            // Do not set scriptInitializedSuccessfully to true
         }
 
         async function handleVerification() {
+            if (!scriptInitializedSuccessfully) {
+                console.warn('VERIFIED_HTML_SCRIPT: Skipping handleVerification because script initialization failed.');
+                return; // Exit if Supabase client wasn't initialized
+            }
+
             console.log('VERIFIED_HTML_SCRIPT: handleVerification function called.');
             console.log('VERIFIED_HTML_SCRIPT: Current URL hash:', window.location.hash);
 
@@ -177,8 +185,14 @@
             }
         }
 
-        // Call handleVerification when the page loads
-        window.addEventListener('load', handleVerification);
+        // Call handleVerification when the page loads, but only if initialization was successful
+        window.addEventListener('load', () => {
+            if (scriptInitializedSuccessfully) {
+                handleVerification();
+            } else {
+                console.warn('VERIFIED_HTML_SCRIPT: Not calling handleVerification due to prior initialization errors.');
+            }
+        });
 
         // This function is for the button click, but the auto-redirect should handle most cases
         function redirectToLogin() {
