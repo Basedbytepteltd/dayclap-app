@@ -1,0 +1,80 @@
+import { serve } from 'https://deno.land/std@0.210.0/http/server.ts'; // Updated Deno std version
+
+console.log('send-welcome-email-proxy function started');
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    // Handle CORS preflight requests
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST',
+      },
+    });
+  }
+
+  try {
+    const { email, user_name } = await req.json();
+
+    if (!email) {
+      console.error('Error: Email is required in the payload.');
+      return new Response(JSON.stringify({ error: 'Email is required' }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
+
+    const backendApiKey = Deno.env.get('BACKEND_API_KEY');
+    const backendUrl = Deno.env.get('VITE_BACKEND_URL');
+
+    if (!backendApiKey) {
+      console.error('Configuration Error: BACKEND_API_KEY is not set in Supabase secrets.');
+      return new Response(JSON.stringify({ error: 'Backend API key not configured' }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
+    if (!backendUrl) {
+      console.error('Configuration Error: VITE_BACKEND_URL is not set in Supabase secrets.');
+      return new Response(JSON.stringify({ error: 'Backend URL not configured' }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
+    console.log(`Proxying welcome email for ${email} to ${backendUrl}/api/send-welcome-email`);
+    const response = await fetch(`${backendUrl}/api/send-welcome-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': backendApiKey,
+      },
+      body: JSON.stringify({ email, user_name }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log(`Welcome email proxy successful for ${email}:`, data.message);
+      return new Response(JSON.stringify({ message: data.message || 'Welcome email sent via proxy' }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    } else {
+      console.error(`Welcome email proxy failed for ${email} (Status: ${response.status}):`, data.message);
+      return new Response(JSON.stringify({ error: data.message || 'Failed to send welcome email via proxy' }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: response.status,
+      });
+    }
+  } catch (error) {
+    console.error('Unhandled Error in send-welcome-email-proxy:', error.message);
+    return new Response(JSON.stringify({ error: 'Internal server error during processing' }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 500,
+    });
+  }
+});
