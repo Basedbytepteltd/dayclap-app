@@ -1,370 +1,473 @@
--- This is the complete and consolidated Supabase schema for DayClap.
--- It is designed to be run multiple times safely, creating tables and adding columns only if they don't already exist,
--- and dropping/recreating policies and functions to ensure they are always up-to-date.
+-- This script sets up the database schema for the DayClap application.
+-- It includes tables for user profiles, companies, events, tasks, invitations,
+-- email settings, and email templates.
+-- It also defines Row Level Security (RLS) policies for secure data access,
+-- and database functions and triggers for automated actions.
 
--- Enable pg_net extension for HTTP requests from triggers
--- IMPORTANT: You must enable this in your Supabase dashboard under Database -> Extensions first.
--- Also, configure network restrictions for pg_net to allow outbound requests to your backend URL.
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+-- Enable necessary extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions; -- For HTTP requests from triggers
+CREATE EXTENSION IF NOT EXISTS pg_cron; -- For scheduled jobs
 
--- Create a table for public profiles if it doesn't already exist.
-CREATE TABLE IF NOT EXISTS profiles (
-  id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+-- -----------------------------------------------------------------------------
+-- Tables
+-- -----------------------------------------------------------------------------
+
+-- Profiles table to store additional user information
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL PRIMARY KEY,
   name TEXT,
-  email TEXT UNIQUE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  theme TEXT DEFAULT 'light',
-  language TEXT DEFAULT 'en',
-  timezone TEXT DEFAULT 'UTC',
-  notifications JSONB DEFAULT '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}',
-  privacy JSONB DEFAULT '{"profileVisibility": "team", "calendarSharing": "private"}',
-  company_name TEXT
+  email TEXT UNIQUE NOT NULL,
+  avatar_url TEXT,
+  -- Store an array of company objects the user belongs to
+  -- Example: [{ id: 'uuid', name: 'Company A', role: 'owner', createdAt: 'iso-date' }]
+  companies JSONB DEFAULT '[]'::jsonb NOT NULL,
+  current_company_id UUID, -- The ID of the company currently active for the user
+  currency TEXT DEFAULT 'USD' NOT NULL, -- User's preferred currency
+  theme TEXT DEFAULT 'system' NOT NULL, -- 'light', 'dark', or 'system'
+  language TEXT DEFAULT 'en' NOT NULL, -- User's preferred language
+  timezone TEXT DEFAULT 'UTC' NOT NULL, -- User's preferred IANA timezone
+  -- Notification preferences (JSONB object)
+  notifications JSONB DEFAULT '{
+    "email_daily": true,
+    "email_weekly": false,
+    "email_monthly": false,
+    "email_3day_countdown": false,
+    "email_1week_countdown": true,
+    "push": true,
+    "reminders": true,
+    "invitations": true
+  }'::jsonb NOT NULL,
+  -- Privacy settings (JSONB object)
+  privacy JSONB DEFAULT '{
+    "profileVisibility": "team",
+    "calendarSharing": "private"
+  }'::jsonb NOT NULL,
+  account_type TEXT DEFAULT 'personal' NOT NULL, -- 'personal' or 'business'
+  push_subscription JSONB, -- Web Push API subscription object
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL -- Track last user activity
 );
 
--- Conditionally add new columns to the 'profiles' table if they don't exist.
-DO $$
+-- Events table
+CREATE TABLE IF NOT EXISTS public.events (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  company_id UUID, -- Optional: Link to a company if it's a company event
+  title TEXT NOT NULL,
+  description TEXT,
+  location TEXT,
+  -- NEW: Use TIMESTAMP WITH TIME ZONE for event_datetime
+  event_datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+  duration_minutes INTEGER DEFAULT 60 NOT NULL, -- Duration in minutes
+  -- Old 'date' and 'time' columns are removed after migration
+  -- date DATE NOT NULL,
+  -- time TEXT,
+  event_tasks JSONB DEFAULT '[]'::jsonb NOT NULL, -- Embedded tasks for the event
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  one_week_reminder_sent_at TIMESTAMP WITH TIME ZONE -- To track if 1-week reminder was sent
+);
+
+-- Invitations table for inviting users to companies
+CREATE TABLE IF NOT EXISTS public.invitations (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  sender_email TEXT NOT NULL, -- Store sender email for display
+  recipient_email TEXT NOT NULL,
+  company_id UUID NOT NULL,
+  company_name TEXT NOT NULL,
+  role TEXT DEFAULT 'user' NOT NULL, -- 'user' or 'admin'
+  status TEXT DEFAULT 'pending' NOT NULL, -- 'pending', 'accepted', 'declined'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '7 days') NOT NULL
+);
+
+-- Email Settings table (for Maileroo API key, default sender, etc.)
+CREATE TABLE IF NOT EXISTS public.email_settings (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  maileroo_sending_key TEXT,
+  maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/emails' NOT NULL,
+  mail_default_sender TEXT DEFAULT 'no-reply@team.dayclap.com' NOT NULL,
+  scheduler_enabled BOOLEAN DEFAULT TRUE NOT NULL, -- Enable/disable daily reminder scheduler
+  reminder_time TEXT DEFAULT '02:00' NOT NULL, -- HH:MM format for daily reminders (UTC)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- Email Templates table
+CREATE TABLE IF NOT EXISTS public.email_templates (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL, -- e.g., 'welcome_email', 'invitation_to_company', 'task_assigned'
+  subject TEXT NOT NULL,
+  html_content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- -----------------------------------------------------------------------------
+-- Row Level Security (RLS) Policies
+-- -----------------------------------------------------------------------------
+
+-- Enable RLS on tables
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invitations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.email_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.email_templates ENABLE ROW LEVEL SECURITY;
+
+-- Profiles RLS
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
+CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles
+  FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
+CREATE POLICY "Users can insert their own profile." ON public.profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
+CREATE POLICY "Users can update their own profile." ON public.profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can delete their own profile." ON public.profiles;
+CREATE POLICY "Users can delete their own profile." ON public.profiles
+  FOR DELETE USING (auth.uid() = id);
+
+-- Events RLS
+DROP POLICY IF EXISTS "Users can view their own events." ON public.events;
+CREATE POLICY "Users can view their own events." ON public.events
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own events." ON public.events;
+CREATE POLICY "Users can insert their own events." ON public.events
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own events." ON public.events;
+CREATE POLICY "Users can update their own events." ON public.events
+  FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own events." ON public.events;
+CREATE POLICY "Users can delete their own events." ON public.events
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Invitations RLS
+DROP POLICY IF EXISTS "Users can view their own sent and received invitations." ON public.invitations;
+CREATE POLICY "Users can view their own sent and received invitations." ON public.invitations
+  FOR SELECT USING (auth.uid() = sender_id OR auth.email() = recipient_email);
+
+DROP POLICY IF EXISTS "Users can insert their own invitations." ON public.invitations;
+CREATE POLICY "Users can insert their own invitations." ON public.invitations
+  FOR INSERT WITH CHECK (auth.uid() = sender_id);
+
+DROP POLICY IF EXISTS "Users can update their own invitations (e.g., status)." ON public.invitations;
+CREATE POLICY "Users can update their own invitations (e.g., status)." ON public.invitations
+  FOR UPDATE USING (auth.uid() = sender_id OR auth.email() = recipient_email);
+
+DROP POLICY IF EXISTS "Users can delete their own invitations." ON public.invitations;
+CREATE POLICY "Users can delete their own invitations." ON public.invitations
+  FOR DELETE USING (auth.uid() = sender_id OR auth.email() = recipient_email);
+
+-- Email Settings RLS (only service role can manage, or specific admin user)
+DROP POLICY IF EXISTS "Allow service role to manage email settings." ON public.email_settings;
+CREATE POLICY "Allow service role to manage email settings." ON public.email_settings
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
+-- Email Templates RLS (only service role can manage, or specific admin user)
+DROP POLICY IF EXISTS "Allow service role to manage email templates." ON public.email_templates;
+CREATE POLICY "Allow service role to manage email templates." ON public.email_templates
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
+-- -----------------------------------------------------------------------------
+-- Functions
+-- -----------------------------------------------------------------------------
+
+-- Function to update 'updated_at' column automatically
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'companies') THEN
-        ALTER TABLE public.profiles ADD COLUMN companies JSONB DEFAULT '[]';
-        RAISE NOTICE 'Column companies added to public.profiles table.';
-    END IF;
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'current_company_id') THEN
-        ALTER TABLE public.profiles ADD COLUMN current_company_id TEXT;
-        RAISE NOTICE 'Column current_company_id added to public.profiles table.';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'last_activity_at') THEN
-        ALTER TABLE public.profiles ADD COLUMN last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-        RAISE NOTICE 'Column last_activity_at added to public.profiles table.';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'currency') THEN
-        ALTER TABLE public.profiles ADD COLUMN currency TEXT DEFAULT 'USD';
-        RAISE NOTICE 'Column currency added to public.profiles table.';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'account_type') THEN
-        ALTER TABLE public.profiles ADD COLUMN account_type TEXT DEFAULT 'personal';
-        RAISE NOTICE 'Column account_type added to public.profiles table.';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'push_subscription') THEN
-        ALTER TABLE public.profiles ADD COLUMN push_subscription JSONB;
-        RAISE NOTICE 'Column push_subscription added to public.profiles table.';
-    END IF;
-END
-$$;
-
--- Enable Row Level Security (RLS) for the profiles table.
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for profiles
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON profiles;
-CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING ( TRUE );
-
-DROP POLICY IF EXISTS "Users can insert their own profile." ON profiles;
-CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK ( auth.uid() = id );
-
-DROP POLICY IF EXISTS "Users can update their own profile." ON profiles;
-CREATE POLICY "Users can update their own profile." ON profiles FOR UPDATE USING ( auth.uid() = id );
-
--- Trigger function to handle new user creation
+-- Function to create a new profile for a new user
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
-    user_account_type TEXT;
-    user_company_name_signup TEXT;
-    user_name_signup TEXT;
-    new_company_id TEXT;
-    initial_companies JSONB;
+    _account_type TEXT;
+    _name TEXT;
+    _company_name TEXT;
+    _company_id UUID;
+    _companies JSONB;
 BEGIN
-    user_account_type := COALESCE(NEW.raw_user_meta_data->>'account_type', 'personal');
-    user_company_name_signup := NEW.raw_user_meta_data->>'company_name_signup';
-    user_name_signup := NEW.raw_user_meta_data->>'name';
+    -- Extract metadata from new user (if available)
+    _name := NEW.raw_user_meta_data->>'name';
+    _account_type := COALESCE(NEW.raw_user_meta_data->>'account_type', 'personal');
+    _company_name := NEW.raw_user_meta_data->>'company_name_signup';
 
-    initial_companies := '[]'::jsonb;
-    new_company_id := NULL;
+    _companies := '[]'::jsonb;
+    _company_id := NULL;
 
-    new_company_id := gen_random_uuid();
-
-    IF user_account_type = 'business' AND user_company_name_signup IS NOT NULL AND user_company_name_signup <> '' THEN
-        initial_companies := jsonb_build_array(jsonb_build_object(
-            'id', new_company_id,
-            'name', user_company_name_signup,
-            'role', 'owner',
-            'createdAt', NOW()::text
-        ));
-    ELSE
-        initial_companies := jsonb_build_array(jsonb_build_object(
-            'id', new_company_id,
-            'name', user_name_signup || '''s Space',
+    IF _account_type = 'business' AND _company_name IS NOT NULL AND _company_name != '' THEN
+        _company_id := uuid_generate_v4();
+        _companies := jsonb_build_array(jsonb_build_object(
+            'id', _company_id,
+            'name', _company_name,
             'role', 'owner',
             'createdAt', NOW()::text
         ));
     END IF;
 
-    INSERT INTO public.profiles (
-        id,
-        email,
-        name,
-        created_at,
-        theme,
-        language,
-        timezone,
-        notifications,
-        privacy,
-        company_name,
-        companies,
-        current_company_id,
-        last_activity_at,
-        currency,
-        account_type
-    )
+    INSERT INTO public.profiles (id, name, email, account_type, companies, current_company_id)
     VALUES (
         NEW.id,
+        COALESCE(_name, NEW.email), -- Use name from metadata, fallback to email
         NEW.email,
-        user_name_signup,
-        NOW(),
-        'light',
-        'en',
-        'UTC',
-        '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}'::jsonb,
-        '{"profileVisibility": "team", "calendarSharing": "private"}'::jsonb,
-        CASE WHEN user_account_type = 'business' THEN user_company_name_signup ELSE NULL END,
-        initial_companies,
-        new_company_id,
-        NOW(),
-        'USD',
-        user_account_type
+        _account_type,
+        _companies,
+        _company_id
     );
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- Send welcome email after email confirmation
+-- Function to send welcome email via backend proxy
 CREATE OR REPLACE FUNCTION public.send_welcome_email_on_confirm()
 RETURNS TRIGGER AS $$
 DECLARE
-    backend_url TEXT := 'https://dayclap-backend-api.onrender.com';
-    api_key TEXT := 'your_local_backend_api_key_for_supabase_trigger';
-    payload JSONB;
-    headers JSONB;
-    request_id BIGINT;
+    _backend_url TEXT;
+    _backend_api_key TEXT;
+    _full_url TEXT;
+    _request_body JSONB;
+    _response_status INT;
+    _response_body TEXT;
 BEGIN
-    IF OLD.email_confirmed_at IS NULL AND NEW.email_confirmed_at IS NOT NULL THEN
-        payload := jsonb_build_object(
+    -- Only send if email is confirmed and it's a new user (INSERT)
+    IF NEW.email_confirmed_at IS NOT NULL AND TG_OP = 'INSERT' THEN
+        _backend_url := extensions.getenv('VITE_BACKEND_URL');
+        _backend_api_key := extensions.getenv('BACKEND_API_KEY');
+
+        IF _backend_url IS NULL OR _backend_api_key IS NULL THEN
+            RAISE WARNING 'Backend URL or API Key not set. Cannot send welcome email.';
+            RETURN NEW;
+        END IF;
+
+        _full_url := _backend_url || '/api/send-welcome-email';
+        _request_body := jsonb_build_object(
             'email', NEW.email,
-            'user_name', NEW.raw_user_meta_data->>'name'
-        );
-        
-        headers := jsonb_build_object(
-            'Content-Type', 'application/json',
-            'X-API-Key', api_key
+            'user_name', COALESCE(NEW.raw_user_meta_data->>'name', NEW.email)
         );
 
-        SELECT extensions.http_post(
-            uri := backend_url || '/api/send-welcome-email',
-            content := payload,
-            headers := headers
-        ) INTO request_id;
+        -- Use pg_net to send HTTP POST request to the backend
+        SELECT
+            status,
+            content::text
+        INTO
+            _response_status,
+            _response_body
+        FROM
+            extensions.http_post(
+                _full_url,
+                _request_body,
+                ARRAY[
+                    extensions.http_header('Content-Type', 'application/json'),
+                    extensions.http_header('X-API-Key', _backend_api_key)
+                ]
+            );
 
-        RAISE NOTICE 'Sent welcome email request for user % (ID: %)', NEW.email, NEW.id;
+        IF _response_status >= 200 AND _response_status < 300 THEN
+            RAISE NOTICE 'Welcome email sent successfully for user % (status: %)', NEW.email, _response_status;
+        ELSE
+            RAISE WARNING 'Failed to send welcome email for user % (status: %, response: %)', NEW.email, _response_status, _response_body;
+        END IF;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS on_auth_user_confirmed ON auth.users;
-CREATE TRIGGER on_auth_user_confirmed
-AFTER UPDATE OF email_confirmed_at ON auth.users
+-- Function to accept an invitation
+CREATE OR REPLACE FUNCTION public.accept_invitation(invitation_id UUID)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    invitation_record RECORD;
+    user_profile_record RECORD;
+    current_user_id UUID := auth.uid();
+    current_user_email TEXT := auth.email();
+    updated_companies JSONB;
+    company_exists BOOLEAN;
+BEGIN
+    -- Check if the current user is authenticated
+    IF current_user_id IS NULL THEN
+        RETURN 'Error: User not authenticated.';
+    END IF;
+
+    -- Fetch the invitation
+    SELECT * INTO invitation_record FROM public.invitations WHERE id = invitation_id;
+
+    IF NOT FOUND THEN
+        RETURN 'Error: Invitation not found.';
+    END IF;
+
+    -- Check if the invitation is for the current user's email
+    IF invitation_record.recipient_email IS DISTINCT FROM current_user_email THEN
+        RETURN 'Error: This invitation is not for your email address.';
+    END IF;
+
+    -- Check if the invitation is still pending
+    IF invitation_record.status != 'pending' THEN
+        RETURN 'Error: Invitation is no longer pending (status: ' || invitation_record.status || ').';
+    END IF;
+
+    -- Check if the invitation has expired
+    IF invitation_record.expires_at < NOW() THEN
+        RETURN 'Error: Invitation has expired.';
+    END IF;
+
+    -- Fetch the current user's profile
+    SELECT * INTO user_profile_record FROM public.profiles WHERE id = current_user_id;
+
+    IF NOT FOUND THEN
+        RETURN 'Error: User profile not found.';
+    END IF;
+
+    -- Check if the user is already part of this company
+    company_exists := EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(user_profile_record.companies) AS company
+        WHERE (company->>'id')::UUID = invitation_record.company_id
+    );
+
+    IF company_exists THEN
+        -- If already a member, just update the invitation status
+        UPDATE public.invitations
+        SET status = 'accepted', updated_at = NOW()
+        WHERE id = invitation_id;
+        RETURN 'Success: You are already a member of this company. Invitation status updated.';
+    ELSE
+        -- Add the company to the user's companies array
+        updated_companies := user_profile_record.companies || jsonb_build_object(
+            'id', invitation_record.company_id,
+            'name', invitation_record.company_name,
+            'role', invitation_record.role,
+            'createdAt', NOW()::text
+        );
+
+        UPDATE public.profiles
+        SET
+            companies = updated_companies,
+            -- If user has no current company, or if this is their first company, set it as current
+            current_company_id = COALESCE(user_profile_record.current_company_id, invitation_record.company_id),
+            updated_at = NOW()
+        WHERE id = current_user_id;
+
+        -- Update invitation status
+        UPDATE public.invitations
+        SET status = 'accepted', updated_at = NOW()
+        WHERE id = invitation_id;
+
+        RETURN 'Success: You have joined ' || invitation_record.company_name || '.';
+    END IF;
+END;
+$$;
+
+-- Function to decline an invitation
+CREATE OR REPLACE FUNCTION public.decline_invitation(invitation_id UUID)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    invitation_record RECORD;
+    current_user_email TEXT := auth.email();
+BEGIN
+    -- Check if the current user is authenticated
+    IF auth.uid() IS NULL THEN
+        RETURN 'Error: User not authenticated.';
+    END IF;
+
+    -- Fetch the invitation
+    SELECT * INTO invitation_record FROM public.invitations WHERE id = invitation_id;
+
+    IF NOT FOUND THEN
+        RETURN 'Error: Invitation not found.';
+    END IF;
+
+    -- Check if the invitation is for the current user's email
+    IF invitation_record.recipient_email IS DISTINCT FROM current_user_email THEN
+        RETURN 'Error: This invitation is not for your email address.';
+    END IF;
+
+    -- Check if the invitation is still pending
+    IF invitation_record.status != 'pending' THEN
+        RETURN 'Error: Invitation is no longer pending (status: ' || invitation_record.status || ').';
+    END IF;
+
+    -- Update invitation status to declined
+    UPDATE public.invitations
+    SET status = 'declined', updated_at = NOW()
+    WHERE id = invitation_id;
+
+    RETURN 'Success: Invitation declined.';
+END;
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Triggers
+-- -----------------------------------------------------------------------------
+
+-- Trigger to create a public.profile entry when a new user signs up in auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Trigger to send welcome email after user is created and email is confirmed
+-- This trigger calls the `send_welcome_email_on_confirm` function.
+DROP TRIGGER IF EXISTS send_welcome_email_trigger ON auth.users;
+CREATE TRIGGER send_welcome_email_trigger
+AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.send_welcome_email_on_confirm();
 
--- Create 'invitations' table
-CREATE TABLE IF NOT EXISTS invitations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  sender_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  recipient_email TEXT NOT NULL,
-  company_id TEXT NOT NULL,
-  company_name TEXT NOT NULL,
-  role TEXT DEFAULT 'user' NOT NULL,
-  status TEXT DEFAULT 'pending' NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Triggers to update 'updated_at' column
+DROP TRIGGER IF EXISTS set_profiles_updated_at ON public.profiles;
+CREATE TRIGGER set_profiles_updated_at
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'invitations' AND column_name = 'sender_email') THEN
-        ALTER TABLE public.invitations ADD COLUMN sender_email TEXT NOT NULL DEFAULT 'unknown@example.com';
-        RAISE NOTICE 'Column sender_email added to public.invitations table.';
-    END IF;
-END
-$$;
+DROP TRIGGER IF EXISTS set_events_updated_at ON public.events;
+CREATE TRIGGER set_events_updated_at
+BEFORE UPDATE ON public.events
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can view their sent or received invitations." ON invitations;
-CREATE POLICY "Users can view their sent or received invitations." ON invitations FOR SELECT USING ( auth.uid() = sender_id OR auth.email() = recipient_email );
-DROP POLICY IF EXISTS "Users can send invitations." ON invitations;
-CREATE POLICY "Users can send invitations." ON invitations FOR INSERT WITH CHECK ( auth.uid() = sender_id );
-DROP POLICY IF EXISTS "Users can update their received invitations." ON invitations;
-CREATE POLICY "Users can update their received invitations." ON invitations FOR UPDATE USING ( auth.email() = recipient_email );
+DROP TRIGGER IF EXISTS set_invitations_updated_at ON public.invitations;
+CREATE TRIGGER set_invitations_updated_at
+BEFORE UPDATE ON public.invitations
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- Create 'events' table
-CREATE TABLE IF NOT EXISTS events (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  company_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  date DATE NOT NULL,
-  time TEXT,
-  description TEXT,
-  location TEXT,
-  event_tasks JSONB DEFAULT '[]',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+DROP TRIGGER IF EXISTS set_email_settings_updated_at ON public.email_settings;
+CREATE TRIGGER set_email_settings_updated_at
+BEFORE UPDATE ON public.email_settings
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-DO $$
-BEGIN
-    ALTER TABLE public.events ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'notification_dismissed_at') THEN
-        ALTER TABLE public.events ADD COLUMN notification_dismissed_at TIMESTAMP WITH TIME ZONE;
-        RAISE NOTICE 'Column notification_dismissed_at added to public.events table.';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'events' AND column_name = 'one_week_reminder_sent_at') THEN
-        ALTER TABLE public.events ADD COLUMN one_week_reminder_sent_at TIMESTAMP WITH TIME ZONE;
-        RAISE NOTICE 'Column one_week_reminder_sent_at added to public.events table.';
-    END IF;
-END
-$$;
+DROP TRIGGER IF EXISTS set_email_templates_updated_at ON public.email_templates;
+CREATE TRIGGER set_email_templates_updated_at
+BEFORE UPDATE ON public.email_templates
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER TABLE events ENABLE ROW LEVEL SECURITY;
--- Corrected: Added DROP POLICY IF EXISTS for all event policies
-DROP POLICY IF EXISTS "Users can view events in companies they belong to." ON events;
-CREATE POLICY "Users can view events in companies they belong to." ON events FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid() AND profiles.companies @> jsonb_build_array(jsonb_build_object('id', events.company_id))
-  )
-);
+-- -----------------------------------------------------------------------------
+-- Initial Data / Seed Data
+-- -----------------------------------------------------------------------------
 
-DROP POLICY IF EXISTS "Users can insert events in their current company." ON events;
-CREATE POLICY "Users can insert events in their current company." ON events FOR INSERT WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid() AND profiles.current_company_id = events.company_id
-  )
-);
-
-DROP POLICY IF EXISTS "Users can update events in their current company." ON events;
-CREATE POLICY "Users can update events in their current company." ON events FOR UPDATE USING (
-  EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid() AND profiles.current_company_id = events.company_id
-  )
-);
-
-DROP POLICY IF EXISTS "Users can delete events in their current company." ON events;
-CREATE POLICY "Users can delete events in their current company." ON events FOR DELETE USING (
-  EXISTS (
-    SELECT 1 FROM profiles
-    WHERE profiles.id = auth.uid() AND profiles.current_company_id = events.company_id
-  )
-);
-
--- REMOVED: 'tasks' table and its RLS policies are removed to enforce tasks only within events.
--- Any existing 'tasks' table data will remain but will not be managed by the application.
-
--- Create 'email_settings' table
-CREATE TABLE IF NOT EXISTS email_settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/emails', -- CORRECTED: Changed to /emails
-  mail_default_sender TEXT DEFAULT 'no-reply@team.dayclap.com',
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  scheduler_enabled BOOLEAN DEFAULT TRUE,
-  reminder_time TEXT DEFAULT '02:00'
-);
-
--- Idempotently add or rename columns
-DO $$
-BEGIN
-    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'email_settings') THEN
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='emailit_api_key') THEN
-            ALTER TABLE email_settings RENAME COLUMN emailit_api_key TO maileroo_sending_key;
-            RAISE NOTICE 'Column "emailit_api_key" renamed to "maileroo_sending_key".';
-        ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='maileroo_sending_key') THEN
-            ALTER TABLE email_settings ADD COLUMN maileroo_sending_key TEXT;
-            RAISE NOTICE 'Column "maileroo_sending_key" added.';
-        END IF;
-
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='emailit_api_endpoint') THEN
-            ALTER TABLE email_settings RENAME COLUMN emailit_api_endpoint TO maileroo_api_endpoint;
-            RAISE NOTICE 'Column "emailit_api_endpoint" renamed to "maileroo_api_endpoint".';
-        ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='email_settings' AND column_name='maileroo_api_endpoint') THEN
-            ALTER TABLE public.email_settings ADD COLUMN maileroo_api_endpoint TEXT DEFAULT 'https://smtp.maileroo.com/api/v2/emails'; -- CORRECTED: Changed to /emails
-            RAISE NOTICE 'Column "maileroo_api_endpoint" added.';
-        END IF;
-
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'email_settings' AND column_name = 'scheduler_enabled') THEN
-            ALTER TABLE public.email_settings ADD COLUMN scheduler_enabled BOOLEAN DEFAULT TRUE;
-            RAISE NOTICE 'Column "scheduler_enabled" added.';
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'email_settings' AND column_name = 'reminder_time') THEN
-            ALTER TABLE public.email_settings ADD COLUMN reminder_time TEXT DEFAULT '02:00';
-            RAISE NOTICE 'Column "reminder_time" added.';
-        END IF;
-    END IF;
-END
-$$;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_email_settings_singleton ON email_settings ((id IS NOT NULL));
-ALTER TABLE email_settings ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Super admin can manage email settings." ON email_settings;
-CREATE POLICY "Super admin can manage email settings." ON email_settings FOR ALL USING ( auth.email() = 'admin@example.com' );
-
--- Insert default row if table is empty
-INSERT INTO email_settings (id, maileroo_sending_key, maileroo_api_endpoint, mail_default_sender, scheduler_enabled, reminder_time)
-SELECT gen_random_uuid(), '', 'https://smtp.maileroo.com/api/v2/emails', 'no-reply@team.dayclap.com', TRUE, '02:00' -- CORRECTED: Changed to /emails
-WHERE NOT EXISTS (SELECT 1 FROM email_settings);
-
--- **FIX**: Correct any old, incorrect default sender email values.
-DO $$
-BEGIN
-    UPDATE email_settings
-    SET mail_default_sender = 'no-reply@team.dayclap.com'
-    WHERE mail_default_sender = 'DayClap Notifications <noreply@dayclap.com>';
-    -- RAISE NOTICE 'Corrected outdated mail_default_sender value.'; -- Optional: keep for debugging, remove for production
-END
-$$;
-
--- **FIX**: Correct any old, incorrect API endpoints to the new correct one.
-DO $$
-BEGIN
-    UPDATE email_settings
-    SET maileroo_api_endpoint = 'https://smtp.maileroo.com/api/v2/emails' -- CORRECTED: Changed to /emails
-    WHERE maileroo_api_endpoint != 'https://smtp.maileroo.com/api/v2/emails'; -- CORRECTED: Changed to /emails
-    -- RAISE NOTICE 'Corrected outdated maileroo_api_endpoint value to the correct URL.'; -- Optional: keep for debugging, remove for production
-END
-$$;
-
--- NEW: Create 'email_templates' table
-CREATE TABLE IF NOT EXISTS email_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT UNIQUE NOT NULL,
-  subject TEXT NOT NULL,
-  html_content TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- RLS for 'email_templates'
-ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Super admin can manage email templates." ON email_templates;
-CREATE POLICY "Super admin can manage email templates." ON email_templates FOR ALL USING ( auth.email() = 'admin@example.com' );
+-- Insert default email settings if none exist
+INSERT INTO public.email_settings (maileroo_sending_key, mail_default_sender, maileroo_api_endpoint, scheduler_enabled, reminder_time)
+SELECT
+    'YOUR_MAILEROO_API_KEY_HERE', -- Placeholder, should be updated via dashboard or ENV
+    'DayClap Notifications <no-reply@team.dayclap.com>',
+    'https://smtp.maileroo.com/api/v2/emails',
+    TRUE,
+    '02:00'
+WHERE NOT EXISTS (SELECT 1 FROM public.email_settings);
 
 -- Insert default email templates if they don't exist
 INSERT INTO email_templates (name, subject, html_content)
@@ -375,9 +478,9 @@ $$<!DOCTYPE html>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px; border-radius: 8px 8px 0 0; text-align: center; }
         .content { padding: 20px; line-height: 1.6; color: #333333; }
-        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-top: 15px; }
         .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
     </style>
 </head>
@@ -388,13 +491,11 @@ $$<!DOCTYPE html>
         </div>
         <div class="content">
             <p>Hello {{ user_name }},</p>
-            <p>Your DayClap account is now active! We're thrilled to have you on board.</p>
-            <p>DayClap helps you streamline your schedule, manage tasks effortlessly, and collaborate with your team. Get ready to boost your productivity!</p>
-            <p style="text-align: center;">
-                <a href="https://dayclap-app.vercel.app" class="button">Go to Dashboard</a>
-            </p>
+            <p>Welcome to DayClap, your smart calendar companion! We're excited to help you streamline your schedule, manage tasks effortlessly, and never miss important meetings.</p>
+            <p>To get started, log in to your dashboard and explore all the features.</p>
+            <a href="{{ frontend_url }}" class="button">Go to Dashboard</a>
             <p>If you have any questions, feel free to reach out to our support team.</p>
-            <p>Best regards,<br>The DayClap Team</p>
+            <p>Happy scheduling!</p>
         </div>
         <div class="footer">
             <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
@@ -405,35 +506,35 @@ $$<!DOCTYPE html>
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'welcome_email');
 
 INSERT INTO email_templates (name, subject, html_content)
-SELECT 'invitation_to_company', 'You''re Invited to Join a Team on DayClap!',
+SELECT 'invitation_to_company', 'You''re Invited to Join {{ company_name }} on DayClap!',
 $$<!DOCTYPE html>
 <html>
 <head>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px; border-radius: 8px 8px 0 0; text-align: center; }
         .content { padding: 20px; line-height: 1.6; color: #333333; }
-        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-top: 15px; }
         .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>You're Invited to Join a Team on DayClap!</h2>
+            <h2>Invitation to Join a Company</h2>
         </div>
         <div class="content">
             <p>Hello,</p>
-            <p><b>{{ sender_email }}</b> has invited you to join their team, <b>'{{ company_name }}'</b>, on DayClap as a <b>{{ role }}</b>.</p>
-            <p>DayClap helps teams collaborate on schedules, manage tasks, and boost overall productivity.</p>
-            <p style="text-align: center;">
-                <a href="https://dayclap-app.vercel.app" class="button">Accept Invitation</a>
-            </p>
-            <p>If you have any questions, please contact {{ sender_email }}.</p>
-            <p>Best regards,<br>The DayClap Team</p>
+            <p>You have been invited by <strong>{{ sender_email }}</strong> to join the company <strong>{{ company_name }}</strong> on DayClap as a <strong>{{ role }}</strong>.</p>
+            <p>DayClap helps teams manage their schedules, events, and tasks collaboratively.</p>
+            <p>To accept this invitation and join the company, please log in to your DayClap account and navigate to your company settings or simply click the button below:</p>
+            <a href="{{ frontend_url }}/settings?tab=company-team&subtab=invitations" class="button">View Invitation</a>
+            <p>If you don't have a DayClap account, you can sign up using this email address to accept the invitation.</p>
+            <p>We look forward to having you!</p>
         </div>
         <div class="footer">
+            <p>If you did not expect this invitation, please ignore this email.</p>
             <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
         </div>
     </div>
@@ -442,86 +543,89 @@ $$<!DOCTYPE html>
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'invitation_to_company');
 
 INSERT INTO email_templates (name, subject, html_content)
-SELECT 'verification_email', 'Confirm Your DayClap Account',
-$$<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }\n        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }\n        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }\n        .content { padding: 20px; line-height: 1.6; color: #333333; }\n        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }\n        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }\n    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h2>Confirm Your DayClap Account</h2>
-        </div>
-        <div class="content">
-            <p>Hello {{ user_name }},</p>
-            <p>Thank you for signing up for DayClap! Please click the button below to confirm your email address and activate your account:</p>
-            <p style="text-align: center;">
-                <a href="{{ .ConfirmationURL }}" class="button">Confirm Your Email</a>
-            </p>
-            <p>If you did not sign up for DayClap, please ignore this email.</p>
-            <p>Best regards,<br>The DayClap Team</p>
-        </div>
-        <div class="footer">
-            <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>$$
-WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'verification_email');
-
-INSERT INTO email_templates (name, subject, html_content)
-SELECT 'event_1week_reminder', 'Reminder: Your Event is One Week Away!',
+SELECT 'task_assigned', 'You have been assigned a new task in DayClap!',
 $$<!DOCTYPE html>
 <html>
 <head>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .header { background-color: #3b82f6; color: #ffffff; padding: 15px 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px; border-radius: 8px 8px 0 0; text-align: center; }
         .content { padding: 20px; line-height: 1.6; color: #333333; }
-        .event-details { background-color: #e7f3ff; border-left: 5px solid #3b82f6; padding: 15px; margin: 15px 0; border-radius: 5px; }
-        .event-details h3 { color: #3b82f6; margin-top: 0; }
-        .task-summary { background-color: #fffbe6; border-left: 5px solid #f59e0b; padding: 15px; margin: 15px 0; border-radius: 5px; }
-        .task-summary p { margin: 0; }
-        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .task-details { background-color: #e7f3ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .task-details p { margin: 5px 0; }
+        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-top: 15px; }
         .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Event Reminder: {{ event_title }}</h2>
+            <h2>New Task Assigned!</h2>
+        </div>
+        <div class="content">
+            <p>Hello {{ assignee_name }},</p>
+            <p><strong>{{ assigned_by_name }}</strong> ({{ assigned_by_email }}) has assigned you a new task in DayClap:</p>
+            <div class="task-details">
+                <p><strong>Task:</strong> {{ task_title }}</p>
+                {{#if task_description}}<p><strong>Description:</strong> {{ task_description }}</p>{{/if}}
+                {{#if due_date}}<p><strong>Due Date:</strong> {{ due_date }}</p>{{/if}}
+                {{#if event_title}}<p><strong>Related Event:</strong> {{ event_title }} ({{ event_date }} {{ event_time }})</p>{{/if}}
+                {{#if company_name}}<p><strong>Company:</strong> {{ company_name }}</p>{{/if}}
+            </div>
+            <p>Please log in to your DayClap dashboard to view and manage this task.</p>
+            <a href="{{ frontend_url }}" class="button">Go to DayClap</a>
+            <p>Stay productive!</p>
+        </div>
+        <div class="footer">
+            <p>If you believe this is an error, please contact the sender.</p>
+            <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>$$
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'task_assigned');
+
+INSERT INTO email_templates (name, subject, html_content)
+SELECT 'event_1week_reminder', 'Reminder: Your Event "{{ event_title }}" is in 1 Week!',
+$$<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { padding: 20px; line-height: 1.6; color: #333333; }
+        .event-details { background-color: #e7f3ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .event-details p { margin: 5px 0; }
+        .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-top: 15px; }
+        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Upcoming Event Reminder</h2>
         </div>
         <div class="content">
             <p>Hello {{ user_name }},</p>
-            <p>This is a friendly reminder that your event, <b>"{{ event_title }}"</b>, is scheduled for <b>{{ event_date }}</b> (one week from today!).</p>
-            
+            <p>This is a friendly reminder that your event <strong>"{{ event_title }}"</strong> is coming up in one week!</p>
             <div class="event-details">
-                <h3>Event Details:</h3>
-                <p><b>Title:</b> {{ event_title }}</p>
-                <p><b>Date:</b> {{ event_date }}</p>
-                <p><b>Time:</b> {{ event_time }}</p>
-                {{#if event_location}}<p><b>Location:</b> {{ event_location }}</p>{{/if}}
-                {{#if event_description}}<p><b>Description:</b> {{ event_description }}</p>{{/if}}
+                <p><strong>Event:</strong> {{ event_title }}</p>
+                <p><strong>Date:</strong> {{ event_date }}</p>
+                <p><strong>Time:</strong> {{ event_time }}</p>
+                {{#if event_location}}<p><strong>Location:</strong> {{ event_location }}</p>{{/if}}
+                {{#if event_description}}<p><strong>Description:</strong> {{ event_description }}</p>{{/if}}
+                {{#if has_tasks}}
+                    <p><strong>Tasks:</strong> You have {{ pending_tasks_count }} pending task(s) for this event. ({{ task_completion_percentage }} completed)</p>
+                {{/if}}
             </div>
-
-            {{#if has_tasks}}
-            <div class="task-summary">
-                <h3>Task Progress:</h3>
-                <p>You have <b>{{ pending_tasks_count }}</b> pending tasks for this event.</p>
-                <p>Current completion: <b>{{ task_completion_percentage }}</b></p>
-            </div>
-            {{/if}}
-
-            <p style="text-align: center;">
-                <a href="https://dayclap-app.vercel.app" class="button">View Event in DayClap</a>
-            </p>
-            <p>Stay organized and have a productive week!</p>
-            <p>Best regards,<br>The DayClap Team</p>
+            <p>Make sure you're all set!</p>
+            <a href="{{ frontend_url }}" class="button">View Event on DayClap</a>
+            <p>See you there!</p>
         </div>
         <div class="footer">
+            <p>This is an automated reminder. Please do not reply to this email.</p>
             <p>&copy; {{ current_year }} DayClap. All rights reserved.</p>
         </div>
     </div>
@@ -530,60 +634,35 @@ $$<!DOCTYPE html>
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'event_1week_reminder');
 
 INSERT INTO email_templates (name, subject, html_content)
-SELECT 'task_assigned', 'New Task Assigned: {{ task_title }}',
+SELECT 'verification_email', 'Confirm Your DayClap Account',
 $$<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 20px auto; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,.08); overflow: hidden; }
-    .header { background: #3b82f6; color: #fff; padding: 16px 20px; }
-    .content { padding: 20px; color: #333; line-height: 1.6; }
-    .meta { background: #f7fafc; border-left: 4px solid #3b82f6; padding: 12px 14px; border-radius: 6px; margin: 12px 0; }
-    .label { color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; display:block; margin-bottom: 4px; }
-    .value { font-weight: 600; color: #111827; }
-    .button { display: inline-block; margin-top: 16px; background: #3b82f6; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; }
-    .footer { font-size: 12px; color: #888; padding: 16px 20px; border-top: 1px solid #eee; text-align: center;}
-  </style>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header { background-color: #3b82f6; color: #ffffff; padding: 15px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { padding: 20px; line-height: 1.6; color: #333333; }
+        .code { display: inline-block; background-color: #e7f3ff; color: #3b82f6; padding: 10px 15px; border-radius: 5px; font-size: 1.2em; font-weight: bold; margin: 10px 0; }
+        .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header"><h2>New Task Assigned</h2></div>
-    <div class="content">
-      <p>Hello {{ assignee_name }},</p>
-      <p>You have been assigned a new task{{ company_name ? ' in ' : '' }}<b>{{ company_name }}</b> for the event <b>"{{ event_title }}"</b>.</p>
-
-      <div class="meta">
-        <span class="label">Task</span>
-        <span class="value">{{ task_title }}</span>
-        {{#if task_description}}<div style="margin-top:6px;">{{ task_description }}</div>{{/if}}
-      </div>
-
-      <div class="meta">
-        <span class="label">Assigned By</span>
-        <span class="value">{{ assigned_by_name }} {{ assigned_by_email }}</span>
-      </div>
-
-      {{#if due_date}}
-      <div class="meta">
-        <span class="label">Task Due</span>
-        <span class="value">{{ due_date }}</span>
-      </div>
-      {{#if event_date}}
-      <div class="meta">
-        <span class="label">Event Date</span>
-        <span class="value">{{ event_date }} {{ event_time }}</span>
-      </div>
-      {{/if}}
-
-      <p>
-        <a href="https://dayclap-app.vercel.app" class="button">Open DayClap</a>
-      </p>
-      <p>Thanks,<br/>The DayClap Team</p>
+    <div class="container">
+        <div class="header">
+            <h2>Verification Code</h2>
+        </div>
+        <div class="content">
+            <p>Thank you for choosing DayClap!</p>
+            <p>To verify your account, please enter your OTP:</p>
+            <p class="code">{{ .Token }}</p>
+            <p>This code is valid for <strong>5 minutes</strong>.</p>
+        </div>
+        <div class="footer">
+            <p>If you did not request this code, please ignore this email.</p>
+            <p>&copy; {{ current_year }} Your Company. All rights reserved.</p>
+        </div>
     </div>
-    <div class="footer">&copy; {{ current_year }} DayClap. All rights reserved.</div>
-  </div>
 </body>
 </html>$$
-WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'task_assigned');
+WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE name = 'verification_email');
