@@ -14,15 +14,17 @@ const zonedTimeToUtc = dateFnsTz.zonedTimeToUtc;
  * @returns {Date} A Date object representing the UTC moment, but with its internal time adjusted to the user's timezone.
  */
 export const toUserTimezone = (utcIsoString, userTimezone) => {
-  if (!utcIsoString || !userTimezone) return null;
+  if (!utcIsoString || !userTimezone) {
+    console.log(`datetimeHelpers DEBUG: toUserTimezone: Invalid utcIsoString or userTimezone. utcIsoString: '${utcIsoString}', userTimezone: '${userTimezone}'. Returning null.`);
+    return null;
+  }
   try {
-    // Parse the UTC ISO string into a Date object (which is inherently UTC)
     const utcDate = new Date(utcIsoString);
-    // Convert this UTC Date object to a Date object whose internal time components
-    // reflect the time in the target userTimezone.
-    return utcToZonedTime(utcDate, userTimezone);
+    const result = utcToZonedTime(utcDate, userTimezone);
+    console.log(`datetimeHelpers DEBUG: toUserTimezone: utcIsoString: '${utcIsoString}', userTimezone: '${userTimezone}'. Result: ${result}`);
+    return result;
   } catch (e) {
-    console.error(`Error converting UTC to user timezone (${userTimezone}) for ${utcIsoString}:`, e);
+    console.error(`datetimeHelpers ERROR: converting UTC to user timezone (${userTimezone}) for '${utcIsoString}':`, e);
     return null;
   }
 };
@@ -37,16 +39,19 @@ export const toUserTimezone = (utcIsoString, userTimezone) => {
  * @returns {string} A UTC ISO 8601 string (e.g., "2025-10-25T04:30:00Z").
  */
 export const fromUserTimezone = (localDateString, localTimeString, userTimezone) => {
-  if (!localDateString || !userTimezone) return null;
+  if (!localDateString || !userTimezone) {
+    console.log(`datetimeHelpers DEBUG: fromUserTimezone: Invalid localDateString or userTimezone. localDateString: '${localDateString}', userTimezone: '${userTimezone}'. Returning null.`);
+    return null;
+  }
   try {
     // Combine date and time into a single string, assuming it's in the user's local timezone
     const localDateTimeString = `${localDateString}T${localTimeString || '00:00'}:00`;
-    // Convert this local date-time string in the specified timezone to a UTC Date object
     const zonedDate = zonedTimeToUtc(localDateTimeString, userTimezone);
-    // Return as ISO string (which is always UTC by default for Date.toISOString())
-    return zonedDate.toISOString();
+    const result = zonedDate.toISOString();
+    console.log(`datetimeHelpers DEBUG: fromUserTimezone: localDateString: '${localDateString}', localTimeString: '${localTimeString}', userTimezone: '${userTimezone}'. Result: ${result}`);
+    return result;
   } catch (e) {
-    console.error(`Error converting local to UTC from user timezone (${userTimezone}) for ${localDateString} ${localTimeString}:`, e);
+    console.error(`datetimeHelpers ERROR: converting local to UTC from user timezone (${userTimezone}) for '${localDateString} ${localTimeString}':`, e);
     return null;
   }
 };
@@ -60,11 +65,16 @@ export const fromUserTimezone = (localDateString, localTimeString, userTimezone)
  * @returns {string} The formatted date/time string.
  */
 export const formatInUserTimezone = (dateObj, formatStr) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return '';
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: formatInUserTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning ''.`);
+    return '';
+  }
   try {
-    return format(dateObj, formatStr);
+    const result = format(dateObj, formatStr);
+    console.log(`datetimeHelpers DEBUG: formatInUserTimezone: dateObj: ${dateObj}, formatStr: '${formatStr}'. Result: ${result}`);
+    return result;
   } catch (e) {
-    console.error(`Error formatting date in user timezone for ${dateObj}:`, e);
+    console.error(`datetimeHelpers ERROR: formatting date in user timezone for ${dateObj}:`, e);
     return '';
   }
 };
@@ -78,7 +88,10 @@ export const formatInUserTimezone = (dateObj, formatStr) => {
  * @returns {string} The formatted date/time string with timezone (e.g., "Oct 25, 2025, 10:00 AM (SLT)").
  */
 export const formatEventDisplayWithTimezone = (dateObj, userTimezone) => {
-  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) return 'N/A';
+  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) {
+    console.log(`datetimeHelpers DEBUG: formatEventDisplayWithTimezone: Invalid dateObj or userTimezone. dateObj: ${dateObj}, userTimezone: ${userTimezone}. Returning 'N/A'.`);
+    return 'N/A';
+  }
   try {
     const options = {
       year: 'numeric',
@@ -89,9 +102,11 @@ export const formatEventDisplayWithTimezone = (dateObj, userTimezone) => {
       timeZone: userTimezone,
       timeZoneName: 'short', // e.g., "SLT"
     };
-    return new Intl.DateTimeFormat('en-US', options).format(dateObj);
+    const result = new Intl.DateTimeFormat('en-US', options).format(dateObj);
+    console.log(`datetimeHelpers DEBUG: formatEventDisplayWithTimezone: dateObj: ${dateObj}, userTimezone: '${userTimezone}'. Result: ${result}`);
+    return result;
   } catch (e) {
-    console.error(`Error formatting event display with timezone for ${dateObj} in ${userTimezone}:`, e);
+    console.error(`datetimeHelpers ERROR: formatting event display with timezone for ${dateObj} in ${userTimezone}:`, e);
     return 'Invalid Date';
   }
 };
@@ -105,7 +120,10 @@ export const formatEventDisplayWithTimezone = (dateObj, userTimezone) => {
  * @returns {string} The formatted date string (e.g., "Saturday, October 25, 2025").
  */
 export const formatPrettyDateInUserTimezone = (dateObj, userTimezone) => {
-  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) return 'N/A';
+  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) {
+    console.log(`datetimeHelpers DEBUG: formatPrettyDateInUserTimezone: Invalid dateObj or userTimezone. dateObj: ${dateObj}, userTimezone: ${userTimezone}. Returning 'N/A'.`);
+    return 'N/A';
+  }
   try {
     const options = {
       weekday: 'long',
@@ -114,9 +132,11 @@ export const formatPrettyDateInUserTimezone = (dateObj, userTimezone) => {
       day: 'numeric',
       timeZone: userTimezone,
     };
-    return new Intl.DateTimeFormat('en-US', options).format(dateObj);
+    const result = new Intl.DateTimeFormat('en-US', options).format(dateObj);
+    console.log(`datetimeHelpers DEBUG: formatPrettyDateInUserTimezone: dateObj: ${dateObj}, userTimezone: '${userTimezone}'. Result: ${result}`);
+    return result;
   } catch (e) {
-    console.error(`Error formatting pretty date in user timezone for ${dateObj} in ${userTimezone}:`, e);
+    console.error(`datetimeHelpers ERROR: formatting pretty date in user timezone for ${dateObj} in ${userTimezone}:`, e);
     return 'Invalid Date';
   }
 };
@@ -130,7 +150,10 @@ export const formatPrettyDateInUserTimezone = (dateObj, userTimezone) => {
  * @returns {string} The formatted time string (e.g., "10:00 AM").
  */
 export const formatTimeInUserTimezone = (dateObj, userTimezone) => {
-  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) return '';
+  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) {
+    console.log(`datetimeHelpers DEBUG: formatTimeInUserTimezone: Invalid dateObj or userTimezone. dateObj: ${dateObj}, userTimezone: ${userTimezone}. Returning ''.`);
+    return '';
+  }
   try {
     const options = {
       hour: '2-digit',
@@ -138,9 +161,11 @@ export const formatTimeInUserTimezone = (dateObj, userTimezone) => {
       timeZone: userTimezone,
       hour12: true,
     };
-    return new Intl.DateTimeFormat('en-US', options).format(dateObj);
+    const result = new Intl.DateTimeFormat('en-US', options).format(dateObj);
+    console.log(`datetimeHelpers DEBUG: formatTimeInUserTimezone: dateObj: ${dateObj}, userTimezone: '${userTimezone}'. Result: ${result}`);
+    return result;
   } catch (e) {
-    console.error(`Error formatting time in user timezone for ${dateObj} in ${userTimezone}:`, e);
+    console.error(`datetimeHelpers ERROR: formatting time in user timezone for ${dateObj} in ${userTimezone}:`, e);
     return '';
   }
 };
@@ -154,15 +179,20 @@ export const formatTimeInUserTimezone = (dateObj, userTimezone) => {
  * @returns {string} Date string in 'YYYY-MM-DD' format.
  */
 export const formatToYYYYMMDDInUserTimezone = (dateObj, userTimezone) => {
-  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) return '';
+  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) {
+    console.log(`datetimeHelpers DEBUG: formatToYYYYMMDDInUserTimezone: Invalid dateObj or userTimezone. dateObj: ${dateObj}, userTimezone: ${userTimezone}. Returning ''.`);
+    return '';
+  }
   try {
     // Use Intl.DateTimeFormat to get year, month, day components in the target timezone
     const year = dateObj.toLocaleString('en-US', { year: 'numeric', timeZone: userTimezone });
     const month = dateObj.toLocaleString('en-US', { month: '2-digit', timeZone: userTimezone });
     const day = dateObj.toLocaleString('en-US', { day: '2-digit', timeZone: userTimezone });
-    return `${year}-${month}-${day}`;
+    const result = `${year}-${month}-${day}`;
+    console.log(`datetimeHelpers DEBUG: formatToYYYYMMDDInUserTimezone: dateObj: ${dateObj}, userTimezone: '${userTimezone}'. Result: ${result}`);
+    return result;
   } catch (e) {
-    console.error(`Error formatting to YYYY-MM-DD in user timezone for ${dateObj} in ${userTimezone}:`, e);
+    console.error(`datetimeHelpers ERROR: formatting to YYYY-MM-DD in user timezone for ${dateObj} in ${userTimezone}:`, e);
     return '';
   }
 };
@@ -176,13 +206,18 @@ export const formatToYYYYMMDDInUserTimezone = (dateObj, userTimezone) => {
  * @returns {string} Time string in 'HH:MM' format.
  */
 export const formatToHHMMInUserTimezone = (dateObj, userTimezone) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return '';
+  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) {
+    console.log(`datetimeHelpers DEBUG: formatToHHMMInUserTimezone: Invalid dateObj or userTimezone. dateObj: ${dateObj}, userTimezone: ${userTimezone}. Returning ''.`);
+    return '';
+  }
   try {
     const hour = dateObj.toLocaleString('en-US', { hour: '2-digit', hourCycle: 'h23', timeZone: userTimezone });
     const minute = dateObj.toLocaleString('en-US', { minute: '2-digit', timeZone: userTimezone });
-    return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+    const result = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+    console.log(`datetimeHelpers DEBUG: formatToHHMMInUserTimezone: dateObj: ${dateObj}, userTimezone: '${userTimezone}'. Result: ${result}`);
+    return result;
   } catch (e) {
-    console.error(`Error formatting to HH:MM in user timezone for ${dateObj} in ${userTimezone}:`, e);
+    console.error(`datetimeHelpers ERROR: formatting to HH:MM in user timezone for ${dateObj} in ${userTimezone}:`, e);
     return '';
   }
 };
@@ -194,10 +229,15 @@ export const formatToHHMMInUserTimezone = (dateObj, userTimezone) => {
  * @returns {boolean} True if they are the same day, false otherwise.
  */
 export const isSameDay = (d1, d2) => {
-  if (!d1 || !d2 || isNaN(d1.getTime()) || isNaN(d2.getTime())) return false;
-  return d1.getFullYear() === d2.getFullYear() &&
+  if (!d1 || !d2 || isNaN(d1.getTime()) || isNaN(d2.getTime())) {
+    console.log(`datetimeHelpers DEBUG: isSameDay: Invalid date objects. d1: ${d1}, d2: ${d2}. Returning false.`);
+    return false;
+  }
+  const result = d1.getFullYear() === d2.getFullYear() &&
          d1.getMonth() === d2.getMonth() &&
          d1.getDate() === d2.getDate();
+  console.log(`datetimeHelpers DEBUG: isSameDay: d1: ${d1}, d2: ${d2}. Result: ${result}`);
+  return result;
 };
 
 /**
@@ -206,9 +246,13 @@ export const isSameDay = (d1, d2) => {
  * @returns {Date} A new Date object representing the start of the day.
  */
 export const getStartOfDayInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getStartOfDayInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setHours(0, 0, 0, 0);
+  console.log(`datetimeHelpers DEBUG: getStartOfDayInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -218,9 +262,13 @@ export const getStartOfDayInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the end of the day.
  */
 export const getEndOfDayInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getEndOfDayInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setHours(23, 59, 59, 999);
+  console.log(`datetimeHelpers DEBUG: getEndOfDayInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -230,10 +278,14 @@ export const getEndOfDayInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the start of the week.
  */
 export const getStartOfWeekInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getStartOfWeekInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setDate(d.getDate() - d.getDay()); // Go to Sunday
   d.setHours(0, 0, 0, 0);
+  console.log(`datetimeHelpers DEBUG: getStartOfWeekInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -243,10 +295,14 @@ export const getStartOfWeekInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the end of the week.
  */
 export const getEndOfWeekInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getEndOfWeekInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setDate(d.getDate() - d.getDay() + 6); // Go to Saturday
   d.setHours(23, 59, 59, 999);
+  console.log(`datetimeHelpers DEBUG: getEndOfWeekInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -256,10 +312,14 @@ export const getEndOfWeekInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the start of the month.
  */
 export const getStartOfMonthInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getStartOfMonthInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setDate(1);
   d.setHours(0, 0, 0, 0);
+  console.log(`datetimeHelpers DEBUG: getStartOfMonthInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -269,11 +329,15 @@ export const getStartOfMonthInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the end of the month.
  */
 export const getEndOfMonthInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getEndOfMonthInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setMonth(d.getMonth() + 1);
   d.setDate(0); // Last day of previous month
   d.setHours(23, 59, 59, 999);
+  console.log(`datetimeHelpers DEBUG: getEndOfMonthInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -283,11 +347,15 @@ export const getEndOfMonthInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the start of the next month.
  */
 export const getStartOfNextMonthInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getStartOfNextMonthInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setMonth(d.getMonth() + 1);
   d.setDate(1);
   d.setHours(0, 0, 0, 0);
+  console.log(`datetimeHelpers DEBUG: getStartOfNextMonthInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -297,11 +365,15 @@ export const getStartOfNextMonthInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the end of the next month.
  */
 export const getEndOfNextMonthInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getEndOfNextMonthInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setMonth(d.getMonth() + 2);
   d.setDate(0);
   d.setHours(23, 59, 59, 999);
+  console.log(`datetimeHelpers DEBUG: getEndOfNextMonthInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -311,11 +383,15 @@ export const getEndOfNextMonthInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the start of the year.
  */
 export const getStartOfYearInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getStartOfYearInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setMonth(0);
   d.setDate(1);
   d.setHours(0, 0, 0, 0);
+  console.log(`datetimeHelpers DEBUG: getStartOfYearInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -325,11 +401,15 @@ export const getStartOfYearInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the end of the year.
  */
 export const getEndOfYearInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getEndOfYearInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setMonth(11);
   d.setDate(31);
   d.setHours(23, 59, 59, 999);
+  console.log(`datetimeHelpers DEBUG: getEndOfYearInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -339,12 +419,16 @@ export const getEndOfYearInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the start of the last year.
  */
 export const getStartOfLastYearInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getStartOfLastYearInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setFullYear(d.getFullYear() - 1);
   d.setMonth(0);
   d.setDate(1);
   d.setHours(0, 0, 0, 0);
+  console.log(`datetimeHelpers DEBUG: getStartOfLastYearInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
 
@@ -354,11 +438,15 @@ export const getStartOfLastYearInTimezone = (dateObj) => {
  * @returns {Date} A new Date object representing the end of the last year.
  */
 export const getEndOfLastYearInTimezone = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return null;
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    console.log(`datetimeHelpers DEBUG: getEndOfLastYearInTimezone: Invalid dateObj. dateObj: ${dateObj}. Returning null.`);
+    return null;
+  }
   const d = new Date(dateObj);
   d.setFullYear(d.getFullYear() - 1);
   d.setMonth(11);
   d.setDate(31);
   d.setHours(23, 59, 59, 999);
+  console.log(`datetimeHelpers DEBUG: getEndOfLastYearInTimezone: dateObj: ${dateObj}. Result: ${d}`);
   return d;
 };
