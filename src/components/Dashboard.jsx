@@ -16,11 +16,9 @@ import {
   Square,
   Building2,
   ChevronDown,
-  Percent, // NEW: Import Percent icon
-  ListTodo, // NEW: Import ListTodo for task source badge
-  Trash2, // NEW: Import Trash2 icon for delete
-  Edit, // NEW: Import Edit icon for future task editing
-  DollarSign, // NEW: Import DollarSign icon for expenses
+  Percent,
+  Trash2,
+  DollarSign,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './Dashboard.css';
@@ -30,7 +28,7 @@ import EventModal from './EventModal';
 import DateActionsModal from './DateActionsModal';
 import DayItemsModal from './DayItemsModal';
 import SettingsTab from './SettingsTab';
-import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers'; // NEW: Import currency helpers
+import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers';
 import {
   toUserTimezone,
   fromUserTimezone,
@@ -49,7 +47,7 @@ import {
   getEndOfYearInTimezone,
   getStartOfLastYearInTimezone,
   getEndOfLastYearInTimezone,
-} from '../utils/datetimeHelpers'; // NEW: Import datetime helpers
+} from '../utils/datetimeHelpers';
 
 // Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift) - ONLY FOR TASK DUE DATES
 function parseLocalDateFromYYYYMMDD(yyyy_mm_dd) {
@@ -383,11 +381,13 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const monthGridDays = useMemo(() => getMonthGridDays(currentDate), [currentDate]);
 
-  const isToday = (d) => {
+  // RENAMED: Use the memoized 'today' variable
+  const isTodayDate = (d) => {
     if (!d) return false;
-    return isSameDay(d, new Date());
+    return isSameDay(d, today); 
   };
-  const isSelected = (d) => {
+  // RENAMED: For consistency
+  const isSelectedDate = (d) => {
     if (!d || !selectedDate) return false;
     return isSameDay(d, selectedDate);
   };
@@ -975,27 +975,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
             <span>{user?.companies?.find(c => c.id === user.currentCompanyId)?.name || 'Select Company'}</span>
             <ChevronDown size={16} className={`dropdown-arrow ${showCompanyDropdown ? 'open' : ''}`} />
           </button>
-          {showCompanyDropdown && (
-            <ul className="company-dropdown">
-              {user?.companies?.map(company => (
-                <li
-                  key={company.id}
-                  className={`company-option ${user.currentCompanyId === company.id ? 'active' : ''}`}
-                  onClick={() => handleCompanySwitch(company.id)}
-                >
-                  <Building2 size={16} />
-                  {company.name}
-                </li>
-              ))}
-              <div className="company-divider" />
-              <li className="company-option" onClick={() => {
-                setActiveTab('company-team');
-                setShowCompanyDropdown(false);
-              }}>
-                <Plus size={16} /> Add New Company
-              </li>
-            </ul>
-          )}
         </div>
 
         <div className="nav-items user-info">
@@ -1319,8 +1298,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
             const items = eventsAndTasksForDate(d);
             const classes = [
               'calendar-day',
-              isToday(d) ? 'today' : '',
-              isSelected(d) ? 'selected' : '',
+              isTodayDate(d) ? 'today' : '',
+              isSelectedDate(d) ? 'selected' : '',
               items.length > 0 ? 'has-item' : '',
             ]
               .filter(Boolean)
@@ -1391,6 +1370,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   <h4 className="event-title" onClick={() => openEventDetails(ev)} title="Open details">
                     {ev.title}
                   </h4>
+                  {/* User reported error on this line (1483 in previous version) */}
                   <p className="event-time-desc">
                     {time ? (
                       <>
@@ -1400,19 +1380,19 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       'All Day'
                     )}
                   </p>
-                    {ev.location && (
-                      <p className="event-location">
-                        <MapPin size={14} /> {ev.location}
-                      </p>
-                    )}
-                  </div>
+                  {ev.location && (
+                    <p className="event-location">
+                      <MapPin size={14} /> {ev.location}
+                    </p>
+                  )}
                 </div>
-              );
-            })
-          )}
-        </div>
+              </div>
+            );
+          })
+        )}
       </div>
-    );
+    </div>
+  );
 
   // UPDATED: renderTasksTab to use allDisplayableTasks (which now only contains event tasks)
   const renderTasksTab = () => (
