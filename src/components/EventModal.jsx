@@ -47,13 +47,34 @@ const EventModal = ({
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name === 'time') {
-      // When time changes, update the eventDateTime object
-      const currentDateString = formatToYYYYMMDDInUserTimezone(eventForm.eventDateTime, userTimezone);
-      const newEventDateTime = toUserTimezone(
-        fromUserTimezone(currentDateString, value, userTimezone),
-        userTimezone
-      );
-      setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
+      const currentEventDate = eventForm.eventDateTime;
+      // Ensure currentEventDate is a valid Date object before proceeding
+      if (!currentEventDate || isNaN(currentEventDate.getTime())) {
+        console.warn('EventModal: eventForm.eventDateTime is invalid when changing time. Attempting to recover with new Date().');
+        // Fallback to a new Date if the current one is invalid
+        const fallbackDate = new Date();
+        const currentDateString = formatToYYYYMMDDInUserTimezone(fallbackDate, userTimezone);
+        const newUtcIsoString = fromUserTimezone(currentDateString, value, userTimezone);
+        const newEventDateTime = newUtcIsoString ? toUserTimezone(newUtcIsoString, userTimezone) : fallbackDate;
+        setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
+        return;
+      }
+
+      const currentDateString = formatToYYYYMMDDInUserTimezone(currentEventDate, userTimezone);
+      const newUtcIsoString = fromUserTimezone(currentDateString, value, userTimezone);
+
+      if (newUtcIsoString) {
+        const newEventDateTime = toUserTimezone(newUtcIsoString, userTimezone);
+        if (newEventDateTime && !isNaN(newEventDateTime.getTime())) {
+          setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
+        } else {
+          console.error('EventModal: Failed to convert new time to valid Date object. Keeping previous time.', { newUtcIsoString, userTimezone });
+          // Optionally, show an error message to the user, e.g., setTaskMessage('Invalid time entered.');
+        }
+      } else {
+        console.error('EventModal: Failed to convert new time to UTC ISO string. Keeping previous time.', { currentDateString, value, userTimezone });
+        // Optionally, show an error message to the user
+      }
     } else {
       setEventForm(prev => ({ ...prev, [name]: value }));
     }
@@ -61,12 +82,34 @@ const EventModal = ({
 
   const handleDateChange = (e) => {
     const newDateString = e.target.value; // YYYY-MM-DD
-    const currentTimeString = formatToHHMMInUserTimezone(eventForm.eventDateTime, userTimezone);
-    const newEventDateTime = toUserTimezone(
-      fromUserTimezone(newDateString, currentTimeString, userTimezone),
-      userTimezone
-    );
-    setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
+    const currentEventDate = eventForm.eventDateTime;
+
+    // Ensure currentEventDate is a valid Date object before proceeding
+    if (!currentEventDate || isNaN(currentEventDate.getTime())) {
+      console.warn('EventModal: eventForm.eventDateTime is invalid when changing date. Attempting to recover with new Date().');
+      const fallbackDate = new Date();
+      const currentTimeString = formatToHHMMInUserTimezone(fallbackDate, userTimezone);
+      const newUtcIsoString = fromUserTimezone(newDateString, currentTimeString, userTimezone);
+      const newEventDateTime = newUtcIsoString ? toUserTimezone(newUtcIsoString, userTimezone) : fallbackDate;
+      setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
+      return;
+    }
+
+    const currentTimeString = formatToHHMMInUserTimezone(currentEventDate, userTimezone);
+    const newUtcIsoString = fromUserTimezone(newDateString, currentTimeString, userTimezone);
+
+    if (newUtcIsoString) {
+      const newEventDateTime = toUserTimezone(newUtcIsoString, userTimezone);
+      if (newEventDateTime && !isNaN(newEventDateTime.getTime())) {
+        setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
+      } else {
+        console.error('EventModal: Failed to convert new date to valid Date object. Keeping previous date.', { newUtcIsoString, userTimezone });
+        // Optionally, show an error message to the user
+      }
+    } else {
+      console.error('EventModal: Failed to convert new date to UTC ISO string. Keeping previous date.', { newDateString, currentTimeString, userTimezone });
+      // Optionally, show an error message to the user
+    }
   };
 
   const handleEventTaskInputChange = (e) => {
