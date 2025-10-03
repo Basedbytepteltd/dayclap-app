@@ -45,8 +45,9 @@ export const toUserTimezone = (utcIsoString, userTimezone) => {
  * @returns {string} A UTC ISO 8601 string (e.g., "2025-10-25T04:30:00Z").
  */
 export const fromUserTimezone = (localDateString, localTimeString, userTimezone) => {
+  console.log(`[DEBUG fromUserTimezone] Input: date='${localDateString}', time='${localTimeString}', tz='${userTimezone}'`);
   if (!localDateString || !userTimezone) {
-    dlog(`datetimeHelpers DEBUG: fromUserTimezone: Invalid localDateString or userTimezone. localDateString: '${localDateString}', userTimezone: '${userTimezone}'. Returning null.`);
+    console.log(`[DEBUG fromUserTimezone] Early exit: Invalid localDateString or userTimezone. Returning null.`);
     return null;
   }
   try {
@@ -54,10 +55,10 @@ export const fromUserTimezone = (localDateString, localTimeString, userTimezone)
     const localDateTimeString = `${localDateString}T${localTimeString || '00:00'}:00`;
     const zonedDate = zonedTimeToUtc(localDateTimeString, userTimezone);
     const result = zonedDate.toISOString();
-    dlog(`datetimeHelpers DEBUG: fromUserTimezone: localDateString: '${localDateString}', localTimeString: '${localTimeString}', userTimezone: '${userTimezone}'. Result: ${result}`);
+    console.log(`[DEBUG fromUserTimezone] Success: localDateTimeString='${localDateTimeString}', UTC ISO='${result}'`);
     return result;
   } catch (e) {
-    derr(`datetimeHelpers ERROR: converting local to UTC from user timezone (${userTimezone}) for '${localDateString} ${localTimeString}':`, e);
+    console.error(`[DEBUG fromUserTimezone] ERROR: converting local to UTC for '${localDateString} ${localTimeString}' in '${userTimezone}':`, e);
     return null;
   }
 };
@@ -66,8 +67,7 @@ export const fromUserTimezone = (localDateString, localTimeString, userTimezone)
  * Formats a Date object (which is already adjusted to the user's timezone by toUserTimezone)
  * for display in a human-readable format.
  *
- * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.
- * @param {string} formatStr - The format string (e.g., "MMM dd, yyyy", "HH:mm").
+ * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.\n * @param {string} formatStr - The format string (e.g., "MMM dd, yyyy", "HH:mm").
  * @returns {string} The formatted date/time string.
  */
 export const formatInUserTimezone = (dateObj, formatStr) => {
@@ -185,8 +185,9 @@ export const formatTimeInUserTimezone = (dateObj, userTimezone) => {
  * @returns {string} Date string in 'YYYY-MM-DD' format.
  */
 export const formatToYYYYMMDDInUserTimezone = (dateObj, userTimezone) => {
+  console.log(`[DEBUG formatToYYYYMMDD] Input: dateObj=${dateObj}, tz='${userTimezone}'`);
   if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) {
-    dlog(`datetimeHelpers DEBUG: formatToYYYYMMDDInUserTimezone: Invalid dateObj or userTimezone. dateObj: ${dateObj}, userTimezone: ${userTimezone}. Returning ''.`);
+    console.log(`[DEBUG formatToYYYYMMDD] Early exit: Invalid dateObj or userTimezone. Returning ''.`);
     return '';
   }
   try {
@@ -195,10 +196,10 @@ export const formatToYYYYMMDDInUserTimezone = (dateObj, userTimezone) => {
     const month = dateObj.toLocaleString('en-US', { month: '2-digit', timeZone: userTimezone });
     const day = dateObj.toLocaleString('en-US', { day: '2-digit', timeZone: userTimezone });
     const result = `${year}-${month}-${day}`;
-    dlog(`datetimeHelpers DEBUG: formatToYYYYMMDDInUserTimezone: dateObj: ${dateObj}, userTimezone: '${userTimezone}'. Result: ${result}`);
+    console.log(`[DEBUG formatToYYYYMMDD] Success: Result='${result}'`);
     return result;
   } catch (e) {
-    derr(`datetimeHelpers ERROR: formatting to YYYY-MM-DD in user timezone for ${dateObj} in ${userTimezone}:`, e);
+    console.error(`[DEBUG formatToYYYYMMDD] ERROR: formatting to YYYY-MM-DD for ${dateObj} in ${userTimezone}:`, e);
     return '';
   }
 };
@@ -212,18 +213,19 @@ export const formatToYYYYMMDDInUserTimezone = (dateObj, userTimezone) => {
  * @returns {string} Time string in 'HH:MM' format.
  */
 export const formatToHHMMInUserTimezone = (dateObj, userTimezone) => {
+  console.log(`[DEBUG formatToHHMM] Input: dateObj=${dateObj}, tz='${userTimezone}'`);
   if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) {
-    dlog(`datetimeHelpers DEBUG: formatToHHMMInUserTimezone: Invalid dateObj or userTimezone. dateObj: ${dateObj}, userTimezone: ${userTimezone}. Returning ''.`);
+    console.log(`[DEBUG formatToHHMM] Early exit: Invalid dateObj or userTimezone. Returning ''.`);
     return '';
   }
   try {
     const hour = dateObj.toLocaleString('en-US', { hour: '2-digit', hourCycle: 'h23', timeZone: userTimezone });
     const minute = dateObj.toLocaleString('en-US', { minute: '2-digit', timeZone: userTimezone });
     const result = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
-    dlog(`datetimeHelpers DEBUG: formatToHHMMInUserTimezone: dateObj: ${dateObj}, userTimezone: '${userTimezone}'. Result: ${result}`);
+    console.log(`[DEBUG formatToHHMM] Success: Result='${result}'`);
     return result;
   } catch (e) {
-    derr(`datetimeHelpers ERROR: formatting to HH:MM in user timezone for ${dateObj} in ${userTimezone}:`, e);
+    console.error(`[DEBUG formatToHHMM] ERROR: formatting to HH:MM for ${dateObj} in ${userTimezone}:`, e);
     return '';
   }
 };
