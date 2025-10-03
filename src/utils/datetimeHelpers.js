@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz'; // Changed to direct named import
+import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 
 // DEBUG a toggle is now permanently off to prevent console spam.
 const __DC_DEBUG_DATETIME = false; // Changed back to false
@@ -50,12 +50,22 @@ export const fromUserTimezone = (localDateString, localTimeString, userTimezone)
   try {
     // Combine date and time into a single string, assuming it's in the user's local timezone
     const localDateTimeString = `${localDateString}T${localTimeString || '00:00'}:00`;
-    const zonedDate = zonedTimeToUtc(localDateTimeString, userTimezone);
+    console.log(`[DEBUG fromUserTimezone] Constructed localDateTimeString: '${localDateTimeString}'`);
+
+    // Attempt to parse with native Date first
+    const nativeDate = new Date(localDateTimeString);
+    if (isNaN(nativeDate.getTime())) {
+      console.error(`[DEBUG fromUserTimezone] ERROR: Native Date parsing failed for '${localDateTimeString}'. Returning null.`);
+      return null;
+    }
+    console.log(`[DEBUG fromUserTimezone] Native Date parsed: ${nativeDate}`);
+
+    const zonedDate = zonedTimeToUtc(nativeDate, userTimezone); // Pass Date object
     const result = zonedDate.toISOString();
     console.log(`[DEBUG fromUserTimezone] Success: localDateTimeString='${localDateTimeString}', UTC ISO='${result}'`);
     return result;
   } catch (e) {
-    console.error(`[DEBUG fromUserTimezone] ERROR: converting local to UTC for '${localDateString} ${localTimeString}' in '${userTimezone}':`, e);
+    console.error(`[DEBUG fromUserTimezone] ERROR: converting local to UTC for '${localDateString} ${localTimeString}' in '${userTimezone}':`, e.message || e); // Log full error if no message
     return null;
   }
 };
