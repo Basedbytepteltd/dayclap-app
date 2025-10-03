@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { utcToZonedTime } from 'date-fns-tz/esm/_lib/utcToZonedTime/index.js';
+import { zonedTimeToUtc } from 'date-fns-tz/esm/_lib/zonedTimeToUtc/index.js';
 
 /**
  * Converts a UTC ISO string (from DB) to a Date object representing that moment in the user's specified timezone.
@@ -52,7 +53,7 @@ export const fromUserTimezone = (localDateString, localTimeString, userTimezone)
  * Formats a Date object (which is already adjusted to the user's timezone by toUserTimezone)
  * for display in a human-readable format.
  *
- * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.
+ * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.\
  * @param {string} formatStr - The format string (e.g., "MMM dd, yyyy", "HH:mm").
  * @returns {string} The formatted date/time string.
  */
@@ -70,7 +71,7 @@ export const formatInUserTimezone = (dateObj, formatStr) => {
  * Formats a Date object (which is already adjusted to the user's timezone by toUserTimezone)
  * for display in a human-readable format, including timezone abbreviation.
  *
- * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.
+ * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.\
  * @param {string} userTimezone - The IANA timezone string of the user (e.g., "Asia/Colombo").
  * @returns {string} The formatted date/time string with timezone (e.g., "Oct 25, 2025, 10:00 AM (SLT)").
  */
@@ -97,7 +98,7 @@ export const formatEventDisplayWithTimezone = (dateObj, userTimezone) => {
  * Formats a Date object (which is already adjusted to the user's timezone by toUserTimezone)
  * for display in a human-readable format, including full weekday and month.
  *
- * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.
+ * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.\
  * @param {string} userTimezone - The IANA timezone string of the user (e.g., "Asia/Colombo").
  * @returns {string} The formatted date string (e.g., "Saturday, October 25, 2025").
  */
@@ -122,7 +123,7 @@ export const formatPrettyDateInUserTimezone = (dateObj, userTimezone) => {
  * Formats a Date object (which is already adjusted to the user's timezone by toUserTimezone)
  * for display as a time string.
  *
- * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.
+ * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.\
  * @param {string} userTimezone - The IANA timezone string of the user (e.g., "Asia/Colombo").
  * @returns {string} The formatted time string (e.g., "10:00 AM").
  */
@@ -146,7 +147,7 @@ export const formatTimeInUserTimezone = (dateObj, userTimezone) => {
  * Formats a Date object to 'YYYY-MM-DD' string in the specified timezone.
  * Useful for date input fields.
  *
- * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.
+ * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.\
  * @param {string} userTimezone - The IANA timezone string of the user.
  * @returns {string} Date string in 'YYYY-MM-DD' format.
  */
@@ -168,7 +169,7 @@ export const formatToYYYYMMDDInUserTimezone = (dateObj, userTimezone) => {
  * Formats a Date object to 'HH:MM' string in the specified timezone.
  * Useful for time input fields.
  *
- * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.
+ * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.\
  * @param {string} userTimezone - The IANA timezone string of the user.
  * @returns {string} Time string in 'HH:MM' format.
  */
