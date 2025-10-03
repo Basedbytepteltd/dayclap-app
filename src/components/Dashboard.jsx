@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   Calendar,
   CalendarDays,
@@ -31,28 +31,33 @@ import DateActionsModal from './DateActionsModal';
 import DayItemsModal from './DayItemsModal';
 import SettingsTab from './SettingsTab';
 import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers'; // NEW: Import currency helpers
+import {
+  toUserTimezone,
+  fromUserTimezone,
+  formatToYYYYMMDDInUserTimezone,
+  formatToHHMMInUserTimezone,
+  isSameDay,
+  getStartOfDayInTimezone,
+  getEndOfDayInTimezone,
+  getStartOfWeekInTimezone,
+  getEndOfWeekInTimezone,
+  getStartOfMonthInTimezone,
+  getEndOfMonthInTimezone,
+  getStartOfNextMonthInTimezone,
+  getEndOfNextMonthInTimezone,
+  getStartOfYearInTimezone,
+  getEndOfYearInTimezone,
+  getStartOfLastYearInTimezone,
+  getEndOfLastYearInTimezone,
+} from '../utils/datetimeHelpers'; // NEW: Import datetime helpers
 
-// Parse 'YYYY-MM-DD' into a local Date (avoids UTC shift)
-function toLocalDate(yyyy_mm_dd) {
-  if (!yyyy_mm_dd) return null;
-  const [y, m, d] = String(yyyy_mm_dd).split('-').map(Number);
+// Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift) - ONLY FOR TASK DUE DATES
+function parseLocalDateFromYYYYMMDD(yyyy_mm_dd) {
+  if (!yyyy_mm_dd || typeof yyyy_mm_dd !== 'string') return null;
+  const parts = yyyy_mm_dd.split('-').map(Number);
+  const [y, m, d] = parts;
   if (!y || !m || !d) return null;
-  return new Date(y, (m || 1) - 1, d || 1);
-}
-
-// Format Date -> 'YYYY-MM-DD' in LOCAL time (no UTC conversion)
-function formatLocalYMD(date) {
-  if (!(date instanceof Date) || isNaN(date.getTime())) return '';
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-// Pretty date
-function formatPretty(d) {
-  if (!(d instanceof Date) || isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(y, m - 1, d);
 }
 
 const Dashboard = ({ user, onLogout, onUserUpdate }) => {
@@ -61,9 +66,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const [loading, setLoading] = useState(true);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false); // NEW: State for company dropdown
 
-  const [events, setEvents] = useState([]); // events from DB with dateObj
-  // REMOVED: tasks state is removed as standalone tasks are no longer supported
-  // const [tasks, setTasks] = useState([]); // tasks from DB with dueDateObj
+  const [events, setEvents] = useState([]); // events from DB with eventDateTimeObj
 
   const [currentDate, setCurrentDate] = useState(() => {
     const d = new Date();
@@ -85,8 +88,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   const [editingEvent, setEditingEvent] = useState(null);
   const [eventForm, setEventForm] = useState({
     title: '',
-    date: new Date(),
-    time: '',
+    eventDateTime: new Date(), // Now a Date object in local timezone context
     location: '',
     description: '',
     eventTasks: [],
@@ -95,7 +97,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     id: null,
     title: '',
     description: '',
-    dueDate: '',
+    dueDate: '', // YYYY-MM-DD string
     assignedTo: user?.email || '',
     priority: 'medium',
     expenses: 0,
@@ -109,6 +111,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   // NEW: State for current time display
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // NEW: State for event filter in Overview tab
+  const [eventFilter, setEventFilter] = useState('all'); // 'all', 'today', 'thisWeek', 'thisMonth', 'nextMonth', 'thisYear', 'lastYear'
+  const eventFilterDropdownRef = useRef(null);
+  const [showEventFilterDropdown, setShowEventFilterDropdown] = useState(false);
 
   // Effect to update current time every second
   useEffect(() => {
@@ -130,39 +137,29 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const fetchData = async () => {
       if (!user?.id || !currentCompanyId) {
         setEvents([]);
-        // setTasks([]); // REMOVED
         setLoading(false);
         return;
       }
       setLoading(true);
       try {
-        const { data: ev, error: e1 } = await supabase.from('events').select('*').eq('company_id', currentCompanyId).order('date', { ascending: true });
-        // REMOVED: Fetching standalone tasks
-        // const { data: tk, error: e2 } = await supabase.from('tasks').select('*').eq('company_id', currentCompanyId).order('due_date', { ascending: true });
+        const { data: ev, error: e1 } = await supabase.from('events').select('*').eq('company_id', currentCompanyId).order('event_datetime', { ascending: true });
 
         if (!cancelled) {
           const mappedEvents = (ev || []).map((e) => ({
             ...e,
-            dateObj: toLocalDate(e.date),
+            eventDateTimeObj: toUserTimezone(e.event_datetime, user?.timezone || 'UTC'),
           }));
-          // REMOVED: Mapping standalone tasks
-          // const mappedTasks = (tk || []).map((t) => ({
-          //   ...t,
-          //   dueDateObj: toLocalDate(t.due_date),
-          // }));
 
           if (!e1) { // Only check for event errors
             setEvents(mappedEvents);
-            // setTasks(mappedTasks); // REMOVED
           } else {
             setEvents([]);
-            // setTasks([]); // REMOVED
           }
         }
-      } catch {
+      } catch (error) {
+        console.error("Error fetching events:", error);
         if (!cancelled) {
           setEvents([]);
-          // setTasks([]); // REMOVED
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -172,7 +169,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, currentCompanyId]);
+  }, [user?.id, currentCompanyId, user?.timezone]); // Added user.timezone to dependencies
 
   // Fetch team members for current company
   useEffect(() => {
@@ -222,19 +219,17 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   }, []);
 
   const stats = useMemo(() => {
-    let allTasks = []; // Start with an empty array, as standalone tasks are removed
-    let totalExpenses = 0; // NEW: Initialize total expenses
+    let allTasks = [];
+    let totalExpenses = 0;
 
-    // Add tasks from events
     events.forEach(event => {
       const eventTasks = Array.isArray(event.event_tasks) ? event.event_tasks : [];
       const mappedEventTasks = eventTasks.map(t => ({
         ...t,
-        dueDateObj: t.dueDate ? toLocalDate(t.dueDate) : null, // Parse dueDate string to Date object
+        dueDateObj: t.dueDate ? parseLocalDateFromYYYYMMDD(t.dueDate) : null, // Parse YYYY-MM-DD string to local Date object
       }));
       allTasks = [...allTasks, ...mappedEventTasks];
       
-      // NEW: Sum expenses from event tasks
       eventTasks.forEach(task => {
         totalExpenses += Number(task.expenses || 0);
       });
@@ -243,13 +238,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     const totalTasks = allTasks.length;
     const completedTasks = allTasks.filter((t) => t.completed).length;
     
-    // Filter overdue tasks from the combined list
     const overdueTasks = allTasks.filter((t) => {
-      // Ensure task is not completed and has a valid, past due date
       return !t.completed && t.dueDateObj && t.dueDateObj < today;
     }).length;
     
-    const pendingTasks = totalTasks - completedTasks; // Simpler calculation for pending
+    const pendingTasks = totalTasks - completedTasks;
 
     const completedPercentage = totalTasks > 0 ? (completedTasks / totalTasks * 100).toFixed(0) : 0;
     const pendingPercentage = totalTasks > 0 ? (pendingTasks / totalTasks * 100).toFixed(0) : 0;
@@ -257,65 +250,101 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     return {
       completedTasks,
       overdueTasks,
-      pendingTasks: Math.max(0, pendingTasks), // Ensure it's not negative
+      pendingTasks: Math.max(0, pendingTasks),
       totalEvents: events.length,
       completedPercentage,
       pendingPercentage,
-      totalExpenses, // NEW: Add total expenses to stats
+      totalExpenses,
     };
-  }, [events, today]); // REMOVED: tasks from dependencies
+  }, [events, today]);
 
   const allEventsSorted = useMemo(() => {
     return [...events].sort((a, b) => {
-      const ta = a.dateObj?.getTime() || 0;
-      const tb = b.dateObj?.getTime() || 0;
+      const ta = a.eventDateTimeObj?.getTime() || 0;
+      const tb = b.eventDateTimeObj?.getTime() || 0;
       return ta - tb;
     });
   }, [events]);
+
+  // NEW: Filtered events based on eventFilter state
+  const filteredEvents = useMemo(() => {
+    const now = new Date();
+    const userTimezone = user?.timezone || 'UTC';
+    let startDate = null;
+    let endDate = null;
+
+    switch (eventFilter) {
+      case 'today':
+        startDate = getStartOfDayInTimezone(now);
+        endDate = getEndOfDayInTimezone(now);
+        break;
+      case 'thisWeek':
+        startDate = getStartOfWeekInTimezone(now);
+        endDate = getEndOfWeekInTimezone(now);
+        break;
+      case 'thisMonth':
+        startDate = getStartOfMonthInTimezone(now);
+        endDate = getEndOfMonthInTimezone(now);
+        break;
+      case 'nextMonth':
+        startDate = getStartOfNextMonthInTimezone(now);
+        endDate = getEndOfNextMonthInTimezone(now);
+        break;
+      case 'thisYear':
+        startDate = getStartOfYearInTimezone(now);
+        endDate = getEndOfYearInTimezone(now);
+        break;
+      case 'lastYear':
+        startDate = getStartOfLastYearInTimezone(now);
+        endDate = getEndOfLastYearInTimezone(now);
+        break;
+      case 'all':
+      default:
+        return allEventsSorted;
+    }
+
+    return allEventsSorted.filter(event => {
+      if (!event.eventDateTimeObj) return false;
+      return event.eventDateTimeObj >= startDate && event.eventDateTimeObj <= endDate;
+    });
+  }, [allEventsSorted, eventFilter, user?.timezone]);
 
   // NEW: Combine and sort all tasks (now only event-embedded) for display
   const allDisplayableTasks = useMemo(() => {
     let combined = [];
 
-    // REMOVED: Adding standalone tasks from the 'tasks' table
-
-    // Add event tasks from the 'events' table
     events.forEach(event => {
       const eventTasks = Array.isArray(event.event_tasks) ? event.event_tasks : [];
       eventTasks.forEach(task => {
         combined.push({
           ...task,
-          source: 'event', // All tasks are now 'event' source
+          source: 'event',
           eventId: event.id,
           eventTitle: event.title,
-          dueDateObj: task.dueDate ? toLocalDate(task.dueDate) : null, // Ensure dueDate is parsed
+          dueDateObj: task.dueDate ? parseLocalDateFromYYYYMMDD(task.dueDate) : null, // Ensure dueDate is parsed as local date
           company_id: event.company_id,
-          user_id: event.user_id, // Inherit user_id from parent event for permission checks
+          user_id: event.user_id,
         });
       });
     });
 
-    // Sort tasks: incomplete first, then by due date, then by priority
     return combined.sort((a, b) => {
-      // Incomplete tasks first
       if (a.completed !== b.completed) {
         return a.completed ? 1 : -1;
       }
 
-      // Then by due date (nulls last)
       const dateA = a.dueDateObj ? a.dueDateObj.getTime() : Infinity;
       const dateB = b.dueDateObj ? b.dueDateObj.getTime() : Infinity;
       if (dateA !== dateB) {
         return dateA - dateB;
       }
 
-      // Then by priority (high, medium, low)
       const priorityOrder = { high: 1, medium: 2, low: 3 };
       const pA = priorityOrder[a.priority] || 99;
       const pB = priorityOrder[b.priority] || 99;
       return pA - pB;
     });
-  }, [events]); // Dependencies: only events from DB
+  }, [events]);
 
   const searchResults = useMemo(() => {
     const term = (searchTerm || '').toLowerCase().trim();
@@ -326,7 +355,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         ev.description?.toLowerCase().includes(term) ||
         ev.location?.toLowerCase().includes(term)
     );
-    const t = allDisplayableTasks.filter( // Use allDisplayableTasks for search
+    const t = allDisplayableTasks.filter(
       (tk) =>
         tk.title?.toLowerCase().includes(term) ||
         tk.description?.toLowerCase().includes(term) ||
@@ -334,7 +363,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         (tk.source === 'event' && tk.eventTitle?.toLowerCase().includes(term))
     );
     return { events: e, tasks: t };
-  }, [searchTerm, allEventsSorted, allDisplayableTasks]); // Updated dependencies
+  }, [searchTerm, allEventsSorted, allDisplayableTasks]);
 
   // Calendar helpers
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -356,36 +385,25 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
 
   const isToday = (d) => {
     if (!d) return false;
-    const a = new Date(d);
-    const b = new Date();
-    a.setHours(0, 0, 0, 0);
-    b.setHours(0, 0, 0, 0);
-    return a.getTime() === b.getTime();
+    return isSameDay(d, new Date());
   };
   const isSelected = (d) => {
     if (!d || !selectedDate) return false;
-    const a = new Date(d);
-    const b = new Date(selectedDate);
-    a.setHours(0, 0, 0, 0);
-    b.setHours(0, 0, 0, 0);
-    return a.getTime() === b.getTime();
+    return isSameDay(d, selectedDate);
   };
 
   const eventsAndTasksForDate = (d) => {
     if (!d) return [];
-    const key = d.toDateString();
     const items = [];
     events.forEach((ev) => {
-      if (ev.dateObj && ev.dateObj.toDateString() === key) items.push({ type: 'event', ...ev });
+      if (ev.eventDateTimeObj && isSameDay(ev.eventDateTimeObj, d)) items.push({ type: 'event', ...ev });
     });
-    // Use allDisplayableTasks to filter for tasks on this date
     allDisplayableTasks.forEach((t) => {
-      if (t.dueDateObj && t.dueDateObj.toDateString() === key) items.push({ type: 'task', ...t });
+      if (t.dueDateObj && isSameDay(t.dueDateObj, d)) items.push({ type: 'task', ...t });
     });
     return items.sort((a, b) => {
       if (a.type !== b.type) return a.type === 'event' ? -1 : 1;
       if (a.type === 'event') return 0;
-      // tasks: incomplete first
       return (a.completed ? 1 : 0) - (b.completed ? 1 : 0);
     });
   };
@@ -426,8 +444,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     setEditingEvent(null);
     setEventForm({
       title: '',
-      date: baseDate,
-      time: '',
+      eventDateTime: baseDate, // Use eventDateTime
       location: '',
       description: '',
       eventTasks: [],
@@ -436,7 +453,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       id: null,
       title: '',
       description: '',
-      dueDate: formatLocalYMD(baseDate), // PRE-FILL: Set dueDate to the event's baseDate
+      dueDate: formatToYYYYMMDDInUserTimezone(baseDate, user?.timezone || 'UTC'), // PRE-FILL: Set dueDate to the event's baseDate
       assignedTo: user?.email || '',
       priority: 'medium',
       expenses: 0,
@@ -446,7 +463,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     setShowDateActionsModal(false);
   };
 
-  // Save event (INSERT or UPDATE) with LOCAL date string (fixes off-by-one)
+  // Save event (INSERT or UPDATE) with UTC ISO string
   const handleSaveEvent = async (e) => {
     e.preventDefault();
     if (!user?.id || !currentCompanyId) {
@@ -454,12 +471,21 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       return;
     }
 
+    const userTimezone = user?.timezone || 'UTC';
+    const eventDateString = formatToYYYYMMDDInUserTimezone(eventForm.eventDateTime, userTimezone);
+    const eventTimeString = formatToHHMMInUserTimezone(eventForm.eventDateTime, userTimezone);
+    const utcEventDateTime = fromUserTimezone(eventDateString, eventTimeString, userTimezone);
+
+    if (!utcEventDateTime) {
+      alert('Invalid event date or time. Please check your input.');
+      return;
+    }
+
     const payload = {
       user_id: user.id,
       company_id: currentCompanyId,
       title: eventForm.title,
-      date: formatLocalYMD(eventForm.date), // CRITICAL: Local date string
-      time: eventForm.time || null,
+      event_datetime: utcEventDateTime, // CRITICAL: Use event_datetime
       location: eventForm.location || null,
       description: eventForm.description || null,
       event_tasks: eventForm.eventTasks,
@@ -479,16 +505,15 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         .from('events')
         .select('*')
         .eq('company_id', currentCompanyId)
-        .order('date', { ascending: true });
+        .order('event_datetime', { ascending: true });
       if (fetchError) throw fetchError;
 
-      setEvents((updatedEvents || []).map((e) => ({ ...e, dateObj: toLocalDate(e.date) })));
+      setEvents((updatedEvents || []).map((e) => ({ ...e, eventDateTimeObj: toUserTimezone(e.event_datetime, userTimezone) })));
       setShowEventModal(false);
       setEditingEvent(null);
       setEventForm({
         title: '',
-        date: new Date(),
-        time: '',
+        eventDateTime: new Date(),
         location: '',
         description: '',
         eventTasks: [],
@@ -497,7 +522,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         id: null,
         title: '',
         description: '',
-        dueDate: '',
+        dueDate: formatToYYYYMMDDInUserTimezone(new Date(), userTimezone),
         assignedTo: user?.email || '',
         priority: 'medium',
         expenses: 0,
@@ -537,7 +562,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       id: null,
       title: '',
       description: '',
-      dueDate: formatLocalYMD(eventForm.date), // PRE-FILL: Reset dueDate to current event's date
+      dueDate: formatToYYYYMMDDInUserTimezone(eventForm.eventDateTime, user?.timezone || 'UTC'), // PRE-FILL: Reset dueDate to current event's date
       assignedTo: user?.email || '',
       priority: 'medium',
       expenses: 0,
@@ -559,7 +584,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         id: null,
         title: '',
         description: '',
-        dueDate: formatLocalYMD(eventForm.date), // PRE-FILL: Reset dueDate to current event's date
+        dueDate: formatToYYYYMMDDInUserTimezone(eventForm.eventDateTime, user?.timezone || 'UTC'), // PRE-FILL: Reset dueDate to current event's date
         assignedTo: user?.email || '',
         priority: 'medium',
         expenses: 0,
@@ -584,7 +609,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   // Go to event date in calendar
   const goToEventInCalendar = (ev) => {
     if (!ev) return;
-    const d = ev.dateObj || (ev.date ? toLocalDate(ev.date) : null);
+    const d = ev.eventDateTimeObj || (ev.event_datetime ? toUserTimezone(ev.event_datetime, user?.timezone || 'UTC') : null);
     if (d instanceof Date && !isNaN(d.getTime())) {
       setSelectedDate(d);
       setCurrentDate(new Date(d.getFullYear(), d.getMonth(), 1));
@@ -612,12 +637,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       completed: !!t?.completed,
     }));
 
-    const eventDateForForm = ev.dateObj instanceof Date ? ev.dateObj : ev.date ? toLocalDate(ev.date) : new Date();
+    const eventDateTimeForForm = ev.event_datetime ? toUserTimezone(ev.event_datetime, user?.timezone || 'UTC') : new Date();
 
     setEventForm({
       title: ev.title || '',
-      date: eventDateForForm,
-      time: ev.time || '',
+      eventDateTime: eventDateTimeForForm,
       location: ev.location || '',
       description: ev.description || '',
       eventTasks: normalizedTasks,
@@ -629,7 +653,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       id: null,
       title: '',
       description: '',
-      dueDate: formatLocalYMD(eventDateForForm), // PRE-FILL: Set dueDate to the event's date
+      dueDate: formatToYYYYMMDDInUserTimezone(eventDateTimeForForm, user?.timezone || 'UTC'), // PRE-FILL: Set dueDate to the event's date
       assignedTo: user?.email || '',
       priority: 'medium',
       expenses: 0,
@@ -870,8 +894,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   // Determine the initial sub-tab for SettingsTab based on active main tab
   const getInitialSettingsSubTab = useMemo(() => {
     if (activeTab === 'settings') return 'profile';
-    // FIX: When 'company-team' is the active main tab, pass 'company-team' as the initial main tab
-    // SettingsTab will then internally default to 'overview' for its sub-tabs.
     if (activeTab === 'company-team') return 'company-team';
     return 'profile'; // Default for other cases
   }, [activeTab]);
@@ -889,12 +911,33 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         minute: '2-digit',
         second: '2-digit',
         timeZone: timezone,
-        hour12: true // Or false, depending on user preference or app setting
+        hour12: true
       };
       return new Intl.DateTimeFormat('en-US', options).format(date);
     } catch (e) {
       console.error('Error formatting date for timezone:', e);
       return 'Invalid Timezone';
+    }
+  };
+
+  const eventFilterOptions = [
+    { key: 'all', label: 'All' },
+    { key: 'today', label: 'Today' },
+    { key: 'thisWeek', label: 'This Week' },
+    { key: 'thisMonth', label: 'This Month' },
+    { key: 'nextMonth', label: 'Next Month' },
+    { key: 'thisYear', label: 'This Year' },
+    { key: 'lastYear', label: 'Last Year' },
+  ];
+
+  const handleSelectEventFilter = (filterKey) => {
+    setEventFilter(filterKey);
+    setShowEventFilterDropdown(false);
+  };
+
+  const handleEventFilterDropdownBlur = (e) => {
+    if (eventFilterDropdownRef.current && !eventFilterDropdownRef.current.contains(e.relatedTarget)) {
+      setShowEventFilterDropdown(false);
     }
   };
 
@@ -946,8 +989,8 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               ))}
               <div className="company-divider" />
               <li className="company-option" onClick={() => {
-                setActiveTab('company-team'); // Switch to the main 'company-team' tab
-                setShowCompanyDropdown(false); // Close the company dropdown
+                setActiveTab('company-team');
+                setShowCompanyDropdown(false);
               }}>
                 <Plus size={16} /> Add New Company
               </li>
@@ -1113,22 +1156,48 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         <div className="section-header">
           <h3 className="section-title">Upcoming Events</h3>
           <div className="header-actions">
+            {/* NEW: Event Filter Dropdown */}
+            <div className="event-filter-dropdown-wrapper" ref={eventFilterDropdownRef} onBlur={handleEventFilterDropdownBlur}>
+              <button
+                type="button"
+                className={`event-filter-display-button ${showEventFilterDropdown ? 'open' : ''}`}
+                onClick={() => setShowEventFilterDropdown(prev => !prev)}
+              >
+                <span>{eventFilterOptions.find(opt => opt.key === eventFilter)?.label || 'Filter Events'}</span>
+                <ChevronDown size={16} className="dropdown-arrow" style={{ marginLeft: 'auto' }} />
+              </button>
+              {showEventFilterDropdown && (
+                <div className="event-filter-options">
+                  {eventFilterOptions.map(option => (
+                    <div
+                      key={option.key}
+                      className={`event-filter-option-item ${eventFilter === option.key ? 'active' : ''}`}
+                      onClick={() => handleSelectEventFilter(option.key)}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      {option.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <button className="btn btn-primary btn-small" onClick={() => handleOpenAddEventModal(new Date())}>
               <Plus size={16} /> Add Event
             </button>
           </div>
         </div>
         <div className="events-list">
-          {allEventsSorted.length === 0 ? (
+          {filteredEvents.length === 0 ? (
             <div className="no-events">
               <CalendarDays className="no-events-icon" />
-              <p>No events yet. Click "Add Event" to create one.</p>
+              <p>No events found for this filter.</p>
             </div>
           ) : (
-            allEventsSorted.slice(0, 5).map((ev) => {
-              const d = ev.dateObj;
+            filteredEvents.slice(0, 5).map((ev) => {
+              const d = ev.eventDateTimeObj;
               const day = d ? d.getDate() : '-';
               const month = d ? d.toLocaleString('en-US', { month: 'short' }) : '';
+              const time = d ? formatToHHMMInUserTimezone(d, user?.timezone || 'UTC') : '';
               return (
                 <div key={ev.id} className="event-card">
                   <div className="event-date">
@@ -1140,9 +1209,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                       {ev.title}
                     </h4>
                     <p className="event-time-desc">
-                      {ev.time ? (
+                      {time ? (
                         <>
-                          <Clock size={14} /> {ev.time}
+                          <Clock size={14} /> {time}
                         </>
                       ) : (
                         'All Day'
@@ -1176,9 +1245,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
               {searchResults.events.length > 0 && (
                 <div className="events-list">
                   {searchResults.events.map((ev) => {
-                    const d = ev.dateObj;
+                    const d = ev.eventDateTimeObj;
                     const day = d ? d.getDate() : '-';
                     const month = d ? d.toLocaleString('en-US', { month: 'short' }) : '';
+                    const time = d ? formatToHHMMInUserTimezone(d, user?.timezone || 'UTC') : '';
                     return (
                       <div key={ev.id} className="event-card">
                         <div className="event-date">
@@ -1190,9 +1260,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                             {ev.title}
                           </h4>
                           <p className="event-time-desc">
-                            {ev.time ? (
+                            {time ? (
                               <>
-                                <Clock size={14} /> {ev.time}
+                                <Clock size={14} /> {time}
                               </>
                             ) : (
                               'All Day'
@@ -1307,9 +1377,10 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           </div>
         ) : (
           allEventsSorted.map((ev) => {
-            const d = ev.dateObj;
+            const d = ev.eventDateTimeObj;
             const day = d ? d.getDate() : '-';
             const month = d ? d.toLocaleString('en-US', { month: 'short' }) : '';
+            const time = d ? formatToHHMMInUserTimezone(d, user?.timezone || 'UTC') : '';
             return (
               <div key={ev.id} className="event-card">
                 <div className="event-date">
@@ -1321,9 +1392,9 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                     {ev.title}
                   </h4>
                   <p className="event-time-desc">
-                    {ev.time ? (
+                    {time ? (
                       <>
-                        <Clock size={14} /> {ev.time}
+                        <Clock size={14} /> {time}
                       </>
                     ) : (
                       'All Day'
@@ -1362,7 +1433,6 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                 <button
                   className="checkbox-btn"
                   onClick={() => handleToggleTask(t)}
-                  // Disable if not current user or event owner for event tasks
                   disabled={!user || (t.source === 'event' && t.assignedTo !== user.email && t.user_id !== user.id)}
                 >
                   {t.completed ? <CheckSquare size={20} /> : <Square size={20} />}
@@ -1478,7 +1548,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         onGoToDate={() => goToEventInCalendar(selectedEvent)}
         onToggleTask={(taskRef) => toggleEventTaskCompletionPersist(selectedEvent, taskRef)}
         onEdit={() => openEditEvent(selectedEvent)}
-        onDeleteEvent={handleDeleteEvent} // Pass the new delete handler
+        onDeleteEvent={handleDeleteEvent}
         onQuickAddTask={(taskInput) => quickAddTaskToEvent(selectedEvent?.id, taskInput)}
       />
 

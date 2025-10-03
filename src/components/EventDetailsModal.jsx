@@ -10,41 +10,35 @@ import {
   User,
   Flag,
   Edit,
-  Trash2 // Import Trash2 icon for delete
+  Trash2
 } from 'lucide-react';
-import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers'; // NEW: Import currency helpers
+import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers';
+import {
+  toUserTimezone,
+  formatPrettyDateInUserTimezone,
+  formatTimeInUserTimezone,
+  formatToYYYYMMDDInUserTimezone,
+  isSameDay,
+} from '../utils/datetimeHelpers';
 
-const parseLocalDate = (yyyy_mm_dd) => {
+// Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift) - ONLY FOR TASK DUE DATES
+function parseLocalDateFromYYYYMMDD(yyyy_mm_dd) {
   if (!yyyy_mm_dd || typeof yyyy_mm_dd !== 'string') return null;
   const parts = yyyy_mm_dd.split('-').map(Number);
   const [y, m, d] = parts;
   if (!y || !m || !d) return null;
   return new Date(y, m - 1, d);
-};
-
-// REMOVED: getCurrencySymbol and formatCurrency are now imported from currencyHelpers.js
+}
 
 const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate, onToggleTask, onEdit, onDeleteEvent, onQuickAddTask }) => {
   if (!event) return null;
 
-  console.log('EventDetailsModal rendering. User currency:', user?.currency); // DEBUG LOG
+  const userTimezone = user?.timezone || 'UTC';
 
-  const dateObj =
-    event.dateObj instanceof Date
-      ? event.dateObj
-      : event.date
-      ? new Date(event.date)
-      : null;
+  const dateObj = event.event_datetime ? toUserTimezone(event.event_datetime, userTimezone) : null;
 
-  const prettyDate =
-    dateObj && !isNaN(dateObj.getTime())
-      ? dateObj.toLocaleDateString('en-US', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      : '';
+  const prettyDate = formatPrettyDateInUserTimezone(dateObj, userTimezone);
+  const eventTime = formatTimeInUserTimezone(dateObj, userTimezone);
 
   const tasks = Array.isArray(event.event_tasks)
     ? event.event_tasks
@@ -56,7 +50,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
     if (!task || task.completed || !task.dueDate) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const td = parseLocalDate(task.dueDate);
+    const td = parseLocalDateFromYYYYMMDD(task.dueDate);
     if (!td) return false;
     td.setHours(0, 0, 0, 0);
     return td < today;
@@ -74,7 +68,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
   const [qTask, setQTask] = useState({
     title: '',
     description: '',
-    dueDate: '',
+    dueDate: dateObj ? formatToYYYYMMDDInUserTimezone(dateObj, userTimezone) : '',
     assignedTo: user?.email || '',
     priority: 'medium',
     expenses: 0,
@@ -131,7 +125,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
         setQTask({
           title: '',
           description: '',
-          dueDate: '',
+          dueDate: dateObj ? formatToYYYYMMDDInUserTimezone(dateObj, userTimezone) : '',
           assignedTo: user?.email || '',
           priority: 'medium',
           expenses: 0,
@@ -157,7 +151,6 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
 
   return (
     <div className="modal-backdrop" onClick={() => {
-      console.log('EventDetailsModal: Backdrop clicked!');
       onClose();
     }}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -175,7 +168,6 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
               </button>
             )}
             <button className="modal-close" onClick={() => {
-              console.log('EventDetailsModal: X button clicked!');
               onClose();
             }} title="Close">
               <X />
@@ -191,7 +183,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
               <input
                 type="text"
                 className="form-input"
-                value={`${prettyDate}${event.time ? ` • ${event.time}` : ''}`}
+                value={`${prettyDate}${eventTime ? ` • ${eventTime}` : ''}`}
                 disabled
               />
             </div>
@@ -343,7 +335,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
                 {tasks.map((t, idx) => {
                   const overdue = isTaskOverdue(t);
                   const canToggle = canToggleFor(t);
-                  const dd = t.dueDate ? parseLocalDate(t.dueDate) : null;
+                  const dd = t.dueDate ? parseLocalDateFromYYYYMMDD(t.dueDate) : null;
                   return (
                     <div
                       key={t.id || idx}

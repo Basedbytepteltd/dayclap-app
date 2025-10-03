@@ -1,28 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, AlignLeft, ListTodo, User, Plus, Edit, Trash2, CheckSquare, Square, Flag, Save } from 'lucide-react';
-import './EventModal.css'; // Create a new CSS file for this modal if needed, or extend Dashboard.css
+import './EventModal.css';
 import { notifyTaskAssigned } from '../utils/taskNotify';
-import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers'; // NEW: Import currency helpers
+import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers';
+import {
+  fromUserTimezone,
+  toUserTimezone,
+  formatToYYYYMMDDInUserTimezone,
+  formatToHHMMInUserTimezone,
+  isSameDay,
+} from '../utils/datetimeHelpers';
 
-// Helper function to format a Date object to YYYY-MM-DD in local time
-const formatDateToYYYYMMDD = (dateInput) => {
-  if (!dateInput || !(dateInput instanceof Date) || isNaN(dateInput.getTime())) return '';
-  const year = dateInput.getFullYear();
-  const month = (dateInput.getMonth() + 1).toString().padStart(2, '0');
-  const day = dateInput.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-// Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift)
-const parseLocalDateFromYYYYMMDD = (yyyy_mm_dd) => {
+// Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift) - ONLY FOR TASK DUE DATES
+function parseLocalDateFromYYYYMMDD(yyyy_mm_dd) {
   if (!yyyy_mm_dd || typeof yyyy_mm_dd !== 'string') return null;
   const parts = yyyy_mm_dd.split('-').map(Number);
   const [y, m, d] = parts;
   if (!y || !m || !d) return null;
   return new Date(y, m - 1, d);
-};
-
-// REMOVED: getCurrencySymbol and formatCurrency are now imported from currencyHelpers.js
+}
 
 const EventModal = ({
   showModal,
@@ -42,16 +38,35 @@ const EventModal = ({
 }) => {
   if (!showModal) return null;
 
-  console.log('EventModal rendering. User currency:', user?.currency); // DEBUG LOG
+  const userTimezone = user?.timezone || 'UTC';
+
+  // NEW: State for task-specific messages within the event task form
+  const [taskMessage, setTaskMessage] = useState('');
+  const [taskMessageType, setTaskMessageType] = useState(''); // 'success' or 'error'
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEventForm(prev => ({ ...prev, [name]: value }));
+    if (name === 'time') {
+      // When time changes, update the eventDateTime object
+      const currentDateString = formatToYYYYMMDDInUserTimezone(eventForm.eventDateTime, userTimezone);
+      const newEventDateTime = toUserTimezone(
+        fromUserTimezone(currentDateString, value, userTimezone),
+        userTimezone
+      );
+      setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
+    } else {
+      setEventForm(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleDateChange = (e) => {
-    // Parse the YYYY-MM-DD string from the input as a local date
-    setEventForm(prev => ({ ...prev, date: parseLocalDateFromYYYYMMDD(e.target.value) }));
+    const newDateString = e.target.value; // YYYY-MM-DD
+    const currentTimeString = formatToHHMMInUserTimezone(eventForm.eventDateTime, userTimezone);
+    const newEventDateTime = toUserTimezone(
+      fromUserTimezone(newDateString, currentTimeString, userTimezone),
+      userTimezone
+    );
+    setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
   };
 
   const handleEventTaskInputChange = (e) => {
@@ -60,6 +75,9 @@ const EventModal = ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    // Clear task message when user starts typing again
+    setTaskMessage('');
+    setTaskMessageType('');
   };
 
   const isTaskOverdue = (task) => {
@@ -73,8 +91,20 @@ const EventModal = ({
   };
 
   const handleSaveEventTask = async () => {
+    if (!currentEventTaskForm.title.trim()) {
+      setTaskMessage('Task title cannot be empty.');
+      setTaskMessageType('error');
+      return;
+    }
+
     // First update UI state via parent handler
     handleAddEventTask();
+    setTaskMessage('Task saved successfully!');
+    setTaskMessageType('success');
+    setTimeout(() => {
+      setTaskMessage('');
+      setTaskMessageType('');
+    }, 3000); // Message disappears after 3 seconds
 
     // Fire-and-forget notify email if an assignee exists
     try {
@@ -91,8 +121,8 @@ const EventModal = ({
           assigned_by_email: user?.email || '',
           assigned_by_name: user?.name || user?.email || 'Someone',
           event_title: eventForm.title || 'Event',
-          event_date: formatDateToYYYYMMDD(eventForm.date),
-          event_time: eventForm.time || '',
+          event_date: formatToYYYYMMDDInUserTimezone(eventForm.eventDateTime, userTimezone),
+          event_time: formatToHHMMInUserTimezone(eventForm.eventDateTime, userTimezone),
           company_name: companyName,
           task_title: currentEventTaskForm.title || '',
           task_description: currentEventTaskForm.description || '',
@@ -111,17 +141,18 @@ const EventModal = ({
       id: null,
       title: '',
       description: '',
-      dueDate: formatDateToYYYYMMDD(eventForm.date), // Reset dueDate to current event's date
+      dueDate: formatToYYYYMMDDInUserTimezone(eventForm.eventDateTime, userTimezone), // Reset dueDate to current event's date
       assignedTo: user?.email || '',
       priority: 'medium',
       expenses: 0,
       completed: false,
     });
+    setTaskMessage(''); // Clear message on cancel
+    setTaskMessageType('');
   };
 
   return (
     <div className="modal-backdrop" onClick={() => {
-      console.log('EventModal: Backdrop clicked!');
       onClose();
     }}>
       <div className="modal-content event-modal" onClick={e => e.stopPropagation()}>
@@ -157,7 +188,7 @@ const EventModal = ({
                   <input
                     type="date"
                     name="date"
-                    value={formatDateToYYYYMMDD(eventForm.date)}
+                    value={formatToYYYYMMDDInUserTimezone(eventForm.eventDateTime, userTimezone)}
                     onChange={handleDateChange}
                     className="form-input"
                     required
@@ -171,7 +202,7 @@ const EventModal = ({
                   <input
                     type="time"
                     name="time"
-                    value={eventForm.time}
+                    value={formatToHHMMInUserTimezone(eventForm.eventDateTime, userTimezone)}
                     onChange={handleInputChange}
                     className="form-input"
                   />
@@ -322,6 +353,14 @@ const EventModal = ({
                   />
                   <label htmlFor="currentEventTaskCompleted" className="form-label" style={{ marginBottom: 0, cursor: 'pointer' }}>Mark as Completed</label>
                 </div>
+
+                {/* NEW: Task-specific message */}
+                {taskMessage && (
+                  <div className={`info-message ${taskMessageType}`} style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+                    {taskMessage}
+                  </div>
+                )}
+
                 <div className="event-tasks-footer">
                   {currentEventTaskForm.id ? (
                     <>
