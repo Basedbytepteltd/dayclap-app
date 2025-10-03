@@ -1,5 +1,4 @@
 import { format } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz';
 
 // DEBUG a toggle is now permanently off to prevent console spam.
 const __DC_DEBUG_DATETIME = false; // Changed back to false
@@ -8,13 +7,17 @@ const dlog = (...args) => { if (__DC_DEBUG_DATETIME) console.log(...args); };
 const derr = (...args) => { if (__DC_DEBUG_DATETIME) console.error(...args); };
 
 /**
- * Converts a UTC ISO string (from DB) to a Date object representing that moment in the user's specified timezone.
- * This Date object will have its internal time adjusted so that its local time components (hours, minutes)
- * reflect the time in the target timezone.
+ * Converts a UTC ISO string (from DB) to a Date object whose local components
+ * reflect the time in the user's specified timezone, without relying on date-fns-tz.
+ *
+ * Implementation detail:
+ * - We get the target timezone's wall-clock parts via Intl for the given UTC instant
+ * - Then construct a new Date(year, month-1, day, hh, mm, ss) in the browser's local zone,
+ *   so Date#getFullYear()/getMonth()/getDate() match the intended user timezone components.
  *
  * @param {string} utcIsoString - The UTC ISO 8601 string from the database (e.g., "2025-10-25T10:00:00Z").
  * @param {string} userTimezone - The IANA timezone string of the user (e.g., "Asia/Colombo").
- * @returns {Date} A Date object representing the UTC moment, but with its internal time adjusted to the user's timezone.
+ * @returns {Date|null} A Date whose local components mirror the user timezone's local time for that instant.
  */
 export const toUserTimezone = (utcIsoString, userTimezone) => {
   if (!utcIsoString || !userTimezone) {
@@ -23,11 +26,17 @@ export const toUserTimezone = (utcIsoString, userTimezone) => {
   }
   try {
     const utcDate = new Date(utcIsoString);
-    const result = utcToZonedTime(utcDate, userTimezone);
-    dlog(`datetimeHelpers DEBUG: toUserTimezone: utcIsoString: '${utcIsoString}', userTimezone: '${userTimezone}'. Result: ${result}`);
-    return result;
+    if (isNaN(utcDate.getTime())) {
+      dlog(`datetimeHelpers DEBUG: toUserTimezone: Invalid Date parsed from '${utcIsoString}'. Returning null.`);
+      return null;
+    }
+    const p = formatInTZParts(utcDate, userTimezone);
+    // Construct a "local" Date using the target timezone's wall time parts
+    const localLike = new Date(p.year, (p.month || 1) - 1, p.day || 1, p.hour || 0, p.minute || 0, p.second || 0, 0);
+    dlog(`datetimeHelpers DEBUG: toUserTimezone: utcIsoString: '${utcIsoString}', userTimezone: '${userTimezone}'. Parts:`, p, 'LocalLike:', localLike);
+    return localLike;
   } catch (e) {
-    derr(`datetimeHelpers ERROR: converting UTC to user timezone (${userTimezone}) for '${utcIsoString}':`, e);
+    derr(`datetimeHelpers ERROR: toUserTimezone (${userTimezone}) for '${utcIsoString}':`, e);
     return null;
   }
 };
@@ -62,7 +71,7 @@ function formatInTZParts(utcDate, timeZone) {
 
 /**
  * Internal: Convert "local wall time" in a given IANA timeZone to a UTC Date.
- * Algorithm adapted from date-fns-tz approach using Intl to compute the offset.
+ * Algorithm adapted using Intl to compute the offset.
  *
  * @param {number} y
  * @param {number} m 1-12
