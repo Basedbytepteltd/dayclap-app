@@ -1,6 +1,5 @@
 import { format } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz/esm/_lib/utcToZonedTime/index.js';
-import { zonedTimeToUtc } from 'date-fns-tz/esm/_lib/zonedTimeToUtc/index.js';
+import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 
 /**
  * Converts a UTC ISO string (from DB) to a Date object representing that moment in the user's specified timezone.
@@ -174,7 +173,7 @@ export const formatToYYYYMMDDInUserTimezone = (dateObj, userTimezone) => {
  * @returns {string} Time string in 'HH:MM' format.
  */
 export const formatToHHMMInUserTimezone = (dateObj, userTimezone) => {
-  if (!dateObj || isNaN(dateObj.getTime()) || !userTimezone) return '';
+  if (!dateObj || isNaN(dateObj.getTime())) return '';
   try {
     const hour = dateObj.toLocaleString('en-US', { hour: '2-digit', hourCycle: 'h23', timeZone: userTimezone });
     const minute = dateObj.toLocaleString('en-US', { minute: '2-digit', timeZone: userTimezone });
