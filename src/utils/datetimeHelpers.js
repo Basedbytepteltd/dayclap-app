@@ -1,5 +1,8 @@
 import { format } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import * as dateFnsTz from 'date-fns-tz';
+
+const utcToZonedTime = dateFnsTz.utcToZonedTime;
+const zonedTimeToUtc = dateFnsTz.zonedTimeToUtc;
 
 /**
  * Converts a UTC ISO string (from DB) to a Date object representing that moment in the user's specified timezone.
