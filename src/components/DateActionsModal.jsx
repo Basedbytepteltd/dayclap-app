@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { CalendarDays, Plus, X } from 'lucide-react';
 import './DateActionsModal.css';
 
@@ -44,4 +44,4 @@ const DateActionsModal = ({ showModal, onClose, selectedDate, onViewEvents, onAd
   );
 };
 
-export default DateActionsModal;
+export default memo(DateActionsModal);

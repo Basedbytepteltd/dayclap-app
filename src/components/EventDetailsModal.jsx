@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import {
   X,
   CalendarDays,
@@ -18,7 +18,6 @@ import {
   formatPrettyDateInUserTimezone,
   formatTimeInUserTimezone,
   formatToYYYYMMDDInUserTimezone,
-  isSameDay,
 } from '../utils/datetimeHelpers';
 
 // Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift) - ONLY FOR TASK DUE DATES
@@ -144,15 +143,13 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
   };
 
   const handleDeleteClick = () => {
-    if (window.confirm(`Are you sure you want to delete the event "${event.title}"? This action cannot be undone.`)) {
+    if (window.confirm(`Are you sure you want to delete the event \"${event.title}\"? This action cannot be undone.`)) {
       onDeleteEvent?.(event.id);
     }
   };
 
   return (
-    <div className="modal-backdrop" onClick={() => {
-      onClose();
-    }}>
+    <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{event.title || 'Event Details'}</h3>
@@ -167,9 +164,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
                 <Trash2 size={16} /> Delete
               </button>
             )}
-            <button className="modal-close" onClick={() => {
-              onClose();
-            }} title="Close">
+            <button className="modal-close" onClick={onClose} title="Close">
               <X />
             </button>
           </div>
@@ -183,7 +178,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
               <input
                 type="text"
                 className="form-input"
-                value={`${prettyDate}${eventTime ? ` • ${eventTime}` : ''}`}
+                value={`${prettyDate}${eventTime ? ` \u2022 ${eventTime}` : ''}`}
                 disabled
               />
             </div>
@@ -209,7 +204,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
             </div>
           )}
 
-          {/* Quick Add Task */}
+          {/* Quick Add Task */}\
           {canQuickAdd && (
             <div className="form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
               <label className="form-label">Quick Add Task</label>
@@ -290,7 +285,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
                   </select>
                 </div>
                 <div className="input-wrapper">
-                  {/* Dynamic currency symbol */}
+                  {/* Dynamic currency symbol */}\
                   <span className="input-icon" style={{ left: '1rem', top: 'calc(50% - 2px)', transform: 'translateY(-50%)' }}>
                     {getCurrencySymbol(user?.currency || 'USD')}
                   </span>
@@ -402,4 +397,4 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
   );
 };
 
-export default EventDetailsModal;
+export default memo(EventDetailsModal);

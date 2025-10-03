@@ -4,6 +4,13 @@ import './SettingsTab.css';
 import { supabase } from '../supabaseClient'; // Ensure supabase is imported for direct DB ops if needed, or for token
 import { getCurrencySymbol } from '../utils/currencyHelpers'; // Import getCurrencySymbol
 
+// Toggleable debug for SettingsTab (off by default)
+// Enable via: localStorage.setItem('DC_DEBUG_SETTINGS','1') or window.__DC_DEBUG_SETTINGS = true
+const DEBUG_SETTINGS =
+  (typeof localStorage !== 'undefined' && localStorage.getItem('DC_DEBUG_SETTINGS') === '1') ||
+  (typeof window !== 'undefined' && window.__DC_DEBUG_SETTINGS === true);
+const slog = (...args) => { if (DEBUG_SETTINGS) console.log(...args); };
+
 const currencies = [
   { code: 'USD', name: 'US Dollar' },
   { code: 'EUR', name: 'Euro' },
@@ -127,8 +134,8 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
 
   // DEBUG LOG: Check user object and initialSubTab when component mounts or updates
   useEffect(() => {
-    console.log('SettingsTab: User prop received:', user);
-    console.log('SettingsTab: initialSubTab prop received:', initialSubTab);
+    slog('SettingsTab: User prop received:', user);
+    slog('SettingsTab: initialSubTab prop received:', initialSubTab);
   }, [user, initialSubTab]);
 
   useEffect(() => {
@@ -987,12 +994,12 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
   // Render function for the Company & Team Overview content
   const renderCompanyTeamOverview = () => {
     // DEBUG LOGS for renderCompanyTeamOverview
-    console.log('DEBUG: renderCompanyTeamOverview called.');
-    console.log('DEBUG: renderCompanyTeamOverview - user.companies:', user?.companies);
-    console.log('DEBUG: renderCompanyTeamOverview - user.currentCompanyId:', user?.currentCompanyId);
+    slog('DEBUG: renderCompanyTeamOverview called.');
+    slog('DEBUG: renderCompanyTeamOverview - user.companies:', user?.companies);
+    slog('DEBUG: renderCompanyTeamOverview - user.currentCompanyId:', user?.currentCompanyId);
 
     const hasCompanies = user.companies && user.companies.length > 0;
-    console.log('DEBUG: renderCompanyTeamOverview - hasCompanies:', hasCompanies);
+    slog('DEBUG: renderCompanyTeamOverview - hasCompanies:', hasCompanies);
 
     return (
       <div className="settings-section">
@@ -1006,7 +1013,7 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
         {hasCompanies ? (
           <div className="companies-list">
             {user.companies.map(company => {
-              console.log('DEBUG: renderCompanyTeamOverview - rendering company:', company.name, company.id);
+              slog('DEBUG: renderCompanyTeamOverview - rendering company:', company.name, company.id);
               return (
                 <div key={company.id} className={`company-item ${user.currentCompanyId === company.id ? 'active' : ''}`}>
                   <div className="company-info">
@@ -1048,7 +1055,7 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
             <Building2 className="no-companies-icon" />
             <p>You are not part of any companies yet.</p>
             <p>Use the "Add Company" tab to create your first company!</p>
-            {console.log('DEBUG: renderCompanyTeamOverview - "No companies" message rendered.')}
+            {slog('DEBUG: renderCompanyTeamOverview - "No companies" message rendered.')}
           </div>
         )}
       </div>
@@ -1156,8 +1163,8 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
     const canManageMembers = ['owner', 'admin'].includes(currentUserRoleInCompany);
 
     // DEBUG LOGS
-    console.log('DEBUG: renderTeamMembers - currentUserRoleInCompany:', currentUserRoleInCompany);
-    console.log('DEBUG: renderTeamMembers - canManageMembers:', canManageMembers);
+    slog('DEBUG: renderTeamMembers - currentUserRoleInCompany:', currentUserRoleInCompany);
+    slog('DEBUG: renderTeamMembers - canManageMembers:', canManageMembers);
 
     if (!user?.currentCompanyId) {
       return (
@@ -1236,7 +1243,7 @@ const SettingsTab = ({ user, onUserUpdate, initialSubTab = 'profile' }) => {
 
   // Main render function for the "Company & Team" tab, including its nested navigation
   const renderCompanyTeamSection = () => {
-    console.log('DEBUG: renderCompanyTeamSection called. activeCompanySubTab:', activeCompanySubTab);
+    slog('DEBUG: renderCompanyTeamSection called. activeCompanySubTab:', activeCompanySubTab);
     return (
       <>
         <nav className="company-team-sub-nav"> {/* New class for nested nav */}

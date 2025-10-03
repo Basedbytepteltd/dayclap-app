@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { CalendarDays, Clock, MapPin, CheckSquare, Square, X } from 'lucide-react';
 import './DayItemsModal.css';
 
@@ -148,4 +148,4 @@ const DayItemsModal = ({
   );
 };
 
-export default DayItemsModal;
+export default memo(DayItemsModal);

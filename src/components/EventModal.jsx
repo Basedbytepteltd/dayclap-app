@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, memo } from 'react';
 import { X, Calendar, Clock, MapPin, AlignLeft, ListTodo, User, Plus, Edit, Trash2, CheckSquare, Square, Flag, Save } from 'lucide-react';
 import './EventModal.css';
 import { notifyTaskAssigned } from '../utils/taskNotify';
 import { getCurrencySymbol, formatCurrency } from '../utils/currencyHelpers';
 import {
-  fromUserTimezone,
-  toUserTimezone,
   formatToYYYYMMDDInUserTimezone,
   formatToHHMMInUserTimezone,
-  isSameDay,
 } from '../utils/datetimeHelpers';
 
-// Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift) - ONLY FOR TASK DUE DATES
+// Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift)
 function parseLocalDateFromYYYYMMDD(yyyy_mm_dd) {
   if (!yyyy_mm_dd || typeof yyyy_mm_dd !== 'string') return null;
   const parts = yyyy_mm_dd.split('-').map(Number);
@@ -36,47 +33,26 @@ const EventModal = ({
   teamMembers,
   user,
 }) => {
-  if (!showModal) return null;
+  if (!showModal) {
+    return null;
+  }
 
   const userTimezone = user?.timezone || 'UTC';
-
-  // NEW: State for task-specific messages within the event task form
   const [taskMessage, setTaskMessage] = useState('');
-  const [taskMessageType, setTaskMessageType] = useState(''); // 'success' or 'error'
-
-  // DEBUG LOG: Log eventForm.eventDateTime whenever it changes
-  useEffect(() => {
-    console.log('EventModal DEBUG: eventForm.eventDateTime changed:', eventForm.eventDateTime);
-    console.log('EventModal DEBUG: Is eventForm.eventDateTime a valid Date object?', eventForm.eventDateTime instanceof Date && !isNaN(eventForm.eventDateTime.getTime()));
-    console.log('EventModal DEBUG: Formatted Date for input:', getFormattedDateValue(eventForm.eventDateTime, userTimezone));
-    console.log('EventModal DEBUG: Formatted Time for input:', getFormattedTimeValue(eventForm.eventDateTime, userTimezone));
-  }, [eventForm.eventDateTime, userTimezone]);
-
+  const [taskMessageType, setTaskMessageType] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name === 'time') {
+      const [hours, minutes] = value.split(':').map(Number);
       const currentEventDate = eventForm.eventDateTime;
-      let baseDateForConversion = currentEventDate;
+      const newEventDateTime = (currentEventDate && !isNaN(currentEventDate.getTime()))
+        ? new Date(currentEventDate.getTime())
+        : new Date(); // Fallback to now if date is invalid
 
-      // If currentEventDate is invalid, use a new Date for recovery
-      if (!currentEventDate || isNaN(currentEventDate.getTime())) {
-        console.warn('EventModal: eventForm.eventDateTime is invalid when changing time. Attempting to recover with new Date().');
-        baseDateForConversion = new Date();
-      }
-
-      const currentDateString = formatToYYYYMMDDInUserTimezone(baseDateForConversion, userTimezone);
-      const newUtcIsoString = fromUserTimezone(currentDateString, value, userTimezone);
-
-      if (newUtcIsoString) {
-        const newEventDateTime = toUserTimezone(newUtcIsoString, userTimezone);
-        if (newEventDateTime && !isNaN(newEventDateTime.getTime())) {
-          setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
-        } else {
-          console.error('EventModal: Failed to convert new time to valid Date object. Keeping previous time.', { newUtcIsoString, userTimezone });
-        }
-      } else {
-        console.error('EventModal: Failed to convert new time to UTC ISO string. Keeping previous time.', { currentDateString, value, userTimezone });
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        newEventDateTime.setHours(hours, minutes, 0, 0); // Also reset seconds/ms
+        setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
       }
     } else {
       setEventForm(prev => ({ ...prev, [name]: value }));
@@ -85,37 +61,23 @@ const EventModal = ({
 
   const handleDateChange = (e) => {
     const newDateString = e.target.value; // YYYY-MM-DD
+    if (!newDateString) return; // Ignore empty input
+
+    const [year, month, day] = newDateString.split('-').map(Number);
     const currentEventDate = eventForm.eventDateTime;
+    const newEventDateTime = (currentEventDate && !isNaN(currentEventDate.getTime()))
+      ? new Date(currentEventDate.getTime())
+      : new Date(); // Fallback
 
-    let baseDateForConversion = currentEventDate;
-    // If currentEventDate is invalid, use a new Date for recovery
-    if (!currentEventDate || isNaN(currentEventDate.getTime())) {
-      console.warn('EventModal: eventForm.eventDateTime is invalid when changing date. Attempting to recover with new Date().');
-      baseDateForConversion = new Date();
-    }
-
-    const currentTimeString = formatToHHMMInUserTimezone(baseDateForConversion, userTimezone);
-    const newUtcIsoString = fromUserTimezone(newDateString, currentTimeString, userTimezone);
-
-    if (newUtcIsoString) {
-      const newEventDateTime = toUserTimezone(newUtcIsoString, userTimezone);
-      if (newEventDateTime && !isNaN(newEventDateTime.getTime())) {
-        setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
-      } else {
-        console.error('EventModal: Failed to convert new date to valid Date object. Keeping previous date.', { newUtcIsoString, userTimezone });
-      }
-    } else {
-      console.error('EventModal: Failed to convert new date to UTC ISO string. Keeping previous date.', { newDateString, currentTimeString, userTimezone });
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      newEventDateTime.setFullYear(year, month - 1, day); // month is 0-indexed
+      setEventForm(prev => ({ ...prev, eventDateTime: newEventDateTime }));
     }
   };
 
   const handleEventTaskInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setCurrentEventTaskForm(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-    // Clear task message when user starts typing again
+    setCurrentEventTaskForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     setTaskMessage('');
     setTaskMessageType('');
   };
@@ -125,9 +87,7 @@ const EventModal = ({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const taskDueDate = parseLocalDateFromYYYYMMDD(task.dueDate);
-    if (!taskDueDate) return false;
-    taskDueDate.setHours(0, 0, 0, 0);
-    return taskDueDate < today;
+    return taskDueDate && taskDueDate < today;
   };
 
   const handleSaveEventTask = async () => {
@@ -136,28 +96,18 @@ const EventModal = ({
       setTaskMessageType('error');
       return;
     }
-
-    // First update UI state via parent handler
     handleAddEventTask();
     setTaskMessage('Task saved successfully!');
     setTaskMessageType('success');
-    setTimeout(() => {
-      setTaskMessage('');
-      setTaskMessageType('');
-    }, 3000); // Message disappears after 3 seconds
+    setTimeout(() => { setTaskMessage(''); setTaskMessageType(''); }, 3000);
 
-    // Fire-and-forget notify email if an assignee exists
     try {
       const assignee = (currentEventTaskForm.assignedTo || '').trim();
       if (assignee) {
-        const companyName =
-          (Array.isArray(user?.companies)
-            ? (user.companies.find(c => c.id === (user.currentCompanyId || user.current_company_id))?.name)
-            : null) || '';
-
+        const companyName = (user?.companies?.find(c => c.id === (user.currentCompanyId || user.current_company_id))?.name) || '';
         await notifyTaskAssigned({
           assigned_to_email: assignee,
-          assigned_to_name: (teamMembers || []).find(m => m.email === assignee)?.name || '',
+          assigned_to_name: teamMembers?.find(m => m.email === assignee)?.name || '',
           assigned_by_email: user?.email || '',
           assigned_by_name: user?.name || user?.email || 'Someone',
           event_title: eventForm.title || 'Event',
@@ -171,45 +121,28 @@ const EventModal = ({
       }
     } catch (error) {
       console.error("Error sending task assigned notification:", error);
-      // ignore notify errors
     }
   };
 
-  // NEW: Function to reset the current event task form
   const handleCancelEditTask = () => {
     setCurrentEventTaskForm({
-      id: null,
-      title: '',
-      description: '',
-      dueDate: getFormattedDateValue(eventForm.eventDateTime, userTimezone), // Reset dueDate to current event's date
-      assignedTo: user?.email || '',
-      priority: 'medium',
-      expenses: 0,
-      completed: false,
+      id: null, title: '', description: '',
+      dueDate: getFormattedDateValue(eventForm.eventDateTime, userTimezone),
+      assignedTo: user?.email || '', priority: 'medium', expenses: 0, completed: false,
     });
-    setTaskMessage(''); // Clear message on cancel
+    setTaskMessage('');
     setTaskMessageType('');
   };
 
-  // Helper to safely format date/time for input value
-  const getFormattedDateValue = (dateObj, timezone) => {
-    return dateObj instanceof Date && !isNaN(dateObj.getTime()) ? formatToYYYYMMDDInUserTimezone(dateObj, timezone) : '';
-  };
-
-  const getFormattedTimeValue = (dateObj, timezone) => {
-    return dateObj instanceof Date && !isNaN(dateObj.getTime()) ? formatToHHMMInUserTimezone(dateObj, timezone) : '';
-  };
+  const getFormattedDateValue = (dateObj, timezone) => (dateObj instanceof Date && !isNaN(dateObj.getTime())) ? formatToYYYYMMDDInUserTimezone(dateObj, timezone) : '';
+  const getFormattedTimeValue = (dateObj, timezone) => (dateObj instanceof Date && !isNaN(dateObj.getTime())) ? formatToHHMMInUserTimezone(dateObj, timezone) : '';
 
   return (
-    <div className="modal-backdrop" onClick={() => {
-      onClose();
-    }}>
+    <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content event-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
-          <button className="modal-close" onClick={onClose} title="Close">
-            <X />
-          </button>
+          <button className="modal-close" onClick={onClose} title="Close"><X /></button>
         </div>
         <form onSubmit={onSaveEvent}>
           <div className="modal-body">
@@ -217,108 +150,55 @@ const EventModal = ({
               <label className="form-label">Event Title</label>
               <div className="input-wrapper">
                 <Calendar className="input-icon" />
-                <input
-                  type="text"
-                  name="title"
-                  value={eventForm.title}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="e.g., Team Meeting"
-                  required
-                />
+                <input type="text" name="title" value={eventForm.title} onChange={handleInputChange} className="form-input" placeholder="e.g., Team Meeting" required />
               </div>
             </div>
-
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Date</label>
                 <div className="input-wrapper">
                   <Calendar className="input-icon" />
-                  <input
-                    type="date"
-                    name="date"
-                    value={getFormattedDateValue(eventForm.eventDateTime, userTimezone)} // Use safe formatter
-                    onChange={handleDateChange}
-                    className="form-input"
-                    required
-                  />
+                  <input type="date" name="date" value={getFormattedDateValue(eventForm.eventDateTime, userTimezone)} onChange={handleDateChange} className="form-input" required />
                 </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Time <span className="optional-text">(Optional)</span></label>
                 <div className="input-wrapper">
                   <Clock className="input-icon" />
-                  <input
-                    type="time"
-                    name="time"
-                    value={getFormattedTimeValue(eventForm.eventDateTime, userTimezone)} // Use safe formatter
-                    onChange={handleInputChange}
-                    className="form-input"
-                  />
+                  <input type="time" name="time" value={getFormattedTimeValue(eventForm.eventDateTime, userTimezone)} onChange={handleInputChange} className="form-input" />
                 </div>
               </div>
             </div>
-
             <div className="form-group">
               <label className="form-label">Location <span className="optional-text">(Optional)</span></label>
               <div className="input-wrapper">
                 <MapPin className="input-icon" />
-                <input
-                  type="text"
-                  name="location"
-                  value={eventForm.location}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="e.g., Conference Room A"
-                />
+                <input type="text" name="location" value={eventForm.location} onChange={handleInputChange} className="form-input" placeholder="e.g., Conference Room A" />
               </div>
             </div>
-
             <div className="form-group">
               <label className="form-label">Description <span className="optional-text">(Optional)</span></label>
               <div className="input-wrapper">
                 <AlignLeft className="input-icon" />
-                <textarea
-                  name="description"
-                  value={eventForm.description}
-                  onChange={handleInputChange}
-                  className="form-textarea"
-                  rows="5"
-                  placeholder="Add a brief description of the event..."
-                ></textarea>
+                <textarea name="description" value={eventForm.description} onChange={handleInputChange} className="form-textarea" rows="5" placeholder="Add a brief description of the event..."></textarea>
               </div>
             </div>
-
             <div className="event-tasks-section">
               <h4 className="event-tasks-title">Event Tasks</h4>
               <p className="task-section-description">Break down your event into manageable tasks.</p>
-
               <div className="event-task-form">
                 <div className="form-group">
                   <label className="form-label">Task Title</label>
                   <div className="input-wrapper">
                     <ListTodo className="input-icon" />
-                    <input
-                      type="text"
-                      name="title"
-                      value={currentEventTaskForm.title}
-                      onChange={handleEventTaskInputChange}
-                      className="form-input"
-                      placeholder="e.g., Send out invitations"
-                    />
+                    <input type="text" name="title" value={currentEventTaskForm.title} onChange={handleEventTaskInputChange} className="form-input" placeholder="e.g., Send out invitations" />
                   </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Description <span className="optional-text">(Optional)</span></label>
                   <div className="input-wrapper">
                     <AlignLeft className="input-icon" />
-                    <textarea
-                      name="description"
-                      value={currentEventTaskForm.description}
-                      onChange={handleEventTaskInputChange}
-                      className="form-textarea"
-                      rows="4"
-                      placeholder="Detailed description for the task..."></textarea>
+                    <textarea name="description" value={currentEventTaskForm.description} onChange={handleEventTaskInputChange} className="form-textarea" rows="4" placeholder="Detailed description for the task..."></textarea>
                   </div>
                 </div>
                 <div className="form-row">
@@ -326,29 +206,16 @@ const EventModal = ({
                     <label className="form-label">Due Date</label>
                     <div className="input-wrapper">
                       <Calendar className="input-icon" />
-                      <input
-                        type="date"
-                        name="dueDate"
-                        value={currentEventTaskForm.dueDate}
-                        onChange={handleEventTaskInputChange}
-                        className="form-input"
-                      />
+                      <input type="date" name="dueDate" value={currentEventTaskForm.dueDate} onChange={handleEventTaskInputChange} className="form-input" />
                     </div>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Assigned To</label>
                     <div className="input-wrapper">
                       <User className="input-icon" />
-                      <select
-                        name="assignedTo"
-                        value={currentEventTaskForm.assignedTo}
-                        onChange={handleEventTaskInputChange}
-                        className="form-select"
-                      >
+                      <select name="assignedTo" value={currentEventTaskForm.assignedTo} onChange={handleEventTaskInputChange} className="form-select">
                         <option value={user.email}>Me ({user.name || user.email})</option>
-                        {teamMembers.map(member => (
-                          <option key={member.id} value={member.email}>{member.name || member.email}</option>
-                        ))}
+                        {teamMembers.map(member => <option key={member.id} value={member.email}>{member.name || member.email}</option>)}
                       </select>
                     </div>
                   </div>
@@ -358,12 +225,7 @@ const EventModal = ({
                     <label className="form-label">Priority</label>
                     <div className="input-wrapper">
                       <Flag className="input-icon" />
-                      <select
-                        name="priority"
-                        value={currentEventTaskForm.priority}
-                        onChange={handleEventTaskInputChange}
-                        className="form-select"
-                      >
+                      <select name="priority" value={currentEventTaskForm.priority} onChange={handleEventTaskInputChange} className="form-select">
                         <option value="low">Low</option>
                         <option value="medium">Medium</option>
                         <option value="high">High</option>
@@ -373,72 +235,34 @@ const EventModal = ({
                   <div className="form-group">
                     <label className="form-label">Expenses <span className="optional-text">(Optional)</span></label>
                     <div className="input-wrapper">
-                      {/* Dynamic currency symbol */}
-                      <span className="input-icon" style={{ left: '1rem', top: 'calc(50% - 2px)', transform: 'translateY(-50%)' }}>
-                        {getCurrencySymbol(user?.currency || 'USD')}
-                      </span>
-                      <input
-                        type="number"
-                        name="expenses"
-                        value={currentEventTaskForm.expenses}
-                        onChange={handleEventTaskInputChange}
-                        className="form-input"
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
-                        style={{ paddingLeft: '3.5rem' }} /* Adjusted padding for dynamic symbol */
-                      />
+                      <span className="input-icon" style={{ left: '1rem', top: 'calc(50% - 2px)', transform: 'translateY(-50%)' }}>{getCurrencySymbol(user?.currency || 'USD')}</span>
+                      <input type="number" name="expenses" value={currentEventTaskForm.expenses} onChange={handleEventTaskInputChange} className="form-input" placeholder="0.00" step="0.01" min="0" style={{ paddingLeft: '3.5rem' }} />
                     </div>
                   </div>
                 </div>
                 <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
-                    type="checkbox"
-                    name="completed"
-                    id="currentEventTaskCompleted"
-                    checked={currentEventTaskForm.completed}
-                    onChange={handleEventTaskInputChange}
-                    style={{ width: 'auto', margin: 0 }}
-                  />
+                  <input type="checkbox" name="completed" id="currentEventTaskCompleted" checked={currentEventTaskForm.completed} onChange={handleEventTaskInputChange} style={{ width: 'auto', margin: 0 }} />
                   <label htmlFor="currentEventTaskCompleted" className="form-label" style={{ marginBottom: 0, cursor: 'pointer' }}>Mark as Completed</label>
                 </div>
-
-                {/* NEW: Task-specific message */}
-                {taskMessage && (
-                  <div className={`info-message ${taskMessageType}`} style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
-                    {taskMessage}
-                  </div>
-                )}
-
+                {taskMessage && <div className={`info-message ${taskMessageType}`} style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>{taskMessage}</div>}
                 <div className="event-tasks-footer">
                   {currentEventTaskForm.id ? (
                     <>
-                      <button type="button" className="btn btn-outline btn-small" onClick={handleCancelEditTask}>
-                        Cancel
-                      </button>
-                      <button type="button" className="btn btn-primary btn-small" onClick={handleSaveEventTask}>
-                        <Save size={16} /> Save Task
-                      </button>
+                      <button type="button" className="btn btn-outline btn-small" onClick={handleCancelEditTask}>Cancel</button>
+                      <button type="button" className="btn btn-primary btn-small" onClick={handleSaveEventTask}><Save size={16} /> Save Task</button>
                     </>
                   ) : (
-                    <button type="button" className="btn btn-primary btn-small" onClick={handleSaveEventTask}>
-                      <Plus size={16} /> Add Task
-                    </button>
+                    <button type="button" className="btn btn-primary btn-small" onClick={handleSaveEventTask}><Plus size={16} /> Add Task</button>
                   )}
                 </div>
               </div>
-
               {eventForm.eventTasks.length > 0 && (
                 <div className="event-task-list">
                   {eventForm.eventTasks.map(task => {
                     const dd = task.dueDate ? parseLocalDateFromYYYYMMDD(task.dueDate) : null;
                     return (
                       <div key={task.id} className={`event-task-item ${task.completed ? 'completed' : ''} ${isTaskOverdue(task) ? 'overdue' : ''}`}>
-                        <div className="task-checkbox">
-                          <button type="button" className="checkbox-btn" onClick={() => handleToggleEventTaskCompletion(task.id)}>
-                            {task.completed ? <CheckSquare size={20} /> : <Square size={20} />}
-                          </button>
-                        </div>
+                        <div className="task-checkbox"><button type="button" className="checkbox-btn" onClick={() => handleToggleEventTaskCompletion(task.id)}>{task.completed ? <CheckSquare size={20} /> : <Square size={20} />}</button></div>
                         <div className="task-details">
                           <h5 className="task-title">{task.title}</h5>
                           {task.description && <p className="task-description">{task.description}</p>}
@@ -470,4 +294,4 @@ const EventModal = ({
   );
 };
 
-export default EventModal;
+export default memo(EventModal);
