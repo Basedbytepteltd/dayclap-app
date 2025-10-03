@@ -52,7 +52,7 @@ import {
 // Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift) - ONLY FOR TASK DUE DATES
 function parseLocalDateFromYYYYMMDD(yyyy_mm_dd) {
   if (!yyyy_mm_dd || typeof yyyy_mm_dd !== 'string') return null;
-  const parts = yyyy_mm_dd.split('-').map(Number);
+  const parts = yyyyy_mm_dd.split('-').map(Number);
   const [y, m, d] = parts;
   if (!y || !m || !d) return null;
   return new Date(y, m - 1, d);
@@ -367,13 +367,57 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   }, [dateForActions]);
 
   const handleOpenAddEventModal = useCallback((prefillDate) => {
-    const baseDate = prefillDate instanceof Date && !isNaN(prefillDate.getTime()) ? prefillDate : (dateForActions instanceof Date && !isNaN(dateForActions.getTime()) ? dateForActions : new Date());
+    const userTimezone = user?.timezone || 'UTC';
+    let initialEventDateTime;
+
+    if (prefillDate instanceof Date && !isNaN(prefillDate.getTime())) {
+      // prefillDate is a Date object representing the start of the day
+      // in the *browser's local timezone*.
+      // We want to create an initialEventDateTime that represents the *same calendar day*
+      // but at 00:00:00 in the *user's configured timezone*.
+
+      // Get the year, month, day components directly from prefillDate (which are in browser's local time)
+      const year = prefillDate.getFullYear();
+      const month = prefillDate.getMonth() + 1; // getMonth is 0-indexed
+      const day = prefillDate.getDate();
+
+      // Construct a YYYY-MM-DD string from these components
+      const localDateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`; // e.g., '2025-10-09'
+
+      // Now, use this string to create a UTC timestamp *as if it were in the user's timezone*
+      const utcEquivalent = fromUserTimezone(localDateString, '00:00', userTimezone);
+
+      // Finally, convert this UTC timestamp back to a Date object that is "zoned" for the user's timezone
+      initialEventDateTime = utcEquivalent ? toUserTimezone(utcEquivalent, userTimezone) : new Date();
+
+    } else {
+      // Fallback if prefillDate is invalid, use current date/time in user's timezone
+      const now = new Date(); // This is browser's local time
+      // Convert this browser-local 'now' to its UTC ISO string
+      const nowUtcIso = now.toISOString();
+      // Then convert that UTC ISO string to a Date object that is "zoned" for the user's timezone
+      initialEventDateTime = toUserTimezone(nowUtcIso, userTimezone);
+      // If toUserTimezone returns null (e.g., invalid timezone), fallback to plain new Date()
+      if (!initialEventDateTime) {
+        initialEventDateTime = new Date();
+      }
+    }
+
     setEditingEvent(null);
-    setEventForm({ title: '', eventDateTime: baseDate, location: '', description: '', eventTasks: [] });
-    setCurrentEventTaskForm({ id: null, title: '', description: '', dueDate: formatToYYYYMMDDInUserTimezone(baseDate, user?.timezone || 'UTC'), assignedTo: user?.email || '', priority: 'medium', expenses: 0, completed: false });
+    setEventForm({ title: '', eventDateTime: initialEventDateTime, location: '', description: '', eventTasks: [] });
+    setCurrentEventTaskForm({
+      id: null,
+      title: '',
+      description: '',
+      dueDate: formatToYYYYMMDDInUserTimezone(initialEventDateTime, userTimezone),
+      assignedTo: user?.email || '',
+      priority: 'medium',
+      expenses: 0,
+      completed: false
+    });
     setShowEventModal(true);
     setShowDateActionsModal(false);
-  }, [dateForActions, user]);
+  }, [user, dateForActions]);
 
   const handleSaveEvent = useCallback(async (e) => {
     e.preventDefault();

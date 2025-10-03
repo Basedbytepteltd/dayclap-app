@@ -107,7 +107,8 @@ const AuthModal = ({ mode, onClose, onSwitchMode, onAuthSuccess }) => {
         if (authResponse.error) {
           setErrors({ submit: authResponse.error.message });
           setInfoMessageType('error');
-          if (authResponse.error.message.includes('Email not confirmed')) {
+          // More specific error handling for unconfirmed email
+          if (authResponse.error.message.includes('Email not confirmed') || authResponse.error.message.includes('Email link is invalid or has expired')) {
             setInfoMessage('Your email is not verified. Please check your inbox for a verification link or resend it below.');
             setInfoMessageType('info');
             setShowResendVerification(true); // Show resend button for unconfirmed email

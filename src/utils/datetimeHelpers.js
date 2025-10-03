@@ -5,7 +5,7 @@ const utcToZonedTime = dateFnsTz.utcToZonedTime;
 const zonedTimeToUtc = dateFnsTz.zonedTimeToUtc;
 
 // DEBUG a toggle is now permanently off to prevent console spam.
-const __DC_DEBUG_DATETIME = false;
+const __DC_DEBUG_DATETIME = false; // Changed back to false
 
 const dlog = (...args) => { if (__DC_DEBUG_DATETIME) console.log(...args); };
 const derr = (...args) => { if (__DC_DEBUG_DATETIME) console.error(...args); };
