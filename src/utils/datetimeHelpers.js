@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { utcToZonedTime } from 'date-fns-tz';
 
 // DEBUG a toggle is now permanently off to prevent console spam.
 const __DC_DEBUG_DATETIME = false; // Changed back to false
@@ -33,6 +33,70 @@ export const toUserTimezone = (utcIsoString, userTimezone) => {
 };
 
 /**
+ * Internal: Given a UTC Date, format it as parts in a target timeZone.
+ * Returns { year, month, day, hour, minute, second } as numbers.
+ */
+function formatInTZParts(utcDate, timeZone) {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+  const parts = dtf.formatToParts(utcDate);
+  const get = (type) => parts.find(p => p.type === type)?.value;
+
+  return {
+    year: Number(get('year')),
+    month: Number(get('month')),
+    day: Number(get('day')),
+    hour: Number(get('hour')),
+    minute: Number(get('minute')),
+    second: Number(get('second')),
+  };
+}
+
+/**
+ * Internal: Convert "local wall time" in a given IANA timeZone to a UTC Date.
+ * Algorithm adapted from date-fns-tz approach using Intl to compute the offset.
+ *
+ * @param {number} y
+ * @param {number} m 1-12
+ * @param {number} d 1-31
+ * @param {number} hh 0-23
+ * @param {number} mm 0-59
+ * @param {string} timeZone
+ * @returns {Date} UTC Date corresponding to that wall time in timeZone
+ */
+function zonedWallTimeToUTC(y, m, d, hh, mm, timeZone) {
+  // First guess: interpret provided wall-time as if it were already UTC
+  const utcGuess = new Date(Date.UTC(y, m - 1, d, hh, mm, 0, 0));
+
+  // What does that guess look like in the target timezone?
+  const tzAsParts = formatInTZParts(utcGuess, timeZone);
+  // Reconstruct a UTC date from the timezone-formatted parts
+  const tzAsUTC = new Date(Date.UTC(
+    tzAsParts.year,
+    tzAsParts.month - 1,
+    tzAsParts.day,
+    tzAsParts.hour,
+    tzAsParts.minute,
+    tzAsParts.second || 0,
+    0
+  ));
+
+  // The difference between tzAsUTC and the guess is the timezone offset for that wall time
+  const offsetMs = tzAsUTC.getTime() - utcGuess.getTime();
+
+  // Apply the offset to the guess to get the correct UTC instant
+  return new Date(utcGuess.getTime() - offsetMs);
+}
+
+/**
  * Takes user-entered local date/time strings and their timezone, and returns a UTC ISO string
  * suitable for database storage (TIMESTAMP WITH TIME ZONE).
  *
@@ -48,24 +112,40 @@ export const fromUserTimezone = (localDateString, localTimeString, userTimezone)
     return null;
   }
   try {
-    // Combine date and time into a single string, assuming it's in the user's local timezone
-    const localDateTimeString = `${localDateString}T${localTimeString || '00:00'}:00`;
-    console.log(`[DEBUG fromUserTimezone] Constructed localDateTimeString: '${localDateTimeString}'`);
-
-    // Attempt to parse with native Date first
-    const nativeDate = new Date(localDateTimeString);
-    if (isNaN(nativeDate.getTime())) {
-      console.error(`[DEBUG fromUserTimezone] ERROR: Native Date parsing failed for '${localDateTimeString}'. Returning null.`);
+    // Parse components
+    const mDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDateString);
+    if (!mDate) {
+      console.error(`[DEBUG fromUserTimezone] ERROR: Invalid date format. Expected YYYY-MM-DD, got '${localDateString}'`);
       return null;
     }
-    console.log(`[DEBUG fromUserTimezone] Native Date parsed: ${nativeDate}`);
+    const y = Number(mDate[1]);
+    const m = Number(mDate[2]);
+    const d = Number(mDate[3]);
 
-    const zonedDate = zonedTimeToUtc(nativeDate, userTimezone); // Pass Date object
-    const result = zonedDate.toISOString();
-    console.log(`[DEBUG fromUserTimezone] Success: localDateTimeString='${localDateTimeString}', UTC ISO='${result}'`);
+    let hh = 0, mm = 0;
+    if (localTimeString && localTimeString.trim()) {
+      const mTime = /^(\d{2}):(\d{2})$/.exec(localTimeString);
+      if (!mTime) {
+        console.error(`[DEBUG fromUserTimezone] ERROR: Invalid time format. Expected HH:MM (24h), got '${localTimeString}'`);
+        return null;
+      }
+      hh = Number(mTime[1]);
+      mm = Number(mTime[2]);
+    }
+
+    // Compute UTC Date corresponding to this wall time in userTimezone
+    const utcDate = zonedWallTimeToUTC(y, m, d, hh, mm, userTimezone);
+
+    if (isNaN(utcDate.getTime())) {
+      console.error(`[DEBUG fromUserTimezone] ERROR: Resulting UTC Date is invalid.`);
+      return null;
+    }
+
+    const result = utcDate.toISOString();
+    console.log(`[DEBUG fromUserTimezone] Success: UTC ISO='${result}' (from ${y}-${m}-${d} ${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')} in ${userTimezone})`);
     return result;
   } catch (e) {
-    console.error(`[DEBUG fromUserTimezone] ERROR: converting local to UTC for '${localDateString} ${localTimeString}' in '${userTimezone}':`, e.message || e); // Log full error if no message
+    console.error(`[DEBUG fromUserTimezone] ERROR: converting local to UTC for '${localDateString} ${localTimeString}' in '${userTimezone}':`, e?.message || e);
     return null;
   }
 };
@@ -74,7 +154,8 @@ export const fromUserTimezone = (localDateString, localTimeString, userTimezone)
  * Formats a Date object (which is already adjusted to the user's timezone by toUserTimezone)
  * for display in a human-readable format.
  *
- * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.\n * @param {string} formatStr - The format string (e.g., "MMM dd, yyyy", "HH:mm").
+ * @param {Date} dateObj - A Date object, typically one returned by `toUserTimezone`.
+ * @param {string} formatStr - The format string (e.g., "MMM dd, yyyy", "HH:mm").
  * @returns {string} The formatted date/time string.
  */
 export const formatInUserTimezone = (dateObj, formatStr) => {
