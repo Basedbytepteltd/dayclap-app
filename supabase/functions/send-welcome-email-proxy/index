@@ -1,10 +1,9 @@
-import { serve } from 'https://deno.land/std@0.210.0/http/server.ts'; // Updated Deno std version
+import { serve } from 'https://deno.land/std@0.210.0/http/server.ts';
 
 console.log('send-welcome-email-proxy function started');
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    // Handle CORS preflight requests
     return new Response(null, {
       status: 204,
       headers: {
@@ -26,16 +25,8 @@ serve(async (req) => {
       });
     }
 
-    const backendApiKey = Deno.env.get('BACKEND_API_KEY');
     const backendUrl = Deno.env.get('VITE_BACKEND_URL');
-
-    if (!backendApiKey) {
-      console.error('Configuration Error: BACKEND_API_KEY is not set in Supabase secrets.');
-      return new Response(JSON.stringify({ error: 'Backend API key not configured' }), {
-        headers: { 'Content-Type': 'application/json' },
-        status: 500,
-      });
-    }
+    const backendApiKey = Deno.env.get('BACKEND_API_KEY');
 
     if (!backendUrl) {
       console.error('Configuration Error: VITE_BACKEND_URL is not set in Supabase secrets.');
@@ -44,35 +35,47 @@ serve(async (req) => {
         status: 500,
       });
     }
+    if (!backendApiKey) {
+      console.error('Configuration Error: BACKEND_API_KEY is not set in Supabase secrets.');
+      return new Response(JSON.stringify({ error: 'Backend API key not configured' }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
 
-    console.log(`Proxying welcome email for ${email} to ${backendUrl}/api/send-welcome-email`);
-    const response = await fetch(`${backendUrl}/api/send-welcome-email`, {
+    const flaskEndpoint = `${backendUrl}/api/send-welcome-email`;
+    console.log(`Proxying welcome email request to Flask backend: ${flaskEndpoint}`);
+
+    const res = await fetch(flaskEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': backendApiKey,
+        'X-API-Key': backendApiKey, // Use the custom API key for backend authentication
       },
-      body: JSON.stringify({ email, user_name }),
+      body: JSON.stringify({
+        email,
+        user_name,
+      }),
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
-    if (response.ok) {
-      console.log(`Welcome email proxy successful for ${email}:`, data.message);
-      return new Response(JSON.stringify({ message: data.message || 'Welcome email sent via proxy' }), {
+    if (res.ok) {
+      console.log(`Welcome email proxy successful for ${email}:`, data);
+      return new Response(JSON.stringify({ message: 'Welcome email request proxied successfully', backend_response: data }), {
         headers: { 'Content-Type': 'application/json' },
         status: 200,
       });
     } else {
-      console.error(`Welcome email proxy failed for ${email} (Status: ${response.status}):`, data.message);
-      return new Response(JSON.stringify({ error: data.message || 'Failed to send welcome email via proxy' }), {
+      console.error(`Failed to proxy welcome email for ${email} (Status: ${res.status}):`, data);
+      return new Response(JSON.stringify({ error: data.message || 'Failed to proxy welcome email request to backend', backend_response: data }), {
         headers: { 'Content-Type': 'application/json' },
-        status: response.status,
+        status: res.status,
       });
     }
   } catch (error) {
     console.error('Unhandled Error in send-welcome-email-proxy:', error.message);
-    return new Response(JSON.stringify({ error: 'Internal server error during processing' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error during proxying' }), {
       headers: { 'Content-Type': 'application/json' },
       status: 500,
     });
