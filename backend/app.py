@@ -399,9 +399,9 @@ def _parse_sender_email_string(sender_string: str) -> Dict[str, str]:
   """
   # Corrected regex:
   # - `\"?` matches an optional literal double quote.
-  # - `([^\"]+)` captures one or more characters that are NOT a literal double quote.
+  # - `([^\\"]+)` captures one or more characters that are NOT a literal double quote.
   # - `\s+` matches one or more whitespace characters.
-  match = re.match(r'^(?:\"?([^\"]+)\"?\s+)?<([^>]+)>$', sender_string)
+  match = re.match(r'^(?:\"?([^\\"]+)\"?\s+)?<([^>]+)>$', sender_string)
   if match:
     display_name = match.group(1)
     address = match.group(2)
@@ -703,7 +703,8 @@ def send_invitation():
         "frontend_url": VITE_FRONTEND_URL,
       }
       rendered_html = _render_template(template["html_content"], context)
-      _send_email_via_maileroo(recipient, template["subject"], rendered_html, sender_email)
+      rendered_subject = _render_template(template["subject"], context)
+      _send_email_via_maileroo(recipient, rendered_subject, rendered_html, sender_email)
     else:
       print("Warning: 'invitation_to_company' email template not found.", file=sys.stderr)
 
@@ -758,8 +759,9 @@ def notify_task_assigned():
     "frontend_url": VITE_FRONTEND_URL,
   }
   rendered_html = _render_template(template["html_content"], context)
+  rendered_subject = _render_template(template["subject"], context)
 
-  if _send_email_via_maileroo(assigned_to_email, template["subject"], rendered_html):
+  if _send_email_via_maileroo(assigned_to_email, rendered_subject, rendered_html):
     return jsonify({"message": "Task assigned notification sent"}), 200
   else:
     return jsonify({"message": "Failed to send task assigned notification"}), 500
@@ -785,8 +787,9 @@ def send_welcome_email():
     "frontend_url": VITE_FRONTEND_URL,
   }
   rendered_html = _render_template(template["html_content"], context)
+  rendered_subject = _render_template(template["subject"], context)
 
-  if _send_email_via_maileroo(email, template["subject"], rendered_html):
+  if _send_email_via_maileroo(email, rendered_subject, rendered_html):
     return jsonify({"message": "Welcome email sent"}), 200
   else:
     return jsonify({"message": "Failed to send welcome email"}), 500
@@ -899,8 +902,9 @@ def _send_1week_event_reminders_job():
           "frontend_url": VITE_FRONTEND_URL,
         }
         rendered_html = _render_template(reminder_template["html_content"], context)
+        rendered_subject = _render_template(reminder_template["subject"], context)
 
-        if _send_email_via_maileroo(user_email, reminder_template["subject"], rendered_html):
+        if _send_email_via_maileroo(user_email, rendered_subject, rendered_html):
           # Mark reminder as sent
           supabase.table("events")\
             .update({"one_week_reminder_sent_at": datetime.now(timezone.utc).isoformat()})\
@@ -1117,8 +1121,9 @@ def send_test_email_admin():
     "frontend_url": VITE_FRONTEND_URL,
   }
   rendered_html = _render_template(test_template["html_content"], context)
+  rendered_subject = _render_template(test_template["subject"], context)
 
-  if _send_email_via_maileroo(recipient_email, f"[TEST] {test_template['subject']}", rendered_html):
+  if _send_email_via_maileroo(recipient_email, f"[TEST] {rendered_subject}", rendered_html):
     return jsonify({"message": "Test email sent successfully"}), 200
   else:
     # _send_email_via_maileroo already logs the error
