@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Building2, 
+import {
+  Users,
+  Building2,
   Calendar,
-  Search, 
-  Trash2, 
-  Eye, 
+  Search,
+  Trash2,
+  Eye,
   LogOut,
   UserPlus,
   Mail,
@@ -24,11 +24,11 @@ import {
   PlayCircle,
   PauseCircle,
   Info,
-  BellRing, 
-  BellOff,  
+  BellRing,
+  BellOff,
   Link,
   ListTodo,
-  User 
+  User
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
@@ -51,9 +51,9 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     id: null,
     maileroo_sending_key: '',
     mail_default_sender: 'no-reply@team.dayclap.com',
-    maileroo_api_endpoint: 'https://smtp.maileroo.com/api/v2/emails', // CORRECTED: Default endpoint
-    scheduler_enabled: true, 
-    reminder_time: '02:00' 
+    maileroo_api_endpoint: 'https://smtp.maileroo.com/api/v2/emails',
+    scheduler_enabled: true,
+    reminder_time: '02:00'
   });
   const [emailSettingsMessage, setEmailSettingsMessage] = useState('');
   const [emailSettingsLoading, setEmailSettingsLoading] = useState(false);
@@ -66,21 +66,21 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const [testPushRecipient, setTestPushRecipient] = useState('');
   const [testPushTitle, setTestPushTitle] = useState('DayClap Test Notification');
   const [testPushBody, setTestPushBody] = useState('This is a test push notification from the Super Admin dashboard.');
-  const [testPushUrl, setTestPushUrl] = useState(window.location.origin); 
+  const [testPushUrl, setTestPushUrl] = useState(window.location.origin);
   const [testPushMessage, setTestPushMessage] = useState('');
-  const [testPushMessageType, setTestPushMessageType] = useState(''); 
+  const [testPushMessageType, setTestPushMessageType] = useState('');
   const [testPushLoading, setTestPushLoading] = useState(false);
 
   const [emailTemplates, setEmailTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState(null); 
+  const [editingTemplate, setEditingTemplate] = useState(null);
   const [templateForm, setTemplateForm] = useState({
     name: '',
     subject: '',
     html_content: ''
   });
   const [templateMessage, setTemplateMessage] = useState('');
-  const [templateMessageType, setTemplateMessageType] = useState(''); 
+  const [templateMessageType, setTemplateMessageType] = useState('');
   const [templateLoading, setTemplateLoading] = useState(false);
 
   const [schedulerStatus, setSchedulerStatus] = useState({
@@ -90,7 +90,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   });
   const [schedulerStatusLoading, setSchedulerStatusLoading] = useState(false);
 
-
   useEffect(() => {
     loadUsersData();
   }, []);
@@ -98,25 +97,31 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     if (activeTab === 'email-settings') {
       fetchEmailSettings();
-      fetchSchedulerStatus(); 
+      fetchSchedulerStatus();
     } else if (activeTab === 'email-templates') {
       fetchEmailTemplates();
     }
   }, [activeTab]);
 
+  const getAuthHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers = {
+      'X-User-Email': user.email,
+      'Content-Type': 'application/json'
+    };
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    return headers;
+  };
+
   const fetchSchedulerStatus = async () => {
     setSchedulerStatusLoading(true);
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
-      const response = await fetch(`${backendUrl}/api/admin/scheduler-status`, {
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        }
-      });
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${backendUrl}/api/admin/scheduler-status`, { headers });
       const data = await response.json();
       if (response.ok) {
         setSchedulerStatus(data);
@@ -137,15 +142,9 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     setEmailSettingsMessage('');
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
-      const response = await fetch(`${backendUrl}/api/admin/email-settings`, {
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        }
-      });
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${backendUrl}/api/admin/email-settings`, { headers });
       const data = await response.json();
 
       if (response.ok) {
@@ -153,16 +152,18 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
           id: data.id,
           maileroo_sending_key: data.maileroo_sending_key || '',
           mail_default_sender: data.mail_default_sender || '',
-          maileroo_api_endpoint: data.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails', // CORRECTED: Endpoint
-          scheduler_enabled: data.scheduler_enabled, 
-          reminder_time: data.reminder_time || '02:00' 
+          maileroo_api_endpoint: data.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails',
+          scheduler_enabled: data.scheduler_enabled,
+          reminder_time: data.reminder_time || '02:00'
         });
       } else {
         setEmailSettingsMessage(data.message || 'Failed to fetch email settings');
+        setEmailSettingsMessageType('error');
       }
     } catch (error) {
       console.error('Error fetching email settings:', error);
       setEmailSettingsMessage('An unexpected error occurred while fetching email settings.');
+      setEmailSettingsMessageType('error');
     } finally {
       setEmailSettingsLoading(false);
     }
@@ -176,17 +177,13 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
       const url = `${backendUrl}/api/admin/email-settings`;
+      const headers = await getAuthHeaders();
 
       const response = await fetch(url, {
         method: 'PUT',
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(emailSettingsForm)
       });
       const data = await response.json();
@@ -199,12 +196,12 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             id: data.settings.id,
             maileroo_sending_key: data.settings.maileroo_sending_key || '',
             mail_default_sender: data.settings.mail_default_sender || '',
-            maileroo_api_endpoint: data.settings.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails', // CORRECTED: Endpoint
-            scheduler_enabled: data.settings.scheduler_enabled, 
-            reminder_time: data.settings.reminder_time || '02:00' 
+            maileroo_api_endpoint: data.settings.maileroo_api_endpoint || 'https://smtp.maileroo.com/api/v2/emails',
+            scheduler_enabled: data.settings.scheduler_enabled,
+            reminder_time: data.settings.reminder_time || '02:00'
           });
         }
-        fetchSchedulerStatus(); 
+        fetchSchedulerStatus();
       } else {
         setEmailSettingsMessage(data.message || 'Failed to update email settings');
         setEmailSettingsMessageType('error');
@@ -231,15 +228,11 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
+      const headers = await getAuthHeaders();
       const response = await fetch(`${backendUrl}/api/admin/send-test-email`, {
         method: 'POST',
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({ recipient_email: testEmailRecipient })
       });
       const data = await response.json();
@@ -272,15 +265,11 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
+      const headers = await getAuthHeaders();
       const response = await fetch(`${backendUrl}/api/admin/send-test-push`, {
         method: 'POST',
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           recipient_email: testPushRecipient,
           title: testPushTitle,
@@ -309,17 +298,12 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
   const fetchEmailTemplates = async () => {
     setTemplateLoading(true);
     setTemplateMessage('');
+    setTemplateMessageType('');
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
-      const response = await fetch(`${backendUrl}/api/admin/email-templates`, {
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        }
-      });
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${backendUrl}/api/admin/email-templates`, { headers });
       const data = await response.json();
 
       if (response.ok) {
@@ -368,30 +352,19 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
+      const headers = await getAuthHeaders();
       let response;
-      let url;
-
       if (editingTemplate) {
-        url = `${backendUrl}/api/admin/email-templates/${editingTemplate.id}`;
-        response = await fetch(url, {
+        response = await fetch(`${backendUrl}/api/admin/email-templates/${editingTemplate.id}`, {
           method: 'PUT',
-          headers: {
-            'X-User-Email': user.email,
-            'Content-Type': 'application/json'
-          },
+          headers,
           body: JSON.stringify(templateForm)
         });
       } else {
-        url = `${backendUrl}/api/admin/email-templates`;
-        response = await fetch(url, {
+        response = await fetch(`${backendUrl}/api/admin/email-templates`, {
           method: 'POST',
-          headers: {
-            'X-User-Email': user.email,
-            'Content-Type': 'application/json'
-          },
+          headers,
           body: JSON.stringify(templateForm)
         });
       }
@@ -401,8 +374,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       if (response.ok) {
         setTemplateMessage(data.message || 'Template saved successfully!');
         setTemplateMessageType('success');
-        fetchEmailTemplates(); 
         setShowTemplateModal(false);
+        fetchEmailTemplates();
       } else {
         setTemplateMessage(data.message || 'Failed to save template');
         setTemplateMessageType('error');
@@ -426,21 +399,17 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
+      const headers = await getAuthHeaders();
       const response = await fetch(`${backendUrl}/api/admin/email-templates/${templateId}`, {
         method: 'DELETE',
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        }
+        headers
       });
 
       if (response.ok || response.status === 204) {
         setTemplateMessage('Template deleted successfully!');
         setTemplateMessageType('success');
-        fetchEmailTemplates(); 
+        fetchEmailTemplates();
       } else {
         const data = await response.json();
         setTemplateMessage(data.message || 'Failed to delete template');
@@ -461,15 +430,15 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       .select('id, name, email, created_at, last_activity_at, companies, account_type');
 
     if (profilesError) {
-      console.error("SuperAdminDashboard: Error fetching profiles:", profilesError.message);
+      console.error('SuperAdminDashboard: Error fetching profiles:', profilesError.message);
       return;
     }
 
     const { data: allEvents, error: eventsError } = await supabase.from('events').select('id, user_id');
     const { data: allTasks, error: tasksError } = await supabase.from('tasks').select('id, user_id, completed');
 
-    if (eventsError) console.error("SuperAdminDashboard: Error fetching events:", eventsError.message);
-    if (tasksError) console.error("SuperAdminDashboard: Error fetching tasks:", tasksError.message);
+    if (eventsError) console.error('SuperAdminDashboard: Error fetching events:', eventsError.message);
+    if (tasksError) console.error('SuperAdminDashboard: Error fetching tasks:', tasksError.message);
 
     const eventsByUser = (allEvents || []).reduce((acc, event) => {
       acc[event.user_id] = (acc[event.user_id] || 0) + 1;
@@ -489,7 +458,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     let activeTodayCount = 0;
     const allCompanyIds = new Set();
 
-    const combinedUsers = profiles.map(profile => {
+    const combinedUsers = (profiles || []).map(profile => {
       if (profile.last_activity_at && new Date(profile.last_activity_at) > twentyFourHoursAgo) {
         activeTodayCount++;
       }
@@ -501,13 +470,13 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
         last_sign_in_at: null,
         event_count: eventsByUser[profile.id] || 0,
         task_total_count: tasksByUser[profile.id]?.total || 0,
-        task_pending_count: tasksByUser[profile.id]?.pending || 0,
+        task_pending_count: tasksByUser[profile.id]?.pending || 0
       };
     });
 
     const regularUsers = combinedUsers.filter(u => u.email !== 'admin@example.com');
     setUsers(regularUsers);
-    
+
     setStats({
       totalUsers: regularUsers.length,
       totalCompanies: allCompanyIds.size,
@@ -517,10 +486,10 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     });
   };
 
-  const filteredUsers = users.filter(user => 
-    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.companies?.some(c => c.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredUsers = users.filter(u =>
+    u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.companies?.some(c => c.name?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleViewUser = (userData) => {
@@ -528,7 +497,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     setShowUserModal(true);
   };
 
-  const handleDeleteUser = async (userId) => {
+  const handleDeleteUser = async () => {
     alert('Deleting users requires a secure server-side operation and cannot be performed from the browser. Please add a backend admin endpoint to handle this.');
   };
 
@@ -547,22 +516,18 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     setSchedulerStatusLoading(true);
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        throw new Error('VITE_BACKEND_URL is not configured.');
-      }
+      if (!backendUrl) throw new Error('VITE_BACKEND_URL is not configured.');
+      const headers = await getAuthHeaders();
       const response = await fetch(`${backendUrl}/api/admin/scheduler-control`, {
         method: 'POST',
-        headers: {
-          'X-User-Email': user.email,
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({ action })
       });
       const data = await response.json();
       if (response.ok) {
         setEmailSettingsMessage(`Scheduler ${action}ed successfully!`);
         setEmailSettingsMessageType('success');
-        fetchSchedulerStatus(); 
+        fetchSchedulerStatus();
       } else {
         setEmailSettingsMessage(`Error controlling scheduler: ${data.message || 'Unknown error'}`);
         setEmailSettingsMessageType('error');
@@ -586,7 +551,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             <h2>User Details</h2>
             <button onClick={() => setShowUserModal(false)} className="modal-close"><X size={20} /></button>
           </div>
-          
+
           <div className="user-details-form">
             <div className="user-info-section">
               <h3>Personal Information</h3>
@@ -629,7 +594,6 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                   <label className="form-label">Last Sign In:</label>
                   <div className="input-wrapper">
                     <Clock size={16} className="input-icon" />
-                    {/* Display last_activity_at as a proxy if last_sign_in_at is null */}
                     <span className="form-input-display">{formatDate(selectedUser.last_sign_in_at || selectedUser.last_activity_at)}</span>
                   </div>
                 </div>
@@ -683,6 +647,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
               </div>
             </div>
           </div>
+
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={() => setShowUserModal(false)}>Close</button>
           </div>
@@ -720,7 +685,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     className="form-input"
                     placeholder="e.g., welcome_email"
                     required
-                    disabled={editingTemplate !== null} 
+                    disabled={editingTemplate !== null}
                   />
                 </div>
               </div>
@@ -815,25 +780,28 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
         </div>
 
         <nav className="admin-nav">
-          <button 
+          <button
             className={`admin-nav-tab ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => setActiveTab('users')}
           >
             <Users /> User Management
           </button>
-          <button 
+        </nav>
+
+        <nav className="admin-nav">
+          <button
             className={`admin-nav-tab ${activeTab === 'email-settings' ? 'active' : ''}`}
             onClick={() => setActiveTab('email-settings')}
           >
             <Mail /> Email Settings
           </button>
-          <button 
+          <button
             className={`admin-nav-tab ${activeTab === 'email-templates' ? 'active' : ''}`}
             onClick={() => setActiveTab('email-templates')}
           >
             <FileText /> Email Templates
           </button>
-          <button 
+          <button
             className={`admin-nav-tab ${activeTab === 'test-sending' ? 'active' : ''}`}
             onClick={() => setActiveTab('test-sending')}
           >
@@ -874,47 +842,46 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map(userData => (
-                      <tr key={userData.id}>
+                    {filteredUsers.map(u => (
+                      <tr key={u.id}>
                         <td>
                           <div className="user-cell">
-                            <div className="user-avatar">{(userData.name || userData.email || '?').charAt(0).toUpperCase()}</div>
-                            <span>{userData.name || userData.email}</span>
+                            <div className="user-avatar">{(u.name || u.email || '?').charAt(0).toUpperCase()}</div>
+                            <span>{u.name || u.email}</span>
                           </div>
                         </td>
-                        <td>{userData.email}</td>
-                        <td><span className={`account-type-badge ${userData.account_type}`}>{userData.account_type}</span></td>
+                        <td>{u.email}</td>
+                        <td><span className={`account-type-badge ${u.account_type}`}>{u.account_type}</span></td>
                         <td>
                           <div className="companies-cell">
-                            {userData.companies && userData.companies.length > 0 ? (
-                              userData.companies.map(c => c.name).join(', ')
+                            {u.companies && u.companies.length > 0 ? (
+                              u.companies.map(c => c.name).join(', ')
                             ) : (
                               <span className="no-data">N/A</span>
                             )}
                           </div>
                         </td>
-                        <td><span>{userData.event_count}</span></td>
-                        <td><span>{userData.task_pending_count}/{userData.task_total_count}</span></td>
-                        {/* Display last_activity_at as a proxy for last sign-in */}
-                        <td>{formatDate(userData.last_activity_at)}</td>
-                        <td>{formatDate(userData.last_activity_at)}</td>
-                        <td>{formatDate(userData.created_at)}</td>
+                        <td><span>{u.event_count}</span></td>
+                        <td><span>{u.task_pending_count}/{u.task_total_count}</span></td>
+                        <td>{formatDate(u.last_activity_at)}</td>
+                        <td>{formatDate(u.last_activity_at)}</td>
+                        <td>{formatDate(u.created_at)}</td>
                         <td>
                           <div className="actions">
-                            <button className="action-btn view" onClick={() => handleViewUser(userData)} title="View Details"><Eye size={16} /></button>
-                            <button className="action-btn delete" onClick={() => handleDeleteUser(userData.id)} title="Delete User"><Trash2 size={16} /></button>
+                            <button className="action-btn view" onClick={() => handleViewUser(u)} title="View Details"><Eye size={16} /></button>
+                            <button className="action-btn delete" onClick={() => handleDeleteUser(u.id)} title="Delete User"><Trash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                
+
                 {filteredUsers.length === 0 && (
                   <div className="no-users">
                     <UserPlus size={48} />
                     <h3>No users found</h3>
-                    <p>{searchTerm ? `No users match "${searchTerm}"` : "No users have signed up yet"}</p>
+                    <p>{searchTerm ? `No users match "${searchTerm}"` : 'No users have signed up yet'}</p>
                   </div>
                 )}
               </div>
@@ -943,6 +910,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     />
                   </div>
                 </div>
+
                 <div className="form-group">
                   <label className="form-label">Maileroo API Endpoint</label>
                   <div className="input-wrapper">
@@ -959,6 +927,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     />
                   </div>
                 </div>
+
                 <div className="form-group">
                   <label className="form-label">Default Sender Email</label>
                   <div className="input-wrapper">
@@ -1019,13 +988,13 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     ) : (
                       <>
                         <p>
-                          Status: 
+                          Status:{' '}
                           <span className={schedulerStatus.is_running ? 'status-active' : 'status-inactive'}>
                             {schedulerStatus.is_running ? 'Running' : 'Stopped'}
                           </span>
                         </p>
                         <p>
-                          Job Scheduled: 
+                          Job Scheduled:{' '}
                           <span className={schedulerStatus.job_scheduled ? 'status-active' : 'status-inactive'}>
                             {schedulerStatus.job_scheduled ? 'Yes' : 'No'}
                           </span>
@@ -1039,17 +1008,17 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                       </>
                     )}
                     <div className="scheduler-actions">
-                      <button 
-                        type="button" 
-                        className="btn btn-success btn-small" 
+                      <button
+                        type="button"
+                        className="btn btn-success btn-small"
                         onClick={() => handleSchedulerControl('start')}
                         disabled={schedulerStatus.is_running || schedulerStatusLoading}
                       >
                         <PlayCircle size={16} /> Start Scheduler
                       </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-danger btn-small" 
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-small"
                         onClick={() => handleSchedulerControl('stop')}
                         disabled={!schedulerStatus.is_running || schedulerStatusLoading}
                       >
