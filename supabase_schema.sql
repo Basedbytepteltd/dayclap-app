@@ -29,21 +29,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   language TEXT DEFAULT 'en' NOT NULL, -- User's preferred language
   timezone TEXT DEFAULT 'UTC' NOT NULL, -- User's preferred IANA timezone
   -- Notification preferences (JSONB object)
-  notifications JSONB DEFAULT '{
-    "email_daily": true,
-    "email_weekly": false,
-    "email_monthly": false,
-    "email_3day_countdown": false,
-    "email_1week_countdown": true,
-    "push": true,
-    "reminders": true,
-    "invitations": true
-  }'::jsonb NOT NULL,
+  notifications JSONB DEFAULT '{"email_daily": true, "email_weekly": false, "email_monthly": false, "email_3day_countdown": false, "email_1week_countdown": true, "push": true, "reminders": true, "invitations": true}'::jsonb NOT NULL,
   -- Privacy settings (JSONB object)
-  privacy JSONB DEFAULT '{
-    "profileVisibility": "team",
-    "calendarSharing": "private"
-  }'::jsonb NOT NULL,
+  privacy JSONB DEFAULT '{"profileVisibility": "team", "calendarSharing": "private"}'::jsonb NOT NULL,
   account_type TEXT DEFAULT 'personal' NOT NULL, -- 'personal' or 'business'
   push_subscription JSONB, -- Web Push API subscription object
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
@@ -204,6 +192,7 @@ DECLARE
     _company_id UUID;
     _companies JSONB;
 BEGIN
+    RAISE NOTICE 'handle_new_user: Processing new user % with email %', NEW.id, NEW.email;
     -- Extract metadata from new user (if available)
     _name := NEW.raw_user_meta_data->>'name';
     _account_type := COALESCE(NEW.raw_user_meta_data->>'account_type', 'personal');
@@ -220,6 +209,7 @@ BEGIN
             'role', 'owner',
             'createdAt', NOW()::text
         ));
+        RAISE NOTICE 'handle_new_user: Created new company % for business account %', _company_name, NEW.email;
     END IF;
 
     INSERT INTO public.profiles (id, name, email, account_type, companies, current_company_id)
@@ -231,59 +221,85 @@ BEGIN
         _companies,
         _company_id
     );
+    RAISE NOTICE 'handle_new_user: Profile created for user %', NEW.id;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to send welcome email via backend proxy
+-- Function to send welcome email via the Supabase Edge Function (direct Resend sender)
 CREATE OR REPLACE FUNCTION public.send_welcome_email_on_confirm()
 RETURNS TRIGGER AS $$
 DECLARE
-    _backend_url TEXT;
-    _backend_api_key TEXT;
-    _full_url TEXT;
+    _edge_function_url TEXT;
+    _supabase_url TEXT;
+    _supabase_anon_key TEXT;
     _request_body JSONB;
     _response_status INT;
     _response_body TEXT;
+    _user_name TEXT;
 BEGIN
+    RAISE NOTICE 'send_welcome_email_on_confirm: Function started for user % (OLD.email_confirmed_at: %, NEW.email_confirmed_at: %)', NEW.email, OLD.email_confirmed_at, NEW.email_confirmed_at;
+
     -- Only send if email is confirmed and it's a new user (INSERT)
-    IF NEW.email_confirmed_at IS NOT NULL AND TG_OP = 'INSERT' THEN
-        _backend_url := extensions.getenv('VITE_BACKEND_URL');
-        _backend_api_key := extensions.getenv('BACKEND_API_KEY');
+    -- CRITICAL FIX: For OTP flow, email_confirmed_at is updated AFTER initial INSERT.
+    -- This trigger should now be AFTER UPDATE ON auth.users and check for the transition.
+    IF NEW.email_confirmed_at IS NOT NULL AND OLD.email_confirmed_at IS NULL THEN
+        RAISE NOTICE 'send_welcome_email_on_confirm: User % email confirmed. Proceeding to invoke Edge Function (currently bypassed).', NEW.email;
 
-        IF _backend_url IS NULL OR _backend_api_key IS NULL THEN
-            RAISE WARNING 'Backend URL or API Key not set. Cannot send welcome email.';
-            RETURN NEW;
-        END IF;
+        -- TEMPORARILY BYPASSING pg_net CALLS DUE TO `getenv` ERROR
+        -- This section is commented out to allow user signup to proceed.
+        -- We will re-enable and debug this once the primary auth flow is stable.
 
-        _full_url := _backend_url || '/api/send-welcome-email';
-        _request_body := jsonb_build_object(
-            'email', NEW.email,
-            'user_name', COALESCE(NEW.raw_user_meta_data->>'name', NEW.email)
-        );
+        -- _supabase_url := extensions.getenv('SUPABASE_URL');
+        -- _supabase_anon_key := extensions.getenv('VITE_SUPABASE_ANON_KEY');
 
-        -- Use pg_net to send HTTP POST request to the backend
-        SELECT
-            status,
-            content::text
-        INTO
-            _response_status,
-            _response_body
-        FROM
-            extensions.http_post(
-                _full_url,
-                _request_body,
-                ARRAY[
-                    extensions.http_header('Content-Type', 'application/json'),
-                    extensions.http_header('X-API-Key', _backend_api_key)
-                ]
-            );
+        -- RAISE NOTICE 'send_welcome_email_on_confirm: Retrieved SUPABASE_URL: %', COALESCE(_supabase_url, 'NULL');
+        -- RAISE NOTICE 'send_welcome_email_on_confirm: Retrieved VITE_SUPABASE_ANON_KEY (masked): %', COALESCE(LEFT(_supabase_anon_key, 5) || '...', 'NULL');
 
-        IF _response_status >= 200 AND _response_status < 300 THEN
-            RAISE NOTICE 'Welcome email sent successfully for user % (status: %)', NEW.email, _response_status;
-        ELSE
-            RAISE WARNING 'Failed to send welcome email for user % (status: %, response: %)', NEW.email, _response_status, _response_body;
-        END IF;
+        -- IF _supabase_url IS NULL OR _supabase_anon_key IS NULL THEN
+        --     RAISE WARNING 'send_welcome_email_on_confirm: Supabase URL or Anon Key not set. Cannot invoke welcome email Edge Function.';
+        --     RETURN NEW;
+        -- END IF;
+
+        -- _edge_function_url := _supabase_url || '/functions/v1/send-welcome-email-proxy'; -- Name of your Edge Function
+        -- _user_name := COALESCE(NEW.raw_user_meta_data->>'name', NEW.email);
+        -- _request_body := jsonb_build_object(
+        --     'email', NEW.email,
+        --     'user_name', _user_name
+        -- );
+
+        -- RAISE NOTICE 'send_welcome_email_on_confirm: Preparing to call Edge Function: % with body: %', _edge_function_url, _request_body;
+
+        -- -- Use pg_net to send HTTP POST request to the Edge Function
+        -- SELECT
+        --     status,
+        --     content::text
+        -- INTO
+        --     _response_status,
+        --     _response_body
+        -- FROM
+        --     extensions.http_post(
+        --         _edge_function_url,
+        --         _request_body,
+        --         ARRAY[
+        --             extensions.http_header('Content-Type', 'application/json'),
+        --             extensions.http_header('Authorization', 'Bearer ' || _supabase_anon_key)
+        --         ]
+        --     );
+
+        -- IF _response_status >= 200 AND _response_status < 300 THEN
+        --     RAISE NOTICE 'send_welcome_email_on_confirm: Welcome email sent successfully via Edge Function for user % (status: %)', NEW.email, _response_status;
+        -- ELSE
+        --     RAISE WARNING 'send_welcome_email_on_confirm: Failed to send welcome email via Edge Function for user % (status: %, response: %)', NEW.email, _response_status, _response_body;
+        --     -- CRITICAL: If the Edge Function fails, the trigger will cause a 500.
+        --     -- To prevent this, we can catch the error and return, or re-raise a more specific error.
+        --     -- For now, let's just log and return, allowing the user confirmation to proceed.
+        --     -- If we want to *block* user confirmation on email failure, we'd need to RAISE EXCEPTION.
+        --     -- For initial debugging, just logging is better.
+        -- END IF;
+        RAISE NOTICE 'send_welcome_email_on_confirm: Welcome email sending logic currently bypassed due to pg_net issue. User % confirmed.', NEW.email;
+    ELSE
+        RAISE NOTICE 'send_welcome_email_on_confirm: Condition not met for user % (email_confirmed_at not changed from NULL to NOT NULL).', NEW.email;
     END IF;
     RETURN NEW;
 END;
@@ -423,10 +439,10 @@ AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Trigger to send welcome email after user is created and email is confirmed
--- This trigger calls the `send_welcome_email_on_confirm` function.
+-- CRITICAL FIX: Changed to AFTER UPDATE and modified function logic for OTP flow.
 DROP TRIGGER IF EXISTS send_welcome_email_trigger ON auth.users;
 CREATE TRIGGER send_welcome_email_trigger
-AFTER INSERT ON auth.users
+AFTER UPDATE ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.send_welcome_email_on_confirm();
 
 -- Triggers to update 'updated_at' column
@@ -457,8 +473,7 @@ FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- -----------------------------------------------------------------------------
 -- Initial Data / Seed Data
--- -----------------------------------------------------------------------------
-
+-- -----------------------------------------------------------------------------\n
 -- Insert default email settings if none exist
 INSERT INTO public.email_settings (maileroo_sending_key, mail_default_sender, maileroo_api_endpoint, scheduler_enabled, reminder_time)
 SELECT
@@ -596,8 +611,6 @@ $$<!DOCTYPE html>
         .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         .header { background-color: #3b82f6; color: #ffffff; padding: 15px; border-radius: 8px 8px 0 0; text-align: center; }
         .content { padding: 20px; line-height: 1.6; color: #333333; }
-        .event-details { background-color: #e7f3ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 15px 0; border-radius: 4px; }
-        .event-details p { margin: 5px 0; }
         .button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-top: 15px; }
         .footer { text-align: center; font-size: 0.8em; color: #888888; margin-top: 20px; padding-top: 10px; border-top: 1px solid #eeeeee; }
     </style>
