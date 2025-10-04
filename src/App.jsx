@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard'
 import SuperAdminDashboard from './components/SuperAdminDashboard'
 import { supabase } from './supabaseClient'
 import './App.css'
+import { isAdminEmail } from './config/admin' // NEW: env-driven admin list
 
 function App() {
   const [user, setUser] = useState(null)
@@ -233,8 +234,7 @@ function App() {
           currentCompanyId: freshProfile.current_company_id,
           currency: freshProfile.currency,
           account_type: freshProfile.account_type,
-          push_subscription: freshProfile.push_subscription, // Use fresh profile's push_subscription
-          notifications: freshProfile.notifications // Use fresh profile's notifications
+          push_subscription: freshProfile.push_subscription // Use fresh profile's push_subscription
         };
         console.log('App: Fresh user data after update:', combinedFreshUserData);
         setUser(combinedFreshUserData);
@@ -260,7 +260,8 @@ function App() {
     )
   }
 
-  const isSuperAdmin = user && user.email === 'admin@example.com'
+  // UPDATED: Admin routing driven by env list instead of hardcoded email
+  const isSuperAdmin = !!(user && isAdminEmail(user.email))
 
   return (
     <div className="App">

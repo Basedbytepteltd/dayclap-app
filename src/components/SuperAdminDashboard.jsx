@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import './SuperAdminDashboard.css';
+import DiagnosticsBanner from './DiagnosticsBanner'; // NEW: diagnostics banner
 
 const SuperAdminDashboard = ({ user, onLogout }) => {
   const [users, setUsers] = useState([]);
@@ -756,6 +757,9 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       </header>
 
       <main className="admin-main">
+        {/* NEW: Diagnostics banner shows 403/misconfig hints */}
+        <DiagnosticsBanner user={user} backendUrl={import.meta.env.VITE_BACKEND_URL} />
+
         <div className="stats-grid">
           <div className="stat-card">
             <div className="stat-icon"><Users /></div>
@@ -988,13 +992,13 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                     ) : (
                       <>
                         <p>
-                          Status:{' '}
+                          Status{' '}
                           <span className={schedulerStatus.is_running ? 'status-active' : 'status-inactive'}>
                             {schedulerStatus.is_running ? 'Running' : 'Stopped'}
                           </span>
                         </p>
                         <p>
-                          Job Scheduled:{' '}
+                          Job Scheduled{' '}
                           <span className={schedulerStatus.job_scheduled ? 'status-active' : 'status-inactive'}>
                             {schedulerStatus.job_scheduled ? 'Yes' : 'No'}
                           </span>
