@@ -178,7 +178,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
               <input
                 type="text"
                 className="form-input"
-                value={`${prettyDate}${eventTime ? ` \u2022 ${eventTime}` : ''}`}
+                value={`${prettyDate}${eventTime ? ` • ${eventTime}` : ''}`}
                 disabled
               />
             </div>

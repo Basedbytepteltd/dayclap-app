@@ -664,7 +664,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
   }
 
   return (
-    <div className={`dashboard ${activeTab === 'calendar' ? 'calendar-active' : ''}`}>
+    <div className={`dashboard ${activeTab === 'calendar' ? 'calendar-active' : ''}`}>\
       <header className="dashboard-header">
         <div className="container dashboard-nav">
           <div className="nav-items">
@@ -705,7 +705,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           </nav>
         </aside>
         <section className="main-content">
-          {activeTab === 'overview' && <div className="constrained-content">
+          {activeTab === 'overview' && <div className="constrained-content">\
       <div className="overview-header">
         <h2>Welcome back{user?.name ? `, ${user.name}` : ''}</h2>
         <p className="overview-subtitle">Here's a quick look at your productivity</p>
@@ -745,7 +745,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
       </div>
       {searchTerm && <div className="section"><div className="section-header"><h3 className="section-title">Search Results</h3></div>{!searchResults.events.length && !searchResults.tasks.length ? <div className="no-events"><Search className="no-events-icon" /><p>No results for \"{searchTerm}\"</p></div> : <>{searchResults.events.length > 0 && <div className="events-list">{searchResults.events.map(ev => { const d = ev.eventDateTimeObj; const day = d ? d.getDate() : '-'; const month = d ? d.toLocaleString('en-US', { month: 'short' }) : ''; const time = d ? formatToHHMMInUserTimezone(d, user?.timezone || 'UTC') : ''; return (<div key={ev.id} className="event-card"><div className="event-date"><span className="event-day">{day}</span><span className="event-month">{month}</span></div><div className="event-details"><h4 className="event-title" onClick={() => openEventDetails(ev)} title="Open details">{ev.title}</h4><p className="event-time-desc">{time ? <><Clock size={14} /> {time}</> : 'All Day'}</p>{ev.location && <p className="event-location"><MapPin size={14} /> {ev.location}</p>}</div></div>); })}</div>}</>}</div>}
     </div>}
-          {activeTab === 'calendar' && <div className="calendar-content constrained-content">
+          {activeTab === 'calendar' && <div className="calendar-content constrained-content">\
       <div className="calendar-section">
         <div className="calendar-header">
           <button className="nav-arrow" onClick={() => changeMonth(-1)} title="Previous month"><ChevronLeft /></button>
@@ -764,7 +764,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         </div>
       </div>
     </div>}
-          {activeTab === 'events' && <div className="constrained-content">
+          {activeTab === 'events' && <div className="constrained-content">\
       <div className="section-header">
         <h3 className="section-title">All Events</h3>
         <div className="header-actions"><button className="btn btn-primary btn-small" onClick={() => handleOpenAddEventModal(new Date())}><Plus size={16} /> Add Event</button></div>
@@ -779,14 +779,14 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         })}
       </div>
     </div>}
-          {activeTab === 'tasks' && <div className="constrained-content">
+          {activeTab === 'tasks' && <div className="constrained-content">\
       <div className="section-header"><h3 className="section-title">All Tasks</h3></div>
       <div className="tasks-list">
         {allDisplayableTasks.length === 0 ? (
           <div className="no-tasks"><Square className="no-tasks-icon" /><p>No tasks found.</p></div>
         ) : (
           allDisplayableTasks.map(t => (
-            <div key={t.id} className={`task-card ${t.completed ? 'completed' : ''} ${t.dueDateObj && t.dueDateObj < today && !t.completed ? 'overdue' : ''}`}>
+            <div key={t.id} className={`task-card ${t.completed ? 'completed' : ''} ${t.dueDateObj && t.dueDateObj < today && !t.completed ? 'overdue' : ''}`}>\
               <div className="task-checkbox">
                 <button className="checkbox-btn" onClick={() => handleToggleTask(t)} disabled={!user || (t.source === 'event' && t.assignedTo !== user.email && t.user_id !== user.id)}>
                   {t.completed ? <CheckSquare size={20} /> : <Square size={20} />}
@@ -805,7 +805,7 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
                   {t.assignedTo && <span>Assigned to: <span className="assigned-to">{t.assignedTo === user.email ? 'Me' : t.assignedTo}</span></span>}
                   {t.dueDateObj && <span className={`due-date ${t.dueDateObj < today && !t.completed ? 'overdue' : ''}`}>Due: {t.dueDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
                   {t.priority && <span className={`priority-badge ${t.priority}`}>{t.priority}</span>}
-                  {typeof t.expenses === 'number' && t.expenses > 0 && <span className="task-expenses">Expenses: {getCurrencySymbol(user?.currency || 'USD')} {formatCurrency(t.expenses, user?.currency || 'USD')}</span>}
+                  {typeof t.expenses === 'number' && t.expenses > 0 && <span className="task-expenses\">Expenses: {getCurrencySymbol(user?.currency || 'USD')} {formatCurrency(t.expenses, user?.currency || 'USD')}</span>}
                 </div>
               </div>
             </div>
