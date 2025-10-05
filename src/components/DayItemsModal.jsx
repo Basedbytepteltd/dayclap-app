@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { CalendarDays, Clock, MapPin, CheckSquare, Square, X } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, CheckSquare, Square, X, Plus } from 'lucide-react';
 import './DayItemsModal.css';
 
 const DayItemsModal = ({
@@ -10,6 +10,7 @@ const DayItemsModal = ({
   onOpenEvent,
   onToggleTask, // This now expects the full task object
   onOpenInCalendar,
+  onAddEvent,
 }) => {
   if (!showModal) return null;
 
@@ -46,8 +47,8 @@ const DayItemsModal = ({
         <div className="modal-header">
           <h3>Items for {pretty || 'selected date'}</h3>
           <div className="header-actions">
-            <button className="btn btn-outline btn-small" onClick={onOpenInCalendar} title="Open this day in Calendar">
-              <CalendarDays size={16} /> Open in Calendar
+            <button className="btn btn-primary btn-small" onClick={onAddEvent} title="Add New Event">
+              <Plus size={16} /> Add Event
             </button>
             <button className="modal-close" onClick={onClose} title="Close">
               <X />
@@ -139,7 +140,7 @@ const DayItemsModal = ({
 
         <div className="modal-footer">
           <button className="btn btn-outline" onClick={onClose}>Close</button>
-          <button className="btn btn-primary" onClick={onOpenInCalendar}>
+          <button className="btn btn-outline" onClick={onOpenInCalendar}>
             <CalendarDays size={16} /> Open in Calendar
           </button>
         </div>
