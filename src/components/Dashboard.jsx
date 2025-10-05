@@ -342,6 +342,11 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
     });
   }, [events, allDisplayableTasks]);
 
+  const eventsForDate = useCallback((d) => {
+    if (!d) return [];
+    return events.filter(ev => ev.eventDateTimeObj && isSameDay(ev.eventDateTimeObj, d));
+  }, [events]);
+
   const changeMonth = useCallback((delta) => {
     setCurrentDate(prev => {
       const nd = new Date(prev);
@@ -761,9 +766,21 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
           {daysOfWeek.map(d => <div key={d} className="day-header">{d}</div>)}
           {monthGridDays.map((d, i) => {
             if (!d) return <div key={`empty-${i}`} className="calendar-day empty" />;
-            const items = eventsAndTasksForDate(d);
-            const classes = ['calendar-day', isTodayDate(d) ? 'today' : '', isSelectedDate(d) ? 'selected' : '', items.length > 0 ? 'has-item' : ''].filter(Boolean).join(' ');
-            return (<div key={d.toISOString()} className={classes} onClick={() => handleSelectDate(d)}><div className="day-number">{d.getDate()}</div>{items.slice(0, 3).map(it => it.type === 'event' ? <span key={`ev-${it.id}`} className="item-mini-text event-text" title={it.title}>{it.title}</span> : <span key={`tk-${it.id}`} className={`item-mini-text ${it.completed ? 'completed-task' : 'pending-task'}`} title={it.title}>{it.title}</span>)}{items.length > 3 && <div className="item-indicators"><span className="item-count">+{items.length - 3}</span></div>}</div>);
+            const dayEvents = eventsForDate(d);
+            const classes = ['calendar-day', isTodayDate(d) ? 'today' : '', isSelectedDate(d) ? 'selected' : '', dayEvents.length > 0 ? 'has-item' : ''].filter(Boolean).join(' ');
+            return (
+              <div key={d.toISOString()} className={classes} onClick={() => handleSelectDate(d)}>
+                <div className="day-number">{d.getDate()}</div>
+                {dayEvents.slice(0, 3).map(it => (
+                  <span key={`ev-${it.id}`} className="item-mini-text event-text" title={it.title}>{it.title}</span>
+                ))}
+                {dayEvents.length > 3 && (
+                  <div className="item-indicators">
+                    <span className="item-count">+{dayEvents.length - 3}</span>
+                  </div>
+                )}
+              </div>
+            );
           })}
         </div>
       </div>
