@@ -32,11 +32,11 @@ ALLOWED_ORIGINS = [
   if o.strip()
 ]
 
-# Comma-separated regex patterns (e.g., https://.*\.vercel\.app)
+# Comma-separated regex patterns (e.g., https://.*\\.vercel\\.app)
 RAW_ORIGIN_REGEX = [p.strip() for p in (os.environ.get("CORS_ALLOW_ORIGIN_REGEX") or "").split(",") if p.strip()]
 # Provide a sensible default regex to cover preview deployments if none was set
 if not RAW_ORIGIN_REGEX:
-  RAW_ORIGIN_REGEX = ["https://.*\\.vercel\\.app"] # Corrected: Single backslash for literal dot
+  RAW_ORIGIN_REGEX = ["https://.*\\\\.vercel\\\\.app"] # Corrected: Single backslash for literal dot
 
 # Compile regexes for internal checks
 ALLOWED_ORIGIN_REGEX = []
@@ -155,6 +155,7 @@ def require_auth(fn):
     return fn(*args, **kwargs)
   return wrapper
 
+
 def require_api_key(fn):
   @wraps(fn)
   def wrapper(*args, **kwargs):
@@ -235,6 +236,7 @@ def _utcnow_iso() -> str:
   except Exception:
     return ""
 
+
 def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
   if not dt_str:
     return None
@@ -242,6 +244,7 @@ def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
     return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
   except Exception:
     return None
+
 
 def _render_template(html_content: str, context: dict) -> str:
   rendered_content = html_content
@@ -254,14 +257,15 @@ def _render_template(html_content: str, context: dict) -> str:
     # Regex to find {{#if key}}...{{/if}} blocks
     # We need to escape the key for regex, and also the curly braces
     if_block_regex = re.compile(
-      r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}',
+      r'\\{\\{\\s*#if\\s+' + re.escape(key) + r'\\s*\\}\\}(.*?)\\{\\{\\s*/if\\s*\\}\\}',
       re.DOTALL
     )
     if not value:  # If the variable is falsy, remove the block
       rendered_content = if_block_regex.sub('', rendered_content)
     else:  # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
-      rendered_content = if_block_regex.sub(r'\1', rendered_content)
+      rendered_content = if_block_regex.sub(r'\\1', rendered_content)
   return rendered_content
+
 
 def _to_datetime_any(val: Optional[object]) -> Optional[datetime]:
   """
@@ -283,6 +287,7 @@ def _to_datetime_any(val: Optional[object]) -> Optional[datetime]:
     print(f"_to_datetime_any: failed to parse date '{val}': {e}", file=sys.stderr)
     return None
 
+
 def _fmt_event_date_display(val: Optional[object]) -> str:
   """
   Format event date for emails safely as 'Month DD, YYYY'.
@@ -295,6 +300,7 @@ def _fmt_event_date_display(val: Optional[object]) -> str:
     return d.strftime("%B  %d, %Y")
   except Exception:
     return str(val or "")
+
 
 def _ensure_list_event_tasks(raw) -> list:
   """
@@ -310,6 +316,7 @@ def _ensure_list_event_tasks(raw) -> list:
     except Exception as e:
       print(f"_ensure_list_event_tasks: failed to json.loads tasks: {e}", file=sys.stderr)
   return []
+
 
 def _get_email_settings() -> Optional[dict]:
   """
@@ -354,6 +361,7 @@ def _get_email_settings() -> Optional[dict]:
 
   return settings
 
+
 def _get_email_template(template_name: str) -> Optional[dict]:
   if not supabase:
     print(f"ERROR: Supabase client not configured for _get_email_template('{template_name}').", file=sys.stderr)
@@ -365,6 +373,7 @@ def _get_email_template(template_name: str) -> Optional[dict]:
     print(f"ERROR: Failed to fetch email template '{template_name}' from DB: {e}", file=sys.stderr)
     return None
 
+
 def _html_to_text(html_content: str) -> str:
   """
   Very basic HTML-to-text fallback for providers that require a text part.
@@ -372,17 +381,18 @@ def _html_to_text(html_content: str) -> str:
   """
   try:
     # Remove script/style blocks
-    txt = re.sub(r'(?is)<(script|style)[^>]*>.*?</\1>', ' ', html_content or '')
+    txt = re.sub(r'(?is)<(script|style)[^>]*>.*?</\\1>', ' ', html_content or '')
     # Strip remaining tags
     txt = re.sub(r'(?s)<[^>]+>', ' ', txt)
     # Unescape HTML entities
     txt = html.unescape(txt)
     # Collapse whitespace
-    txt = re.sub(r'\s+', ' ', txt).strip()
+    txt = re.sub(r'\\s+', ' ', txt).strip()
     # Limit to a reasonable length
     return txt[:10000]
   except Exception:
     return ""
+
 
 def _resolved_maileroo_send_url(settings: dict) -> str:
   """
@@ -392,16 +402,17 @@ def _resolved_maileroo_send_url(settings: dict) -> str:
   full_send_endpoint = (settings.get("maileroo_api_endpoint") or "https://smtp.maileroo.com/api/v2/emails").strip()
   return full_send_endpoint
 
+
 def _parse_sender_email_string(sender_string: str) -> Dict[str, str]:
   """
   Parses a sender email string (e.g., "Name <email@example.com>" or "email@example.com")
   into Maileroo's EmailObject format: {"address": "...", "display_name": "..."}
   """
   # Corrected regex:
-  # - `\"?` matches an optional literal double quote.
+  # - `\\"?` matches an optional literal double quote.
   # - `([^\\"]+)` captures one or more characters that are NOT a literal double quote.
-  # - `\s+` matches one or more whitespace characters.
-  match = re.match(r'^(?:\"?([^\\"]+)\"?\s+)?<([^>]+)>$', sender_string)
+  # - `\\s+` matches one or more whitespace characters.
+  match = re.match(r'^(?:\\"?([^\\"]+)\\"?\\s+)?<([^>]+)>$', sender_string)
   if match:
     display_name = match.group(1)
     address = match.group(2)
@@ -412,6 +423,7 @@ def _parse_sender_email_string(sender_string: str) -> Dict[str, str]:
   else:
     # Assume it's just an email address if no display name is found
     return {"address": sender_string}
+
 
 def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: str, sender_email: Optional[str] = None) -> bool:
   settings = _get_email_settings()
@@ -497,6 +509,7 @@ def _send_email_via_maileroo(recipient_email: str, subject: str, html_content: s
   except Exception as e:
     print(f"ERROR: Maileroo: Unexpected error: {e}", file=sys.stderr)
     return False
+
 
 def _send_push_notification(subscription_info: dict, title: str, body: str, url: str = VITE_FRONTEND_URL) -> bool:
   # Only private key is required to sign VAPID; public key is used by client to subscribe
@@ -723,7 +736,10 @@ def notify_task_assigned():
   This endpoint is called by the frontend when a task is assigned.
   It should trigger an email notification to the assignee.
   """
+  print("--- Received request at /api/notify-task-assigned ---", file=sys.stderr)
   body = request.get_json(force=True, silent=True) or {}
+  print(f"Payload received: {json.dumps(body, indent=2)}", file=sys.stderr)
+
   assigned_to_email = (body.get("assigned_to_email") or "").strip().lower()
   assigned_to_name = (body.get("assigned_to_name") or "there").strip()
   assigned_by_name = (body.get("assigned_by_name") or "Someone").strip()
@@ -824,6 +840,7 @@ def _schedule_daily_reminders_job():
     replace_existing=True
   )
   print(f"Scheduled daily event reminders for {reminder_time_str} UTC.", file=sys.stderr)
+
 
 def _send_1week_event_reminders_job():
   """
@@ -940,6 +957,7 @@ def scheduler_control():
   else:
     return jsonify({"message": "Invalid action"}), 400
 
+
 @app.get("/api/admin/scheduler-status")
 @require_admin_email
 def scheduler_status():
@@ -979,6 +997,7 @@ def get_email_settings_admin():
       settings["maileroo_sending_key"] = "********"
     return jsonify(settings), 200
   return jsonify({"message": "Email settings not found or DB/ENV error."}), 500
+
 
 @app.put("/api/admin/email-settings")
 @require_admin_email
@@ -1027,6 +1046,7 @@ def get_email_templates_admin():
     print(f"Error fetching email templates: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to fetch email templates"}), 500
 
+
 @app.post("/api/admin/email-templates")
 @require_admin_email
 def create_email_template_admin():
@@ -1059,10 +1079,12 @@ def create_email_template_admin():
 def update_email_template_admin_bad(template_id):
   return jsonify({"message": "Bad route. Use /api/admin/email-templates/<template_id>"}), 404
 
+
 @app.delete("/api/admin/email-templates/<template_id>")
 @require_admin_email
 def delete_email_template_admin_bad(template_id):
   return jsonify({"message": "Bad route. Use /api/admin/email-templates/<template_id>"}), 404
+
 
 # Correct implementation:
 @app.put("/api/admin/email-templates/<template_id>")
@@ -1087,6 +1109,7 @@ def update_email_template_admin(template_id):
   except Exception as e:
     print(f"Error updating email template: {e}", file=sys.stderr)
     return jsonify({"message": "Failed to update email settings"}), 500
+
 
 @app.delete("/api/admin/email-templates/<template_id>")
 @require_admin_email
@@ -1162,6 +1185,7 @@ def diagnostics():
     "admin_emails_count": len(_get_allowed_admin_emails() or []),
   }
   return jsonify(di), 200
+
 
 # NEW: Admin route to list all registered API routes (for diagnostics)
 @app.get("/api/admin/routes")

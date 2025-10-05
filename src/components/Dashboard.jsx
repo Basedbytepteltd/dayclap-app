@@ -48,6 +48,7 @@ import {
   getStartOfLastYearInTimezone,
   getEndOfLastYearInTimezone,
 } from '../utils/datetimeHelpers';
+import { notifyTaskAssigned } from '../utils/taskNotify';
 
 // Helper: parse 'YYYY-MM-DD' as a local date (avoid UTC shift) - ONLY FOR TASK DUE DATES
 function parseLocalDateFromYYYYMMDD(yyyy_mm_dd) {
@@ -511,11 +512,39 @@ const Dashboard = ({ user, onLogout, onUserUpdate }) => {
         if (selectedEvent?.id === ev.id) setSelectedEvent(prev => ({ ...prev, event_tasks: prevTasks }));
         return { ok: false, message: error.message || 'Failed to add task' };
       }
+
+      // --- ADDED NOTIFICATION LOGIC ---
+      try {
+        const assignee = (newTask.assignedTo || '').trim();
+        if (assignee) {
+          const companyName = (user?.companies?.find(c => c.id === ev.company_id)?.name) || '';
+          const eventDateTimeObj = toUserTimezone(ev.event_datetime, user?.timezone || 'UTC');
+          
+          await notifyTaskAssigned({
+            assigned_to_email: assignee,
+            assigned_to_name: teamMembers?.find(m => m.email === assignee)?.name || '',
+            assigned_by_email: user?.email || '',
+            assigned_by_name: user?.name || user?.email || 'Someone',
+            event_title: ev.title || 'Event',
+            event_date: formatToYYYYMMDDInUserTimezone(eventDateTimeObj, user?.timezone || 'UTC'),
+            event_time: formatToHHMMInUserTimezone(eventDateTimeObj, user?.timezone || 'UTC'),
+            company_name: companyName,
+            task_title: newTask.title || '',
+            task_description: newTask.description || '',
+            due_date: newTask.dueDate || '',
+          });
+        }
+      } catch (notificationError) {
+        console.error("Error sending task assigned notification from Quick Add:", notificationError);
+        // Do not block UI flow if notification fails
+      }
+      // --- END NOTIFICATION LOGIC ---
+
       return { ok: true };
     } catch (err) {
       return { ok: false, message: err?.message || 'Unexpected error' };
     }
-  }, [events, selectedEvent, user]);
+  }, [events, selectedEvent, user, teamMembers]);
 
   const handleToggleTask = useCallback(async (task) => {
     if (!user?.id || !currentCompanyId) return alert('Authentication or company selection is required to toggle tasks.');
