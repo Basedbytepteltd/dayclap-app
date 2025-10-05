@@ -247,23 +247,36 @@ def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
 
 
 def _render_template(html_content: str, context: dict) -> str:
+  """
+  A simple template renderer that replaces {{ key }} and handles {{#if key}}...{{/if}} blocks.
+  It processes conditionals first, then variable replacements.
+  """
   rendered_content = html_content
-  # Simple variable replacement for {{ key }}
-  for key, value in context.items():
-    rendered_content = rendered_content.replace(f"{{{{ {key} }}}}", str(value or ''))
 
-  # Basic conditional replacement for {{#if var}}...{{/if}}
+  # 1. Handle conditional blocks: {{#if key}}...{{/if}}
+  # We iterate through all keys in the context to process their corresponding if-blocks.
   for key, value in context.items():
-    # Regex to find {{#if key}}...{{/if}} blocks
-    # We need to escape the key for regex, and also the curly braces
+    # This regex finds {{#if key}}...{{/if}} blocks for the specific key.
+    # The use of re.DOTALL allows the content (.*?) to span multiple lines.
     if_block_regex = re.compile(
-      r'\\{\\{\\s*#if\\s+' + re.escape(key) + r'\\s*\\}\\}(.*?)\\{\\{\\s*/if\\s*\\}\\}',
-      re.DOTALL
+        r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}',
+        re.DOTALL
     )
-    if not value:  # If the variable is falsy, remove the block
-      rendered_content = if_block_regex.sub('', rendered_content)
-    else:  # If the variable is truthy, remove the {{#if}} and {{/if}} tags, keeping content
-      rendered_content = if_block_regex.sub(r'\\1', rendered_content)
+
+    if not value:  # If the context value is falsy (None, False, empty string, 0), remove the entire block.
+        rendered_content = if_block_regex.sub('', rendered_content)
+    else:  # If the value is truthy, replace the block with only its inner content.
+        rendered_content = if_block_regex.sub(r'\\1', rendered_content)
+
+  # 2. Handle simple variable replacements: {{ key }}
+  # After conditionals are resolved, we replace all variable placeholders.
+  for key, value in context.items():
+    # The f-string `f"{{{{ {key} }}}}"` correctly produces the string "{{ key }}"
+    placeholder = f"{{{{ {key} }}}}"
+    # Replace the placeholder with the string representation of the value.
+    # `(value or '')` ensures that None values are replaced with an empty string.
+    rendered_content = rendered_content.replace(placeholder, str(value or ''))
+
   return rendered_content
 
 
