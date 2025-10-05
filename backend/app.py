@@ -247,37 +247,54 @@ def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
 
 
 def _render_template(html_content: str, context: dict) -> str:
-  """
-  A simple template renderer that replaces {{ key }} and handles {{#if key}}...{{/if}} blocks.
-  It processes conditionals first, then variable replacements.
-  """
-  rendered_content = html_content
+    """
+    A more robust template renderer that handles:
+    1. {{ key }} - Simple variable replacement.
+    2. {{#if key}}...{{/if}} - Conditional blocks.
+    3. {{ key ? 'if_true' : 'if_false' }} - Simple ternary-like expressions.
+    """
+    content = html_content
 
-  # 1. Handle conditional blocks: {{#if key}}...{{/if}}
-  # We iterate through all keys in the context to process their corresponding if-blocks.
-  for key, value in context.items():
-    # This regex finds {{#if key}}...{{/if}} blocks for the specific key.
-    # The use of re.DOTALL allows the content (.*?) to span multiple lines.
-    if_block_regex = re.compile(
-        r'\{\{\s*#if\s+' + re.escape(key) + r'\s*\}\}(.*?)\{\{\s*/if\s*\}\}',
-        re.DOTALL
-    )
+    # 1. Handle ternary-like expressions: {{ key ? 'if_true' : 'if_false' }}
+    # This regex is specific and looks for the exact pattern.
+    ternary_regex = re.compile(r'\{\{\s*([a-zA-Z0-9_]+)\s*\?\s*\'(.*?)\'\s*:\s*\'(.*?)\'\s*\}\}')
+    
+    def replace_ternary(match):
+        key, true_val, false_val = match.groups()
+        # Check if key exists and is truthy in the context
+        if context.get(key):
+            return true_val
+        else:
+            return false_val
+            
+    content = ternary_regex.sub(replace_ternary, content)
 
-    if not value:  # If the context value is falsy (None, False, empty string, 0), remove the entire block.
-        rendered_content = if_block_regex.sub('', rendered_content)
-    else:  # If the value is truthy, replace the block with only its inner content.
-        rendered_content = if_block_regex.sub(r'\\1', rendered_content)
+    # 2. Handle conditional blocks: {{#if key}}...{{/if}}
+    # This regex now uses `\s*` to allow for no space after #if.
+    if_block_regex = re.compile(r'\{\{\s*#if\s*([a-zA-Z0-9_]+)\s*\}\}(.*?)\{\{\s*/if\s*\}\}', re.DOTALL)
+    
+    def replace_if_block(match):
+        key, inner_content = match.groups()
+        if context.get(key):
+            return inner_content
+        else:
+            return ''
+            
+    # Loop to handle nested if blocks (simple one-level nesting)
+    # A more complex parser would be needed for deep nesting, but this handles most cases.
+    for _ in range(5): # Limit iterations to prevent infinite loops
+        new_content = if_block_regex.sub(replace_if_block, content)
+        if new_content == content:
+            break
+        content = new_content
 
-  # 2. Handle simple variable replacements: {{ key }}
-  # After conditionals are resolved, we replace all variable placeholders.
-  for key, value in context.items():
-    # The f-string `f"{{{{ {key} }}}}"` correctly produces the string "{{ key }}"
-    placeholder = f"{{{{ {key} }}}}"
-    # Replace the placeholder with the string representation of the value.
-    # `(value or '')` ensures that None values are replaced with an empty string.
-    rendered_content = rendered_content.replace(placeholder, str(value or ''))
+    # 3. Handle simple variable replacements: {{ key }}
+    # This should be done last to replace variables inside processed blocks.
+    for key, value in context.items():
+        placeholder = f"{{{{ {key} }}}}"
+        content = content.replace(placeholder, str(value or ''))
 
-  return rendered_content
+    return content
 
 
 def _to_datetime_any(val: Optional[object]) -> Optional[datetime]:
