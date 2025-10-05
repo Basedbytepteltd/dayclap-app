@@ -143,7 +143,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
   };
 
   const handleDeleteClick = () => {
-    if (window.confirm(`Are you sure you want to delete the event \"${event.title}\"? This action cannot be undone.`)) {
+    if (window.confirm(`Are you sure you want to delete the event "${event.title}"? This action cannot be undone.`)) {
       onDeleteEvent?.(event.id);
     }
   };
@@ -204,7 +204,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
             </div>
           )}
 
-          {/* Quick Add Task */}\
+          {/* Quick Add Task */}
           {canQuickAdd && (
             <div className="form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
               <label className="form-label">Quick Add Task</label>
@@ -285,7 +285,7 @@ const EventDetailsModal = ({ event, user, teamMembers = [], onClose, onGoToDate,
                   </select>
                 </div>
                 <div className="input-wrapper">
-                  {/* Dynamic currency symbol */}\
+                  {/* Dynamic currency symbol */}
                   <span className="input-icon" style={{ left: '1rem', top: 'calc(50% - 2px)', transform: 'translateY(-50%)' }}>
                     {getCurrencySymbol(user?.currency || 'USD')}
                   </span>
