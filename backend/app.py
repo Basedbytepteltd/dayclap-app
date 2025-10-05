@@ -231,48 +231,36 @@ def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
 
 def _render_template(html_content: str, context: dict) -> str:
     """
-    A more robust template renderer that handles:
-    1. {{ key }} - Simple variable replacement.
-    2. {{#if key}}...{{/if}} - Conditional blocks.
-    3. {{ key ? 'if_true' : 'if_false' }} - Simple ternary-like expressions.
+    A robust, multi-pass template renderer.
+    1. Processes ternary expressions: {{ key ? 'if_true' : 'if_false' }}
+    2. Processes conditional blocks: {{#if key}}...{{/if}}
+    3. Processes variable replacements: {{ key }}
     """
     content = html_content
 
-    # 1. Handle ternary-like expressions: {{ key ? 'if_true' : 'if_false' }}
-    # This regex is specific and looks for the exact pattern.
-    ternary_regex = re.compile(r'\{\{\s*([a-zA-Z0-9_]+)\s*\?\s*\'(.*?)\'\s*:\s*\'(.*?)\'\s*\}\}')
-    
+    # Pass 1: Handle ternary-like expressions
     def replace_ternary(match):
         key, true_val, false_val = match.groups()
-        # Check if key exists and is truthy in the context
-        if context.get(key):
-            return true_val
-        else:
-            return false_val
-            
+        return true_val if context.get(key) else false_val
+    
+    ternary_regex = re.compile(r'\{\{\s*([a-zA-Z0-9_]+)\s*\?\s*\'(.*?)\'\s*:\s*\'(.*?)\'\s*\}\}')
     content = ternary_regex.sub(replace_ternary, content)
 
-    # 2. Handle conditional blocks: {{#if key}}...{{/if}}
-    # This regex now uses `\s*` to allow for no space after #if.
-    if_block_regex = re.compile(r'\{\{\s*#if\s*([a-zA-Z0-9_]+)\s*\}\}(.*?)\{\{\s*/if\s*\}\}', re.DOTALL)
-    
+    # Pass 2: Handle conditional blocks
     def replace_if_block(match):
         key, inner_content = match.groups()
-        if context.get(key):
-            return inner_content
-        else:
-            return ''
-            
-    # Loop to handle nested if blocks (simple one-level nesting)
-    # A more complex parser would be needed for deep nesting, but this handles most cases.
-    for _ in range(5): # Limit iterations to prevent infinite loops
+        return inner_content if context.get(key) else ''
+
+    if_block_regex = re.compile(r'\{\{\s*#if\s*([a-zA-Z0-9_]+)\s*\}\}(.*?)\{\{\s*/if\s*\}\}', re.DOTALL)
+    
+    # Loop to handle simple nesting (process from outside in)
+    for _ in range(5): # Safety break
         new_content = if_block_regex.sub(replace_if_block, content)
         if new_content == content:
             break
         content = new_content
 
-    # 3. Handle simple variable replacements: {{ key }}
-    # This should be done last to replace variables inside processed blocks.
+    # Pass 3: Handle simple variable replacements
     for key, value in context.items():
         placeholder = f"{{{{ {key} }}}}"
         content = content.replace(placeholder, str(value or ''))
