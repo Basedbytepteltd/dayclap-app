@@ -80,19 +80,9 @@ except Exception as e:
 VAPID_CLAIMS = {"sub": f"mailto:{os.environ.get('VAPID_EMAIL', 'admin@example.com')}"}
 
 # -----------------------------------------------------------------------------
-# Preflight handler (guarantee a response for all /api/* OPTIONS)
-# -----------------------------------------------------------------------------
-@app.before_request
-def handle_preflight():
-  if request.method == "OPTIONS" and request.path.startswith("/api/"):
-    # Empty 204; headers will be attached by after_request
-    return ("", 204)
-
-# -----------------------------------------------------------------------------
-# Global CORS headers for all responses (including errors)
-# This ensures CORS headers are always present and echo requested headers.
-# REMOVED: The custom @app.after_request for CORS is removed.
-# Flask-CORS handles Access-Control-Allow-Origin, Methods, and Headers.
+# Preflight handler REMOVED
+# The Flask-CORS extension handles OPTIONS (preflight) requests automatically.
+# The manual @app.before_request handler was conflicting with it and has been removed.
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
@@ -143,8 +133,6 @@ def _get_allowed_admin_emails() -> set:
 def require_auth(fn):
   @wraps(fn)
   def wrapper(*args, **kwargs):
-    if request.method == "OPTIONS":  # Preflight: return early with 204, CORS will add headers
-      return ("", 204)
     token = parse_bearer_token(request)
     if not token:
       return jsonify({"message": "Missing or invalid Authorization header"}), 401
@@ -159,8 +147,6 @@ def require_auth(fn):
 def require_api_key(fn):
   @wraps(fn)
   def wrapper(*args, **kwargs):
-    if request.method == "OPTIONS":  # Preflight: return early with 204, CORS will add headers
-      return ("", 204)
     api_key = request.headers.get("X-API-Key")
     if not api_key or api_key != BACKEND_API_KEY:
       return jsonify({"message": "Unauthorized: Invalid API Key"}), 401
@@ -170,9 +156,6 @@ def require_api_key(fn):
 def require_admin_email(fn):
   @wraps(fn)
   def wrapper(*args, **kwargs):
-    if request.method == "OPTIONS":  # Preflight: return early with 204, CORS will add headers
-      return ("", 204)
-
     allowed = _get_allowed_admin_emails()
 
     # 1) Prefer explicit X-User-Email header
